@@ -1,3 +1,0 @@
-[submodule "vendor/egui"]
-	path = vendor/egui
-	url = https://github.com/IrregularCelery/egui
