@@ -5,13 +5,20 @@ edition = "2021"
 default-run = "padpad-software"
 
 [dependencies]
+dirs = "5.0.1"
 eframe = "0.28.1"
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
+serde = { version = "1.0.204", features = ["derive"] }
 serialport = "4.4.0"
+toml = "0.8.16"
 
 [[bin]]
 name = "serial-transceiver"
 path = "sandbox/serial-transceiver/main.rs"
+
+[[bin]]
+name = "config-manager"
+path = "sandbox/config-manager/main.rs"
