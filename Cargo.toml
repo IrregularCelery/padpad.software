@@ -10,3 +10,8 @@ env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
+serialport = "4.4.0"
+
+[[bin]]
+name = "serial-transceiver"
+path = "sandbox/serial-transceiver/main.rs"
