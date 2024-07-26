@@ -2,6 +2,7 @@
 name = "padpad-software"
 version = "0.1.0"
 edition = "2021"
+default-run = "padpad-software"
 
 [dependencies]
 eframe = "0.28.1"
