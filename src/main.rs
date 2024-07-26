@@ -22,7 +22,15 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "PadPad",
+        format!(
+            "{}PadPad",
+            if cfg!(debug_assertions) {
+                "[DEBUG] "
+            } else {
+                ""
+            }
+        )
+        .as_str(),
         options,
         Box::new(|_cc| Ok(Box::<Application>::default())),
     )

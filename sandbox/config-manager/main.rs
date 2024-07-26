@@ -72,7 +72,11 @@ fn main() {
 
     let config_file_path = format!(
         "{}/{}",
-        config_file_location.to_str().unwrap_or("."),
+        if cfg!(debug_assertions) {
+            "./target/config"
+        } else {
+            config_file_location.to_str().unwrap_or(".")
+        },
         config_file_name
     );
 
