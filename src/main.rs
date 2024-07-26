@@ -1,8 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use eframe::egui;
+
 use padpad_software as lib;
 
-use eframe::egui;
 use lib::application::Application;
 
 fn main() -> eframe::Result {
