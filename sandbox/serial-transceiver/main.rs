@@ -18,6 +18,9 @@ impl Message {
     }
 
     fn parse(&mut self) -> (bool, String, String) {
+        // Sometimes the incoming serial message could split into multiple messsages,
+        // so we check if the message is ready before using it; Parser will make sure
+        // parts of the message is combined and separated into keys and values.
         let mut ready = false;
         let mut key = String::new();
         let mut value = String::new();
@@ -49,7 +52,8 @@ fn main() {
     let baud_rate = 38_400;
     let timeout = Duration::from_millis(10);
 
-    let mut firmware_init = false;
+    // Device and software pairing status
+    let mut paired = false;
 
     let serial_port = serialport::new(port_name, baud_rate)
         .timeout(timeout)
@@ -67,6 +71,7 @@ fn main() {
 
         let mut message = Message::new();
 
+        // Temporary LED test
         let mut led = false;
 
         // Clear the input buffer to avoid bugs such as initializing the firmware twice.
@@ -87,22 +92,29 @@ fn main() {
             let (ready, key, value) = message.parse();
 
             if ready {
-                if key == "INIT" {
-                    firmware_init = true;
+                println!("key: {} | value: {}", key, value);
+
+                if key == "READY" {
+                    // pair=1
+                    serial_send(&port, "p1".to_string());
+                } else if key == "PAIRED" {
+                    paired = true;
                 }
 
-                if !firmware_init {
+                if !paired {
                     continue;
                 }
 
                 match key.as_str() {
                     "b1" => {
                         if !led {
-                            serial_send(&port, "l".to_string());
+                            // led=1
+                            serial_send(&port, "l1".to_string());
 
                             led = true;
                         } else {
-                            serial_send(&port, "L".to_string());
+                            // led=0
+                            serial_send(&port, "l0".to_string());
 
                             led = false;
                         }
@@ -110,8 +122,6 @@ fn main() {
                     "b2" => println!("Button 2 was clicked!"),
                     _ => (),
                 }
-
-                println!("key: {} | value: {}", key, value);
             }
 
             thread::sleep(Duration::from_millis(10));
@@ -120,7 +130,7 @@ fn main() {
 
     fn serial_send(write_port: &Arc<Mutex<Box<dyn serialport::SerialPort>>>, message: String) {
         match write_port.lock().unwrap().write(message.as_bytes()) {
-            Ok(_) => println!("Message `{}` was sent.", message),
+            Ok(_) => println!("Message `{}` was sent over `serial`.", message),
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
             Err(e) => eprintln!("{:?}", e),
         }
@@ -128,6 +138,7 @@ fn main() {
 
     let write_thread = thread::spawn(move || loop {
         use std::io::{stdin, stdout, Write};
+
         let mut s = String::new();
         let _ = stdout().flush();
 
