@@ -18,7 +18,7 @@ impl Message {
     }
 
     fn parse(&mut self) -> (bool, String, String) {
-        // Sometimes the incoming serial message could split into multiple messsages,
+        // Sometimes the incoming serial message could split into multiple messages,
         // so we check if the message is ready before using it; Parser will make sure
         // parts of the message is combined and separated into keys and values.
         let mut ready = false;
@@ -43,6 +43,17 @@ impl Message {
 
         (ready, key, value)
     }
+}
+
+// TODO: Move this somewhere else!
+fn log(args: &std::fmt::Arguments) {
+    println!("{}", args);
+}
+
+macro_rules! log {
+    ($fmt:expr, $($arg:tt)*) => {
+        log(&format_args!($fmt, $($arg)*))
+    };
 }
 
 fn main() {
@@ -92,18 +103,46 @@ fn main() {
             let (ready, key, value) = message.parse();
 
             if ready {
-                println!("key: {} | value: {}", key, value);
+                let mut valid = false;
+                let mut component = "";
+                let mut id = 0;
 
-                if key == "READY" {
-                    // pair=1
-                    serial_send(&port, "p1".to_string());
-                } else if key == "PAIRED" {
-                    paired = true;
+                match key.as_str() {
+                    "READY" => {
+                        log!("[INCOMING] key: {} | value: {}", key, value);
+
+                        serial_send(&port, "p1".to_string());
+                    }
+                    "PAIRED" => {
+                        log!("[INCOMING] key: {} | value: {}", key, value);
+
+                        paired = true;
+                    }
+                    _ => {
+                        component = match key.chars().nth(0).unwrap_or('\0') {
+                            'b' => "Button",
+                            _ => "Unknown",
+                        };
+                        //component = key.chars().nth(0).unwrap_or('\0');
+                        id = key[1..].trim().parse::<u8>().unwrap_or(0);
+
+                        // if for some reason the component or id were zero, ignore them
+                        if !component.is_empty() && id != 0 {
+                            valid = true;
+                        }
+                    }
                 }
 
-                if !paired {
+                if !paired || !valid {
                     continue;
                 }
+
+                log!(
+                    "[INCOMING] component: `{}` id: `{}` | value: {}",
+                    component,
+                    id,
+                    value
+                );
 
                 match key.as_str() {
                     "b1" => {
@@ -119,7 +158,10 @@ fn main() {
                             led = false;
                         }
                     }
-                    "b2" => println!("Button 2 was clicked!"),
+                    "b2" => {
+                        log!("[LOG] {}", "hi!");
+                        //serial_send(&port, "s0".to_string());
+                    }
                     _ => (),
                 }
             }
@@ -128,9 +170,9 @@ fn main() {
         }
     });
 
-    fn serial_send(write_port: &Arc<Mutex<Box<dyn serialport::SerialPort>>>, message: String) {
-        match write_port.lock().unwrap().write(message.as_bytes()) {
-            Ok(_) => println!("Message `{}` was sent over `serial`.", message),
+    fn serial_send(port: &Arc<Mutex<Box<dyn serialport::SerialPort>>>, message: String) {
+        match port.lock().unwrap().write(message.as_bytes()) {
+            Ok(_) => log!("[OUTGOING] Message `{}` was sent over `serial`.", message),
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
             Err(e) => eprintln!("{:?}", e),
         }
@@ -167,7 +209,7 @@ fn detect_device() -> Option<String> {
             for port in ports {
                 match port.port_type {
                     serialport::SerialPortType::UsbPort(info) => {
-                        println!("{} | {:?}", port.port_name, info);
+                        log!("{} | {:?}", port.port_name, info);
                     }
                     _ => {}
                 }
