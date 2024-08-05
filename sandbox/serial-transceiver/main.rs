@@ -106,6 +106,7 @@ fn main() {
                 let mut valid = false;
                 let mut component = "";
                 let mut id = 0;
+                let mut modkey = false;
 
                 match key.as_str() {
                     "READY" => {
@@ -123,8 +124,13 @@ fn main() {
                             'b' => "Button",
                             _ => "Unknown",
                         };
-                        //component = key.chars().nth(0).unwrap_or('\0');
-                        id = key[1..].trim().parse::<u8>().unwrap_or(0);
+                        id = key[2..].trim().parse::<u8>().unwrap_or(0);
+
+                        match key.chars().nth(1).unwrap_or('\0') {
+                            'm' => modkey = false,
+                            'M' => modkey = true,
+                            _ => {}
+                        }
 
                         // if for some reason the component or id were zero, ignore them
                         if !component.is_empty() && id != 0 {
@@ -143,6 +149,41 @@ fn main() {
                     id,
                     value
                 );
+
+                if component == "Button" {
+                    match id {
+                        1 => {
+                            if !modkey {
+                                match value.as_str() {
+                                    "1" => {
+                                        log!("{}", "what?");
+                                        serial_send(&port, "l1".to_string());
+
+                                        led = true;
+                                    }
+                                    "0" => {
+                                        serial_send(&port, "l0".to_string());
+
+                                        led = false;
+                                    }
+                                    _ => {}
+                                }
+                                //if !led {
+                                //    // led=1
+                                //    serial_send(&port, "l1".to_string());
+                                //
+                                //    led = true;
+                                //} else {
+                                //    // led=0
+                                //    serial_send(&port, "l0".to_string());
+                                //
+                                //    led = false;
+                                //}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
 
                 match key.as_str() {
                     "b1" => {
