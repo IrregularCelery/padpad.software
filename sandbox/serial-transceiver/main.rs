@@ -103,6 +103,8 @@ fn main() {
             let (ready, key, value) = message.parse();
 
             if ready {
+                //log!("{}, {}", key, value);
+
                 let mut valid = false;
                 let mut component = "";
                 let mut id = 0;
@@ -144,9 +146,10 @@ fn main() {
                 }
 
                 log!(
-                    "[INCOMING] component: `{}` id: `{}` | value: {}",
+                    "[INCOMING] `{}` `{}` | modkey: {} | value: {}",
                     component,
                     id,
+                    modkey,
                     value
                 );
 
