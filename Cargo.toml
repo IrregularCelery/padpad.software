@@ -14,6 +14,11 @@ env_logger = { version = "0.10", default-features = false, features = [
 serde = { version = "1.0.204", features = ["derive"] }
 serialport = "4.4.0"
 toml = "0.8.16"
+tray-icon = "0.19.2"
+image = "0.25.5"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
 
 [[bin]]
 name = "serial-transceiver"
@@ -26,3 +31,4 @@ path = "sandbox/config-manager/main.rs"
 [[bin]]
 name = "tray"
 path = "sandbox/tray/main.rs"
+
