@@ -22,3 +22,7 @@ path = "sandbox/serial-transceiver/main.rs"
 [[bin]]
 name = "config-manager"
 path = "sandbox/config-manager/main.rs"
+
+[[bin]]
+name = "tray"
+path = "sandbox/tray/main.rs"
