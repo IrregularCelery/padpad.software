@@ -24,9 +24,11 @@ fn main() {
 
         tray.inner_mut().add_separator().unwrap();
 
-        tray.add_label("Status").unwrap();
-        tray.add_label("- Not Contected").unwrap();
-        tray.add_label("- Baud rate: 0000000").unwrap();
+        //tray.add_label("Status").unwrap();
+        //tray.add_label("- Not Contected").unwrap();
+        //tray.add_label("- Baud rate: 0000000").unwrap();
+        //
+        //tray.add_label("- twetwtiuetowietwu").unwrap();
 
         tray.inner_mut().add_separator().unwrap();
 
