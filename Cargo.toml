@@ -2,7 +2,7 @@
 name = "padpad-software"
 version = "0.1.0"
 edition = "2021"
-default-run = "tray"
+default-run = "padpad-software"
 
 [dependencies]
 dirs = "5.0.1"
@@ -26,6 +26,10 @@ gtk = "0.18"
 
 [build-dependencies]
 embed-resource = "2.3"
+
+[[bin]]
+name = "dashboard"
+path = "src/dashboard/main.rs"
 
 [[bin]]
 name = "serial-transceiver"
