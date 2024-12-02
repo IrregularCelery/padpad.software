@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -66,13 +67,40 @@ fn main() {
     // Device and software pairing status
     let mut paired = false;
 
-    let serial_port = serialport::new(port_name, baud_rate)
-        .timeout(timeout)
-        .open();
+    let mut retry_connection = true;
 
-    let port = Arc::new(Mutex::new(
-        serial_port.expect("Port connection was not successful!"),
-    ));
+    let mut tried_port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> = None;
+
+    while retry_connection {
+        let test = connect_to_port(port_name, baud_rate, timeout, retry_connection.borrow_mut());
+
+        match test {
+            Some(p) => {
+                tried_port = Some(p);
+            }
+            None => {
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+
+                println!("Retrying to find the port and establish a connection...");
+            }
+        }
+    }
+
+    let port = tried_port.expect("There was a problem while connecting to serial communicator!");
+    //match serial_port {
+    //    Ok(port) => {
+    //        port = Some(Arc::new(Mutex::new(port)));
+    //        // ... use the port successfully ...
+    //    }
+    //    Err(e) => {
+    //        eprintln!("Error opening serial port: {}", e);
+    //        // Handle the error, e.g., retry, log, or exit the program
+    //    }
+    //}
+
+    //let port = Arc::new(Mutex::new(
+    //    serial_port.expect("Port connection was not successful!"),
+    //));
 
     let read_port = port.clone();
     let write_port = port.clone();
@@ -97,7 +125,7 @@ fn main() {
             match read_port.lock().unwrap().read(buf.as_mut_slice()) {
                 Ok(t) => message.push(std::str::from_utf8(&buf[..t]).unwrap()),
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => eprintln!("{:?} test test", e),
             }
 
             let (ready, key, value) = message.parse();
@@ -270,4 +298,30 @@ fn get_available_ports() -> Option<Vec<serialport::SerialPortInfo>> {
         Ok(ports) => return Some(ports),
         Err(_) => return None,
     }
+}
+
+fn connect_to_port(
+    port_name: &str,
+    baud_rate: u32,
+    timeout: Duration,
+    retry: &mut bool,
+) -> Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> {
+    let serial_port = serialport::new(port_name, baud_rate)
+        .timeout(timeout)
+        .open();
+
+    let mut port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> = None;
+
+    match serial_port {
+        Ok(p) => {
+            port = Some(Arc::new(Mutex::new(p)));
+
+            *retry = false;
+        }
+        Err(_) => {
+            *retry = true;
+        }
+    }
+
+    port
 }
