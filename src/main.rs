@@ -5,7 +5,7 @@ mod service;
 
 fn main() {
     let tray_thread = std::thread::spawn(|| {
-        service::handle_tray_thread();
+        service::tray::handle_tray_thread();
     });
 
     let tcp_server_thread = std::thread::spawn(|| {

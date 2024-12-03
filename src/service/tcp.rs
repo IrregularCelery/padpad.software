@@ -14,51 +14,51 @@ pub fn handle_tcp_server() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => {
+            Ok(mut stream) => {
                 println!("TCP new connection established.");
-                std::thread::spawn(move || handle_tcp_client(stream));
+                std::thread::spawn(move || {
+                    // Handle clients
+                    let mut buffer = vec![0; TCP_BUFFER_SIZE];
+
+                    loop {
+                        match stream.read(&mut buffer) {
+                            Ok(0) => {
+                                client_disconnected();
+
+                                break;
+                            }
+                            // Windows handles this differently
+                            Err(e)
+                                if e.kind() == ErrorKind::ConnectionReset
+                                    || e.kind() == ErrorKind::BrokenPipe =>
+                            {
+                                client_disconnected();
+
+                                break;
+                            }
+                            Ok(bytes_read) => {
+                                let message = String::from_utf8_lossy(&buffer[..bytes_read]);
+
+                                let message_trimmed = message.trim();
+
+                                println!("Received message: {}", message_trimmed);
+
+                                // Send a response back to the client
+                                let response = message_trimmed;
+
+                                stream.write_all(response.as_bytes()).unwrap();
+                            }
+                            Err(e) => {
+                                eprintln!("TCP had an error while reading from stream: {}", e);
+
+                                break;
+                            }
+                        }
+                    }
+                });
             }
             Err(e) => {
                 eprintln!("TCP connection failed: {}", e);
-            }
-        }
-    }
-}
-
-fn handle_tcp_client(mut stream: TcpStream) {
-    let mut buffer = vec![0; TCP_BUFFER_SIZE];
-
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => {
-                client_disconnected();
-
-                break;
-            }
-            // Windows handles this differently
-            Err(e)
-                if e.kind() == ErrorKind::ConnectionReset || e.kind() == ErrorKind::BrokenPipe =>
-            {
-                client_disconnected();
-
-                break;
-            }
-            Ok(bytes_read) => {
-                let message = String::from_utf8_lossy(&buffer[..bytes_read]);
-
-                let message_trimmed = message.trim();
-
-                println!("Received message: {}", message_trimmed);
-
-                // Send a response back to the client
-                let response = message_trimmed;
-
-                stream.write_all(response.as_bytes()).unwrap();
-            }
-            Err(e) => {
-                eprintln!("TCP had an error while reading from stream: {}", e);
-
-                break;
             }
         }
     }
