@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -67,26 +66,22 @@ fn main() {
     // Device and software pairing status
     let mut paired = false;
 
-    let mut retry_connection = true;
-
     let mut tried_port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> = None;
 
-    while retry_connection {
-        let test = connect_to_port(port_name, baud_rate, timeout, retry_connection.borrow_mut());
-
-        match test {
+    while tried_port.is_none() {
+        match try_connect_to_port(port_name, baud_rate, timeout) {
             Some(p) => {
                 tried_port = Some(p);
             }
             None => {
-                std::thread::sleep(std::time::Duration::from_millis(1000));
-
                 println!("Retrying to find the port and establish a connection...");
+
+                std::thread::sleep(std::time::Duration::from_millis(1000));
             }
         }
     }
 
-    let port = tried_port.expect("There was a problem while connecting to serial communicator!");
+    let port = tried_port.unwrap();
     //match serial_port {
     //    Ok(port) => {
     //        port = Some(Arc::new(Mutex::new(port)));
@@ -300,11 +295,10 @@ fn get_available_ports() -> Option<Vec<serialport::SerialPortInfo>> {
     }
 }
 
-fn connect_to_port(
+fn try_connect_to_port(
     port_name: &str,
     baud_rate: u32,
     timeout: Duration,
-    retry: &mut bool,
 ) -> Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> {
     let serial_port = serialport::new(port_name, baud_rate)
         .timeout(timeout)
@@ -315,12 +309,8 @@ fn connect_to_port(
     match serial_port {
         Ok(p) => {
             port = Some(Arc::new(Mutex::new(p)));
-
-            *retry = false;
         }
-        Err(_) => {
-            *retry = true;
-        }
+        _ => (),
     }
 
     port
