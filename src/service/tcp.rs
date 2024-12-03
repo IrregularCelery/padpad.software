@@ -16,6 +16,7 @@ pub fn handle_tcp_server() {
         match stream {
             Ok(mut stream) => {
                 println!("TCP new connection established.");
+
                 std::thread::spawn(move || {
                     // Handle clients
                     let mut buffer = vec![0; TCP_BUFFER_SIZE];
@@ -23,7 +24,7 @@ pub fn handle_tcp_server() {
                     loop {
                         match stream.read(&mut buffer) {
                             Ok(0) => {
-                                client_disconnected();
+                                println!("Client disconnected.");
 
                                 break;
                             }
@@ -32,21 +33,14 @@ pub fn handle_tcp_server() {
                                 if e.kind() == ErrorKind::ConnectionReset
                                     || e.kind() == ErrorKind::BrokenPipe =>
                             {
-                                client_disconnected();
+                                println!("Client disconnected.");
 
                                 break;
                             }
                             Ok(bytes_read) => {
                                 let message = String::from_utf8_lossy(&buffer[..bytes_read]);
 
-                                let message_trimmed = message.trim();
-
-                                println!("Received message: {}", message_trimmed);
-
-                                // Send a response back to the client
-                                let response = message_trimmed;
-
-                                stream.write_all(response.as_bytes()).unwrap();
+                                server_to_client_messages(&mut stream, message.trim());
                             }
                             Err(e) => {
                                 eprintln!("TCP had an error while reading from stream: {}", e);
@@ -64,6 +58,15 @@ pub fn handle_tcp_server() {
     }
 }
 
-fn client_disconnected() {
-    println!("Client disconnected.");
+fn server_to_client_messages(client_stream: &mut TcpStream, message: &str) {
+    println!("Received message: {}", message);
+
+    let test = client_stream.peer_addr().unwrap();
+
+    println!("{:?}", test);
+
+    // Send a response back to the client
+    let response = message;
+
+    client_stream.write_all(response.as_bytes()).unwrap();
 }

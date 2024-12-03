@@ -4,10 +4,12 @@ mod config;
 mod service;
 
 fn main() {
+    // Application service tray icon
     let tray_thread = std::thread::spawn(|| {
         service::tray::handle_tray_thread();
     });
 
+    // IPC handling between dashboard and service app
     let tcp_server_thread = std::thread::spawn(|| {
         service::tcp::handle_tcp_server();
     });
