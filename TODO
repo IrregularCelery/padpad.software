@@ -1,5 +1,5 @@
 Sandbox `serial-transceiver`
-    [] Combine both 'read' and 'write' threads because 'write' thread is no longer needed.
+    [x] Combine both 'read' and 'write' threads because 'write' thread is no longer needed.
 
 [] Ensure there's only one instance of the application running
 [] Add `confirm_exit` functionality
