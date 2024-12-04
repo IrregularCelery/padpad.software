@@ -3,3 +3,6 @@ Sandbox `serial-transceiver`
 
 [] Ensure there's only one instance of the application running
 [] Add `confirm_exit` functionality
+
+Firmware
+    [] EEPROM/FLASH
