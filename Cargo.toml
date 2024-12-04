@@ -16,6 +16,7 @@ serialport = "4.4.0"
 toml = "0.8.16"
 image = "0.25.5"
 tray-item = "0.10.0"
+hidapi = "2.6.3"
 
 [target.'cfg(target_os = "linux")'.dependencies.tray-item]
 version = "0.10.0"
