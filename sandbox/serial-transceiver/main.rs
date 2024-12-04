@@ -66,29 +66,56 @@ fn main() {
         .expect_err("there was a problem while spawning the `read` thread!");
 }
 
-fn detect_device() -> Option<String> {
-    match get_available_ports() {
-        Some(ports) => {
-            for port in ports {
-                match port.port_type {
-                    serialport::SerialPortType::UsbPort(info) => {
-                        log!("{} | {:?}", port.port_name, info);
-                    }
-                    _ => {}
-                }
-            }
+const DEVICE_NAME: &str = "PadPad";
+const DEFAULT_BAUD_RATE: u32 = 38_400;
 
-            return Some(String::from("TODO"));
+fn detect_device() -> (String, serialport::UsbPortInfo) {
+    let hid_api = hidapi::HidApi::new().expect("Failed to create HID API instance!");
+
+    let available_hids = hid_api.device_list();
+    let available_ports = serialport::available_ports().expect("Failed to retrieve serial ports!");
+
+    let mut device = (
+        "".to_string(),
+        serialport::UsbPortInfo {
+            vid: 0,
+            pid: 0,
+            serial_number: Some("".to_string()),
+            manufacturer: Some("".to_string()),
+            product: Some("".to_string()),
+        },
+    );
+
+    for hid in available_hids {
+        if hid.product_string() != Some(DEVICE_NAME) {
+            continue;
         }
-        None => return Some(String::from("No ports found!")),
-    }
-}
 
-fn get_available_ports() -> Option<Vec<serialport::SerialPortInfo>> {
-    match serialport::available_ports() {
-        Ok(ports) => return Some(ports),
-        Err(_) => return None,
+        for port in &available_ports {
+            match &port.port_type {
+                serialport::SerialPortType::UsbPort(port_info) => {
+                    let port_serial_number = port_info.serial_number.clone();
+                    let hid_serial_number = hid.serial_number().unwrap().to_string();
+
+                    if port_serial_number != Some(hid_serial_number) {
+                        continue;
+                    }
+
+                    device.0 = port.port_name.clone();
+                    device.1.vid = hid.vendor_id();
+                    device.1.pid = hid.product_id();
+                    device.1.serial_number = Some(hid.serial_number().unwrap().to_string());
+                    device.1.manufacturer = Some(hid.manufacturer_string().unwrap().to_string());
+                    device.1.product = Some(hid.product_string().unwrap().to_string());
+
+                    return device;
+                }
+                _ => {}
+            }
+        }
     }
+
+    device
 }
 
 fn try_connect_to_port(
@@ -127,10 +154,7 @@ fn serial_send(port: &Arc<Mutex<Box<dyn serialport::SerialPort>>>, message: Stri
 }
 
 fn handle_serial_port() {
-    detect_device();
-
-    let port_name = "/dev/ttyACM0";
-    let baud_rate = 38_400;
+    let baud_rate = DEFAULT_BAUD_RATE;
 
     // Device and software pairing status
     let mut paired = false;
@@ -138,7 +162,9 @@ fn handle_serial_port() {
     let mut tried_port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> = None;
 
     while tried_port.is_none() {
-        match try_connect_to_port(port_name, baud_rate) {
+        let (port_name, _port_info) = detect_device();
+
+        match try_connect_to_port(&port_name, baud_rate) {
             Some(p) => {
                 println!(
                     "A successful connection was established with `{}` at a baud rate of `{}`",
@@ -148,7 +174,10 @@ fn handle_serial_port() {
                 tried_port = Some(p);
             }
             None => {
-                println!("Could not find the device on the set port! Retrying...");
+                println!(
+                    "Could not find any device named `{}`, Retrying...",
+                    DEVICE_NAME
+                );
 
                 std::thread::sleep(std::time::Duration::from_millis(1000));
             }
