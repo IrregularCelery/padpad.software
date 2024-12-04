@@ -6,3 +6,6 @@ Sandbox `serial-transceiver`
 
 Firmware
     [] EEPROM/FLASH
+    [] Pot handling
+    [] Diplay
+    [] Rotary encoder
