@@ -94,8 +94,9 @@ fn get_available_ports() -> Option<Vec<serialport::SerialPortInfo>> {
 fn try_connect_to_port(
     port_name: &str,
     baud_rate: u32,
-    timeout: Duration,
 ) -> Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> {
+    let timeout = Duration::from_millis(10);
+
     let serial_port = serialport::new(port_name, baud_rate)
         .timeout(timeout)
         .open();
@@ -104,7 +105,12 @@ fn try_connect_to_port(
 
     match serial_port {
         Ok(p) => {
-            port = Some(Arc::new(Mutex::new(p)));
+            let mut serial_port = p;
+
+            // This should be true for windows to start reading the serial messages
+            serial_port.write_data_terminal_ready(true).unwrap();
+
+            port = Some(Arc::new(Mutex::new(serial_port)));
         }
         _ => (),
     }
@@ -125,7 +131,6 @@ fn handle_serial_port() {
 
     let port_name = "/dev/ttyACM0";
     let baud_rate = 38_400;
-    let timeout = Duration::from_millis(10);
 
     // Device and software pairing status
     let mut paired = false;
@@ -133,8 +138,13 @@ fn handle_serial_port() {
     let mut tried_port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>> = None;
 
     while tried_port.is_none() {
-        match try_connect_to_port(port_name, baud_rate, timeout) {
+        match try_connect_to_port(port_name, baud_rate) {
             Some(p) => {
+                println!(
+                    "A successful connection was established with `{}` at a baud rate of `{}`",
+                    port_name, baud_rate
+                );
+
                 tried_port = Some(p);
             }
             None => {
@@ -167,8 +177,14 @@ fn handle_serial_port() {
         match read_port.lock().unwrap().read(buf.as_mut_slice()) {
             Ok(t) => message.push(std::str::from_utf8(&buf[..t]).unwrap()),
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-            Err(e) => eprintln!("{:?} test test", e),
+            Err(e) => {
+                eprintln!("Connection was lost: {:?}", e);
+
+                break handle_serial_port();
+            }
         }
+
+        //println!("test");
 
         let (ready, key, value) = message.parse();
 
