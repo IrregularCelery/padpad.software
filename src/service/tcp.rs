@@ -5,6 +5,19 @@ use std::{
 
 use crate::config::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT};
 
+pub fn is_another_instance_running() -> bool {
+    let address = format!("{}:{}", TCP_SERVER_ADDR, TCP_SERVER_PORT);
+
+    let mut another_instance_running = false;
+
+    match TcpListener::bind(&address) {
+        Err(e) if e.kind() == ErrorKind::AddrInUse => another_instance_running = true,
+        _ => (),
+    }
+
+    another_instance_running
+}
+
 pub fn handle_tcp_server() {
     let address = format!("{}:{}", TCP_SERVER_ADDR, TCP_SERVER_PORT);
 

@@ -6,6 +6,12 @@ mod config;
 mod service;
 
 fn main() {
+    if service::tcp::is_another_instance_running() {
+        eprintln!("Another instance of the app is already running!");
+
+        return;
+    }
+
     // Read configuration or create it if it doesn't exist
     let config = match service::config_manager::Config::default().read() {
         Ok(config) => Arc::new(Mutex::new(config)),
