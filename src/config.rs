@@ -1,8 +1,9 @@
 // General
-pub const DEVICE_NAME: &str = "PadPad";
+pub const APP_NAME: &str = "PadPad";
+pub const DEFAULT_DEVICE_NAME: &str = "PadPad";
 
 // Serial
-const DEFAULT_BAUD_RATE: u32 = 38_400;
+pub const DEFAULT_BAUD_RATE: u32 = 38_400;
 
 // TCP
 pub const TCP_SERVER_ADDR: &str = "127.0.0.1";
