@@ -1,6 +1,8 @@
 use tray_item::{IconSource, TrayItem};
 
 pub fn handle_tray_thread() {
+    println!("Tray component is initializing...");
+
     #[cfg(target_os = "linux")]
     gtk::init().unwrap();
 
@@ -18,10 +20,6 @@ pub fn handle_tray_thread() {
     })
     .unwrap();
 
-    tray.inner_mut().add_separator().unwrap();
-
-    tray.inner_mut().add_separator().unwrap();
-
     tray.add_menu_item("Debug", || {
         println!("Debug");
     })
@@ -36,10 +34,12 @@ pub fn handle_tray_thread() {
     })
     .unwrap();
 
+    println!("Tray component is initialized.");
+
     #[cfg(target_os = "linux")]
     gtk::main();
 
     loop {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::park();
     }
 }
