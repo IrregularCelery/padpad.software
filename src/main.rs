@@ -26,6 +26,11 @@ fn main() {
     });
 
     let test_thread = std::thread::spawn(move || {
+        println!(
+            "Device name: {}",
+            CONFIG.get().unwrap().lock().unwrap().settings.device_name
+        );
+
         if let Some(c) = CONFIG.get() {
             let mut config = c.lock().unwrap();
 

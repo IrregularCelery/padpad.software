@@ -69,7 +69,10 @@ fn main() {
 const DEVICE_NAME: &str = "PadPad";
 const DEFAULT_BAUD_RATE: u32 = 38_400;
 
-fn detect_device() -> (String, serialport::UsbPortInfo) {
+fn detect_device() -> (
+    String,                  /* port_name */
+    serialport::UsbPortInfo, /* port_info */
+) {
     let hid_api = hidapi::HidApi::new().expect("Failed to create HID API instance!");
 
     let available_hids = hid_api.device_list();
@@ -101,7 +104,9 @@ fn detect_device() -> (String, serialport::UsbPortInfo) {
                         continue;
                     }
 
-                    device.0 = port.port_name.clone();
+                    let port_name = &port.port_name;
+
+                    device.0 = port_name.clone();
                     device.1.vid = hid.vendor_id();
                     device.1.pid = hid.product_id();
                     device.1.serial_number = Some(hid.serial_number().unwrap().to_string());

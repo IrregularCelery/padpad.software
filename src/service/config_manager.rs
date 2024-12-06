@@ -102,6 +102,7 @@ impl Config {
 
         let mut config: Config = toml::from_str(&toml_str).unwrap_or_default();
 
+        // After reading, all the serde-ignored variables are empty
         config.file_path = Config::default().file_path;
 
         Ok(config)
