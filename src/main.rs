@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
+use service::config_manager::CONFIG;
 
 mod config;
 mod service;
@@ -13,14 +13,7 @@ fn main() {
     }
 
     // Read configuration or create it if it doesn't exist
-    let config = match service::config_manager::Config::default().read() {
-        Ok(config) => Arc::new(Mutex::new(config)),
-        Err(err) => {
-            eprintln!("Error reading config file: {}", err);
-
-            return;
-        }
-    };
+    service::config_manager::init();
 
     // Application service tray icon
     let tray_thread = std::thread::spawn(|| {
@@ -32,42 +25,30 @@ fn main() {
         service::tcp::handle_tcp_server();
     });
 
-    let config_clone = config.clone();
-
     let test_thread = std::thread::spawn(move || {
-        let mut config = config_clone.lock().unwrap();
+        if let Some(c) = CONFIG.get() {
+            let mut config = c.lock().unwrap();
 
-        println!("Read all data from teh config file");
+            println!("Read all data from the config file");
 
-        println!("Config settings: {:?}", config.settings);
+            println!("Config settings: {:?}", config.settings);
 
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+            std::thread::sleep(std::time::Duration::from_millis(1000));
 
-        println!("Changing `port_nam` to test");
+            println!("Changing `port_name` to test");
 
-        config.settings.port_name = "test".to_string();
+            config.update(|c| c.settings.port_name = "test".to_string(), false);
 
-        println!("Config settings: {:?}", config.settings);
+            println!("Config settings: {:?}", config.settings);
 
-        println!("Waiting for you to change the config file manually...");
+            println!("Waiting for you to change the config file manually...");
 
-        std::thread::sleep(std::time::Duration::from_millis(5000));
+            std::thread::sleep(std::time::Duration::from_millis(5000));
 
-        *config = match config.read() {
-            Ok(config) => config,
-            Err(err) => {
-                eprintln!("Error reading config file: {}", err);
+            config.reload();
 
-                return;
-            }
-        };
-
-        println!("Config settings: {:?}", config.settings);
-
-        //// Write modified config back to file
-        //if let Err(err) = config.write() {
-        //    eprintln!("Error writing config: {}", err);
-        //}
+            println!("Config settings: {:?}", config.settings);
+        }
 
         std::thread::sleep(std::time::Duration::from_millis(1000));
     });

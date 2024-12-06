@@ -1,9 +1,17 @@
 use dirs;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, fs::File, io::prelude::*, path::Path};
+use std::{
+    error::Error,
+    fs::File,
+    io::prelude::*,
+    path::Path,
+    sync::{Mutex, OnceLock},
+};
 use toml;
 
 use crate::config::{APP_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME};
+
+pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -50,7 +58,33 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn read(&self) -> Result<Config, Box<dyn Error>> {
+    pub fn reload(&mut self) {
+        *self = match self.read() {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("Error reading config file: {}", err);
+
+                return;
+            }
+        };
+    }
+
+    pub fn update<F>(&mut self, callback: F, write_to_file: bool)
+    where
+        F: FnOnce(&mut Self),
+    {
+        callback(self);
+
+        if !write_to_file {
+            return;
+        }
+
+        if let Err(err) = self.write() {
+            eprintln!("Error writing config: {}", err);
+        }
+    }
+
+    fn read(&self) -> Result<Config, Box<dyn Error>> {
         let path = Path::new(&self.file_path);
         let mut file = match File::open(&path) {
             Ok(file) => file,
@@ -73,7 +107,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn write(&self) -> Result<File, Box<dyn Error>> {
+    fn write(&self) -> Result<File, Box<dyn Error>> {
         let path = Path::new(&self.file_path);
         let parent_folder = path.parent().unwrap();
 
@@ -91,4 +125,19 @@ impl Config {
 
         Ok(file)
     }
+}
+
+pub fn init() -> bool {
+    match Config::default().read() {
+        Ok(config) => {
+            CONFIG.get_or_init(|| Mutex::new(config));
+        }
+        Err(err) => {
+            eprintln!("Error reading config file: {}", err);
+
+            return false;
+        }
+    };
+
+    true
 }
