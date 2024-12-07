@@ -163,7 +163,6 @@ impl Serial {
         // Device and software pairing status
         let mut paired = false;
 
-        // TEST
         while !self.detect_device_and_connect() {
             println!("Could not connect to any serial devices, retrying...");
 
@@ -174,9 +173,6 @@ impl Serial {
         let mut buf: Vec<u8> = vec![0; 32];
 
         let mut message = Message::new();
-
-        // Temporary LED test
-        let mut led = false;
 
         // Clear the input buffer to avoid bugs such as initializing the firmware twice.
         // If the app was closed before reading the message inside the buffer,
@@ -251,54 +247,17 @@ impl Serial {
                             if !modkey {
                                 match value.as_str() {
                                     "1" => {
-                                        println!("{}", "what?");
                                         self.write("l1".to_string());
-
-                                        led = true;
                                     }
                                     "0" => {
                                         self.write("l0".to_string());
-
-                                        led = false;
                                     }
                                     _ => {}
                                 }
-                                //if !led {
-                                //    // led=1
-                                //    serial_send(&port, "l1".to_string());
-                                //
-                                //    led = true;
-                                //} else {
-                                //    // led=0
-                                //    serial_send(&port, "l0".to_string());
-                                //
-                                //    led = false;
-                                //}
                             }
                         }
                         _ => {}
                     }
-                }
-
-                match key.as_str() {
-                    "b1" => {
-                        if !led {
-                            // led=1
-                            self.write("l1".to_string());
-
-                            led = true;
-                        } else {
-                            // led=0
-                            self.write("l0".to_string());
-
-                            led = false;
-                        }
-                    }
-                    "b2" => {
-                        println!("[LOG] {}", "hi!");
-                        //serial_send(&port, "s0".to_string());
-                    }
-                    _ => (),
                 }
             }
 
