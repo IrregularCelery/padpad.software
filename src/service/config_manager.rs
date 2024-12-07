@@ -9,7 +9,7 @@ use std::{
 };
 use toml;
 
-use crate::config::{APP_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME};
+use crate::config::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME};
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
 
@@ -35,7 +35,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             file_path: {
-                let file_name = format!("{}/config.toml", APP_NAME.to_lowercase());
+                let file_name = format!(
+                    "{}/{}",
+                    APP_NAME.to_lowercase(),
+                    CONFIG_FILE_NAME.to_lowercase()
+                );
                 let file_location = dirs::config_local_dir().unwrap();
 
                 format!(
@@ -90,7 +94,11 @@ impl Config {
         // Look for a config file inside application's folder
         let app_path = std::env::current_exe().unwrap();
         let app_folder = std::path::Path::new(&app_path).parent().unwrap();
-        let config_file = format!("{}/config.toml", app_folder.to_str().unwrap_or("."));
+        let config_file = format!(
+            "{}/{}",
+            app_folder.to_str().unwrap_or("."),
+            CONFIG_FILE_NAME.to_lowercase()
+        );
 
         if Path::new(&config_file).exists() {
             println!("A config file was found in the application's folder and will be used...");

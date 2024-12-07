@@ -1,6 +1,7 @@
 // General
 pub const APP_NAME: &str = "PadPad";
 pub const DEFAULT_DEVICE_NAME: &str = "PadPad";
+pub const CONFIG_FILE_NAME: &str = "config.toml";
 
 // Serial
 pub const DEFAULT_BAUD_RATE: u32 = 38_400;
