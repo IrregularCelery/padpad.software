@@ -1,5 +1,7 @@
 use tray_item::{IconSource, TrayItem};
 
+use crate::service::config_manager::CONFIG;
+
 pub fn handle_tray_thread() {
     println!("Tray component is initializing...");
 
@@ -17,6 +19,14 @@ pub fn handle_tray_thread() {
 
     tray.add_menu_item("Reload", || {
         println!("Reloading config file...");
+
+        let mut config = CONFIG
+            .get()
+            .expect("Could not retrieve CONFIG data!")
+            .lock()
+            .unwrap();
+
+        config.reload();
     })
     .unwrap();
 
@@ -33,8 +43,6 @@ pub fn handle_tray_thread() {
         std::process::exit(0);
     })
     .unwrap();
-
-    println!("Tray component is initialized.");
 
     #[cfg(target_os = "linux")]
     gtk::main();

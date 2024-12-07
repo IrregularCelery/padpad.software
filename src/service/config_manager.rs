@@ -58,16 +58,16 @@ impl Default for Config {
 }
 
 impl Config {
-    //pub fn reload(&mut self) {
-    //    *self = match self.read() {
-    //        Ok(config) => config,
-    //        Err(err) => {
-    //            eprintln!("Error reading config file: {}", err);
-    //
-    //            return;
-    //        }
-    //    };
-    //}
+    pub fn reload(&mut self) {
+        *self = match self.read() {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("Error reading config file: {}", err);
+
+                return;
+            }
+        };
+    }
 
     pub fn update<F>(&mut self, callback: F, write_to_file: bool)
     where
@@ -85,12 +85,28 @@ impl Config {
     }
 
     fn read(&self) -> Result<Config, Box<dyn Error>> {
-        let path = Path::new(&self.file_path);
+        let mut file_path = &self.file_path;
+
+        // Look for a config file inside application's folder
+        let app_path = std::env::current_exe().unwrap();
+        let app_folder = std::path::Path::new(&app_path).parent().unwrap();
+        let config_file = format!("{}/config.toml", app_folder.to_str().unwrap_or("."));
+
+        if Path::new(&config_file).exists() {
+            println!("A config file was found in the application's folder and will be used...");
+
+            file_path = &config_file;
+        }
+
+        // Couldn't find any config file in the application's folder
+        let path = Path::new(file_path);
         let mut file = match File::open(&path) {
             Ok(file) => file,
             Err(_) => {
                 // If the file doesn't exist, create a new one
                 self.write()?;
+
+                println!("New config file was created at `{}`", file_path);
 
                 File::open(&path)?
             }
