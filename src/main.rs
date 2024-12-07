@@ -25,44 +25,10 @@ fn main() {
         service::tcp::handle_tcp_server();
     });
 
-    let test_thread = std::thread::spawn(move || {
-        println!(
-            "Device name: {}",
-            CONFIG.get().unwrap().lock().unwrap().settings.device_name
-        );
-
-        if let Some(c) = CONFIG.get() {
-            let mut config = c.lock().unwrap();
-
-            println!("Read all data from the config file");
-
-            println!("Config settings: {:?}", config.settings);
-
-            std::thread::sleep(std::time::Duration::from_millis(1000));
-
-            println!("Changing `port_name` to test");
-
-            config.update(|c| c.settings.port_name = "test".to_string(), false);
-
-            println!("Config settings: {:?}", config.settings);
-
-            println!("Waiting for you to change the config file manually...");
-
-            std::thread::sleep(std::time::Duration::from_millis(5000));
-
-            config.reload();
-
-            println!("Config settings: {:?}", config.settings);
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(1000));
-    });
-
     tray_thread
         .join()
         .expect_err("there was a problem while spawning the `tray` thread!");
     tcp_server_thread
         .join()
         .expect_err("there was a problem while spawning the `tcp_server` thread!");
-    test_thread.join().unwrap();
 }
