@@ -4,6 +4,8 @@ pub const DEFAULT_DEVICE_NAME: &str = "PadPad";
 
 // Serial
 pub const DEFAULT_BAUD_RATE: u32 = 38_400;
+pub const SERIAL_MESSAGE_SEP: &str = ":";
+pub const SERIAL_MESSAGE_END: &str = ";";
 
 // TCP
 pub const TCP_SERVER_ADDR: &str = "127.0.0.1";
