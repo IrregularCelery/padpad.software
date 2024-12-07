@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use crate::{
@@ -8,14 +8,24 @@ use crate::{
     service::config_manager::CONFIG,
 };
 
-struct Serial {
+pub static SERIAL: OnceLock<Mutex<Serial>> = OnceLock::new();
+
+pub struct Serial {
     port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>>,
 }
 
 struct Message(String);
 
+impl Default for Serial {
+    fn default() -> Self {
+        Self { port: None }
+    }
+}
+
 impl Serial {
     fn detect_device_and_connect(&mut self) -> bool {
+        let mut port_not_found = false;
+
         let hid_api = hidapi::HidApi::new().expect("Failed to create HID API instance!");
 
         let available_hids = hid_api.device_list();
@@ -24,21 +34,30 @@ impl Serial {
 
         let mut config = CONFIG
             .get()
-            .expect("Could not retrieve config data!")
+            .expect("Could not retrieve CONFIG data!")
             .lock()
             .unwrap();
 
         if !config.settings.port_name.is_empty() {
             // If port_name isn't empty, ignore checking by the device_name
-
             match self.try_connect_to_port(&config.settings.port_name, config.settings.baud_rate) {
                 Ok(_) => return true,
                 Err(e) => {
-                    eprintln!("{}", e);
+                    port_not_found = true;
 
-                    return false;
+                    eprintln!(
+                        "Could not connect to port `{}`: {}",
+                        config.settings.port_name, e
+                    );
                 }
             }
+        }
+
+        if port_not_found {
+            println!(
+                "Trying to find the device by name `{}`...",
+                config.settings.device_name
+            );
         }
 
         // Finding device by device_name
@@ -75,7 +94,10 @@ impl Serial {
             }
         }
 
-        eprintln!("There was an unknown problem while detecting the device!");
+        eprintln!(
+            "Could not find a device named `{}`",
+            config.settings.device_name
+        );
 
         false
     }
@@ -100,9 +122,182 @@ impl Serial {
 
                 self.port = Some(Arc::new(Mutex::new(serial_port)));
 
+                println!(
+                    "A successful connection was established with `{}` at a baud rate of `{}`",
+                    port_name, baud_rate
+                );
+
                 Ok(())
             }
             Err(e) => Err(Box::new(e)),
+        }
+    }
+
+    fn write(&mut self, message: String) {
+        if self.port.is_none() {
+            eprintln!("Serial port isn't connected!");
+
+            return;
+        }
+
+        match self
+            .port
+            .as_mut()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .write(message.as_bytes())
+        {
+            Ok(_) => println!("[OUTGOING] Message `{}` was sent over `serial`.", message),
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => (),
+            Err(e) => eprintln!("{:?}", e),
+        }
+    }
+
+    pub fn handle_serial_port(&mut self) {
+        // Device and software pairing status
+        let mut paired = false;
+
+        // TEST
+        while !self.detect_device_and_connect() {
+            println!("Could not connect to any serial devices, retrying...");
+
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+
+        let port = self.port.clone().unwrap();
+        let mut buf: Vec<u8> = vec![0; 32];
+
+        let mut message = Message::new();
+
+        // Temporary LED test
+        let mut led = false;
+
+        // Clear the input buffer to avoid bugs such as initializing the firmware twice.
+        // If the app was closed before reading the message inside the buffer,
+        // the message would remain in the buffer, potentially causing dual initialization.
+        port.lock()
+            .unwrap()
+            .clear(serialport::ClearBuffer::Input)
+            .expect("Failed to discard input buffer");
+
+        loop {
+            match port.lock().unwrap().read(buf.as_mut_slice()) {
+                Ok(t) => message.push(std::str::from_utf8(&buf[..t]).unwrap()),
+                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => (),
+                Err(e) => {
+                    eprintln!("Connection was lost: {:?}", e);
+
+                    break self.handle_serial_port();
+                }
+            }
+
+            let (ready, key, value) = message.parse();
+
+            if ready {
+                let mut valid = false;
+                let mut component = "";
+                let mut id = 0;
+                let mut modkey = false;
+
+                match key.as_str() {
+                    "READY" => {
+                        println!("[INCOMING] key: {} | value: {}", key, value);
+
+                        self.write("p1".to_string());
+                    }
+                    "PAIRED" => {
+                        println!("[INCOMING] key: {} | value: {}", key, value);
+
+                        paired = true;
+                    }
+                    _ => {
+                        component = match key.chars().nth(0).unwrap_or('\0') {
+                            'b' => "Button",
+                            _ => "Unknown",
+                        };
+                        id = key[2..].trim().parse::<u8>().unwrap_or(0);
+
+                        match key.chars().nth(1).unwrap_or('\0') {
+                            'm' => modkey = false,
+                            'M' => modkey = true,
+                            _ => {}
+                        }
+
+                        // if for some reason the component or id were zero, ignore them
+                        if !component.is_empty() && id != 0 {
+                            valid = true;
+                        }
+                    }
+                }
+
+                if !paired || !valid {
+                    continue;
+                }
+
+                println!(
+                    "[INCOMING] `{}` `{}` | modkey: {} | value: {}",
+                    component, id, modkey, value
+                );
+
+                if component == "Button" {
+                    match id {
+                        1 => {
+                            if !modkey {
+                                match value.as_str() {
+                                    "1" => {
+                                        println!("{}", "what?");
+                                        self.write("l1".to_string());
+
+                                        led = true;
+                                    }
+                                    "0" => {
+                                        self.write("l0".to_string());
+
+                                        led = false;
+                                    }
+                                    _ => {}
+                                }
+                                //if !led {
+                                //    // led=1
+                                //    serial_send(&port, "l1".to_string());
+                                //
+                                //    led = true;
+                                //} else {
+                                //    // led=0
+                                //    serial_send(&port, "l0".to_string());
+                                //
+                                //    led = false;
+                                //}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                match key.as_str() {
+                    "b1" => {
+                        if !led {
+                            // led=1
+                            self.write("l1".to_string());
+
+                            led = true;
+                        } else {
+                            // led=0
+                            self.write("l0".to_string());
+
+                            led = false;
+                        }
+                    }
+                    "b2" => {
+                        println!("[LOG] {}", "hi!");
+                        //serial_send(&port, "s0".to_string());
+                    }
+                    _ => (),
+                }
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
     }
 }
@@ -148,4 +343,16 @@ impl Message {
 
         (ready, key, value)
     }
+}
+
+pub fn init() {
+    let serial = Serial::default();
+
+    //while !serial.detect_device_and_connect() {
+    //    println!("Could not connect to any serial devices, retrying...");
+    //
+    //    std::thread::sleep(std::time::Duration::from_millis(1000));
+    //}
+
+    SERIAL.get_or_init(|| Mutex::new(serial));
 }

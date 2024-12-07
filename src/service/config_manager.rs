@@ -58,16 +58,16 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn reload(&mut self) {
-        *self = match self.read() {
-            Ok(config) => config,
-            Err(err) => {
-                eprintln!("Error reading config file: {}", err);
-
-                return;
-            }
-        };
-    }
+    //pub fn reload(&mut self) {
+    //    *self = match self.read() {
+    //        Ok(config) => config,
+    //        Err(err) => {
+    //            eprintln!("Error reading config file: {}", err);
+    //
+    //            return;
+    //        }
+    //    };
+    //}
 
     pub fn update<F>(&mut self, callback: F, write_to_file: bool)
     where

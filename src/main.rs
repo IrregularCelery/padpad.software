@@ -23,10 +23,28 @@ fn main() {
         service::tcp::handle_tcp_server();
     });
 
+    let serial_thread = std::thread::spawn(|| {
+        use service::serial::{init, SERIAL};
+
+        // Auto-detect device and establish a serial connection
+        init();
+
+        let mut serial = SERIAL
+            .get()
+            .expect("Could not retrieve SERIAL data! Maybe it wasn't initialized.")
+            .lock()
+            .unwrap();
+
+        serial.handle_serial_port();
+    });
+
     tray_thread
         .join()
         .expect_err("there was a problem while spawning the `tray` thread!");
     tcp_server_thread
+        .join()
+        .expect_err("there was a problem while spawning the `tcp_server` thread!");
+    serial_thread
         .join()
         .expect_err("there was a problem while spawning the `tcp_server` thread!");
 }
