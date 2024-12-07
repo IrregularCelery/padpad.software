@@ -38,6 +38,11 @@ impl Serial {
             .lock()
             .unwrap();
 
+        // Even though we can store the port_name on the first time the device was found and
+        // connected, in linux(and perhaps all unix-like OSs), that wouldn't work! since
+        // everytime an app is using a port, if the device was removed, that port no longer exists
+        // and would be available the next time, said device was disconnected, then reconnected.
+        // We could also use /dev/serial/by-id/ but... nah! maybe later :D
         if !config.settings.port_name.is_empty() {
             // If port_name isn't empty, ignore checking by the device_name
             match self.try_connect_to_port(&config.settings.port_name, config.settings.baud_rate) {
@@ -347,12 +352,6 @@ impl Message {
 
 pub fn init() {
     let serial = Serial::default();
-
-    //while !serial.detect_device_and_connect() {
-    //    println!("Could not connect to any serial devices, retrying...");
-    //
-    //    std::thread::sleep(std::time::Duration::from_millis(1000));
-    //}
 
     SERIAL.get_or_init(|| Mutex::new(serial));
 }

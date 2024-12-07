@@ -13,6 +13,9 @@ fn main() {
     // Read configuration or create it if it doesn't exist
     service::config_manager::init();
 
+    // Initialize an empty Serial object
+    service::serial::init();
+
     // Application service tray icon
     let tray_thread = std::thread::spawn(|| {
         service::tray::handle_tray_thread();
@@ -24,12 +27,7 @@ fn main() {
     });
 
     let serial_thread = std::thread::spawn(|| {
-        use service::serial::{init, SERIAL};
-
-        // Auto-detect device and establish a serial connection
-        init();
-
-        let mut serial = SERIAL
+        let mut serial = service::serial::SERIAL
             .get()
             .expect("Could not retrieve SERIAL data! Maybe it wasn't initialized.")
             .lock()
