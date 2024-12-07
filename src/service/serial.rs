@@ -3,9 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::config::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP};
-
-use super::config_manager::CONFIG;
+use crate::{
+    config::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
+    service::config_manager::CONFIG,
+};
 
 struct Serial {
     port: Option<Arc<Mutex<Box<dyn serialport::SerialPort>>>>,
@@ -56,14 +57,25 @@ impl Serial {
                             continue;
                         }
 
-                        config.update(|c| c.settings.port_name = port.port_name.clone(), true);
+                        let port_name = &port.port_name;
 
-                        return true;
+                        config.update(|c| c.settings.port_name = port_name.clone(), true);
+
+                        match self.try_connect_to_port(port_name, config.settings.baud_rate) {
+                            Ok(_) => return true,
+                            Err(e) => {
+                                eprintln!("{}", e);
+
+                                return false;
+                            }
+                        }
                     }
                     _ => {}
                 }
             }
         }
+
+        eprintln!("There was an unknown problem while detecting the device!");
 
         false
     }
