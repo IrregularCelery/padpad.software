@@ -30,12 +30,27 @@ impl Logger {
         })
     }
 
-    pub fn log(&self, level: &str, message: &str) {
+    pub fn log(&self, level: &str, message: &str, trace_string: String) {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("System time before UNIX EPOCH")
             .as_secs();
-        let log_message = format!("[{}][{}] {}", timestamp, level, message);
+        let thread_id = std::thread::current();
+        let mut trace = String::new();
+
+        #[cfg(debug_assertions)]
+        if !trace_string.is_empty() {
+            trace = format!("[{}]", trace_string);
+        }
+
+        let log_message = format!(
+            "[ {} ][{}][{}]{} {}",
+            level,
+            timestamp,
+            thread_id.name().unwrap_or("Unknown"),
+            trace,
+            message
+        );
 
         // Write to the log file
         let mut file = self.file.lock().unwrap();
@@ -63,20 +78,46 @@ fn init_logger() -> &'static Logger {
 #[macro_export]
 macro_rules! log_info {
     ($($arg:tt)*) => {
-        $crate::log::get_logger().log("INFO", &format!($($arg)*));
+        $crate::log::get_logger().log(
+            "INFO ",
+            &format!($($arg)*),
+            "".to_string()
+        );
     };
 }
 
 #[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => {
-        $crate::log::get_logger().log("WARN", &format!($($arg)*));
+        $crate::log::get_logger().log(
+            "WARN ",
+            &format!($($arg)*),
+            "".to_string()
+        );
     };
 }
 
 #[macro_export]
 macro_rules! log_error {
     ($($arg:tt)*) => {
-        $crate::log::get_logger().log("ERROR", &format!($($arg)*));
+        $crate::log::get_logger().log(
+            "ERROR",
+            &format!($($arg)*),
+            "".to_string()
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! log_trace {
+    ($($arg:tt)*) => {
+        $crate::log::get_logger().log(
+            "TRACE",
+            &format!($($arg)*),
+            format!("{}:{}:{}",
+            file!(),
+            line!(),
+            std::any::type_name::<fn()>())
+        );
     };
 }
