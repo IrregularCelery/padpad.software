@@ -43,8 +43,3 @@ path = "sandbox/config-manager/main.rs"
 [[bin]]
 name = "tray"
 path = "sandbox/tray/main.rs"
-
-
-[[bin]]
-name = "log"
-path = "sandbox/log/main.rs"
