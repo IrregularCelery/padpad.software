@@ -3,7 +3,10 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::config::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT};
+use crate::{
+    config::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT},
+    log_error, log_info,
+};
 
 pub fn is_another_instance_running() -> bool {
     let address = format!("{}:{}", TCP_SERVER_ADDR, TCP_SERVER_PORT);
@@ -23,12 +26,12 @@ pub fn handle_tcp_server() {
 
     let listener = TcpListener::bind(&address).expect("TCP server could not bind to address!");
 
-    println!("TCP server is running on {}", &address);
+    log_info!("TCP server is running on {}", &address);
 
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                println!("TCP new connection established.");
+                log_info!("TCP new connection established.");
 
                 std::thread::spawn(move || {
                     // Handle clients
@@ -37,7 +40,7 @@ pub fn handle_tcp_server() {
                     loop {
                         match stream.read(&mut buffer) {
                             Ok(0) => {
-                                println!("Client disconnected.");
+                                log_info!("Client disconnected.");
 
                                 break;
                             }
@@ -46,7 +49,7 @@ pub fn handle_tcp_server() {
                                 if e.kind() == ErrorKind::ConnectionReset
                                     || e.kind() == ErrorKind::BrokenPipe =>
                             {
-                                println!("Client disconnected.");
+                                log_info!("Client disconnected.");
 
                                 break;
                             }
@@ -56,7 +59,7 @@ pub fn handle_tcp_server() {
                                 server_to_client_messages(&mut stream, message.trim());
                             }
                             Err(e) => {
-                                eprintln!("TCP had an error while reading from stream: {}", e);
+                                log_error!("TCP had an error while reading from stream: {}", e);
 
                                 break;
                             }
@@ -65,18 +68,18 @@ pub fn handle_tcp_server() {
                 });
             }
             Err(e) => {
-                eprintln!("TCP connection failed: {}", e);
+                log_error!("TCP connection failed: {}", e);
             }
         }
     }
 }
 
 fn server_to_client_messages(client_stream: &mut TcpStream, message: &str) {
-    println!("Received message: {}", message);
+    log_info!("Received message: {}", message);
 
     let test = client_stream.peer_addr().unwrap();
 
-    println!("{:?}", test);
+    log_info!("{:?}", test);
 
     // Send a response back to the client
     let response = message;

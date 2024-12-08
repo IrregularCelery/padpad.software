@@ -9,7 +9,10 @@ use std::{
 };
 use toml;
 
-use crate::config::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME};
+use crate::{
+    config::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
+    log_error, log_info,
+};
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
 
@@ -66,7 +69,7 @@ impl Config {
         *self = match self.read() {
             Ok(config) => config,
             Err(err) => {
-                eprintln!("Error reading config file: {}", err);
+                log_error!("Error reading config file: {}", err);
 
                 return;
             }
@@ -84,7 +87,7 @@ impl Config {
         }
 
         if let Err(err) = self.write() {
-            eprintln!("Error writing config: {}", err);
+            log_error!("Error writing config: {}", err);
         }
     }
 
@@ -101,7 +104,7 @@ impl Config {
         );
 
         if Path::new(&config_file).exists() {
-            println!("A config file was found in the application's folder and will be used...");
+            log_info!("A config file was found in the application's folder and will be used...");
 
             file_path = &config_file;
         }
@@ -114,7 +117,7 @@ impl Config {
                 // If the file doesn't exist, create a new one
                 self.write()?;
 
-                println!("New config file was created at `{}`", file_path);
+                log_info!("New config file was created at `{}`", file_path);
 
                 File::open(&path)?
             }
@@ -158,7 +161,7 @@ pub fn init() -> bool {
             CONFIG.get_or_init(|| Mutex::new(config));
         }
         Err(err) => {
-            eprintln!("Error reading config file: {}", err);
+            log_error!("Error reading config file: {}", err);
 
             return false;
         }

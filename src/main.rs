@@ -10,7 +10,6 @@ fn main() {
 
     if service::tcp::is_another_instance_running() {
         log_error!("Another instance of the app is already running!");
-        eprintln!("Another instance of the app is already running!");
 
         return;
     }
@@ -30,10 +29,14 @@ fn main() {
 
     // IPC handling between dashboard and service app
     let tcp_server_thread = std::thread::spawn(|| {
+        log_info!("TCP Server thread is started...");
+
         service::tcp::handle_tcp_server();
     });
 
     let serial_thread = std::thread::spawn(|| {
+        log_info!("Serial thread is started...");
+
         let mut serial = service::serial::SERIAL
             .get()
             .expect("Could not retrieve SERIAL data! Maybe it wasn't initialized.")

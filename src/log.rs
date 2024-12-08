@@ -82,7 +82,7 @@ macro_rules! log_info {
             "INFO ",
             &format!($($arg)*),
             "".to_string()
-        );
+        )
     };
 }
 
@@ -104,7 +104,7 @@ macro_rules! log_error {
             "ERROR",
             &format!($($arg)*),
             "".to_string()
-        );
+        )
     };
 }
 

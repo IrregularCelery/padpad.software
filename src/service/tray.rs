@@ -3,8 +3,6 @@ use tray_item::{IconSource, TrayItem};
 use crate::service::config_manager::CONFIG;
 
 pub fn handle_tray_thread() {
-    println!("Tray component is initializing...");
-
     #[cfg(target_os = "linux")]
     gtk::init().unwrap();
 

@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     config::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
+    log_error, log_info, log_warn,
     service::config_manager::CONFIG,
 };
 
@@ -50,16 +51,17 @@ impl Serial {
                 Err(e) => {
                     port_not_found = true;
 
-                    eprintln!(
+                    log_error!(
                         "Could not connect to port `{}`: {}",
-                        config.settings.port_name, e
+                        config.settings.port_name,
+                        e
                     );
                 }
             }
         }
 
         if port_not_found {
-            println!(
+            log_info!(
                 "Trying to find the device by name `{}`...",
                 config.settings.device_name
             );
@@ -88,7 +90,7 @@ impl Serial {
                         match self.try_connect_to_port(port_name, config.settings.baud_rate) {
                             Ok(_) => return true,
                             Err(e) => {
-                                eprintln!("{}", e);
+                                log_error!("{}", e);
 
                                 return false;
                             }
@@ -99,7 +101,7 @@ impl Serial {
             }
         }
 
-        eprintln!(
+        log_error!(
             "Could not find a device named `{}`",
             config.settings.device_name
         );
@@ -127,9 +129,10 @@ impl Serial {
 
                 self.port = Some(Arc::new(Mutex::new(serial_port)));
 
-                println!(
+                log_info!(
                     "A successful connection was established with `{}` at a baud rate of `{}`",
-                    port_name, baud_rate
+                    port_name,
+                    baud_rate
                 );
 
                 Ok(())
@@ -140,7 +143,7 @@ impl Serial {
 
     fn write(&mut self, message: String) {
         if self.port.is_none() {
-            eprintln!("Serial port isn't connected!");
+            log_error!("Serial port isn't connected!");
 
             return;
         }
@@ -153,9 +156,9 @@ impl Serial {
             .unwrap()
             .write(message.as_bytes())
         {
-            Ok(_) => println!("[OUTGOING] Message `{}` was sent over `serial`.", message),
+            Ok(_) => log_info!("[OUTGOING] Message `{}` was sent over `serial`.", message),
             Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => (),
-            Err(e) => eprintln!("{:?}", e),
+            Err(e) => log_error!("{:?}", e),
         }
     }
 
@@ -164,7 +167,7 @@ impl Serial {
         let mut paired = false;
 
         while !self.detect_device_and_connect() {
-            println!("Could not connect to any serial devices, retrying...");
+            log_warn!("Could not connect to any serial devices, retrying...");
 
             std::thread::sleep(std::time::Duration::from_millis(1000));
         }
@@ -187,7 +190,7 @@ impl Serial {
                 Ok(t) => message.push(std::str::from_utf8(&buf[..t]).unwrap()),
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => (),
                 Err(e) => {
-                    eprintln!("Connection was lost: {:?}", e);
+                    log_error!("Connection was lost: {:?}", e);
 
                     break self.handle_serial_port();
                 }
