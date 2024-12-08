@@ -3,8 +3,13 @@
 mod config;
 mod service;
 
+mod log;
+
 fn main() {
+    log_info!("Application started at {:?}", std::env::current_exe());
+
     if service::tcp::is_another_instance_running() {
+        log_error!("Another instance of the app is already running!");
         eprintln!("Another instance of the app is already running!");
 
         return;
@@ -18,6 +23,8 @@ fn main() {
 
     // Application service tray icon
     let tray_thread = std::thread::spawn(|| {
+        log_info!("Tray thread is started...");
+
         service::tray::handle_tray_thread();
     });
 
