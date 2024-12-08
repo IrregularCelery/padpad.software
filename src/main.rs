@@ -21,30 +21,39 @@ fn main() {
     service::serial::init();
 
     // Application service tray icon
-    let tray_thread = std::thread::spawn(|| {
-        log_info!("Tray thread is started...");
+    let tray_thread = std::thread::Builder::new()
+        .name("Tray".to_string())
+        .spawn(|| {
+            log_info!("Tray thread is started...");
 
-        service::tray::handle_tray_thread();
-    });
+            service::tray::handle_tray_thread();
+        })
+        .expect("Failed to spawn `Tray` thread!");
 
     // IPC handling between dashboard and service app
-    let tcp_server_thread = std::thread::spawn(|| {
-        log_info!("TCP Server thread is started...");
+    let tcp_server_thread = std::thread::Builder::new()
+        .name("TCP Server".to_string())
+        .spawn(|| {
+            log_info!("TCP Server thread is started...");
 
-        service::tcp::handle_tcp_server();
-    });
+            service::tcp::handle_tcp_server();
+        })
+        .expect("Failed to spawn `TCP Server` thread!");
 
-    let serial_thread = std::thread::spawn(|| {
-        log_info!("Serial thread is started...");
+    let serial_thread = std::thread::Builder::new()
+        .name("Serial".to_string())
+        .spawn(|| {
+            log_info!("Serial thread is started...");
 
-        let mut serial = service::serial::SERIAL
-            .get()
-            .expect("Could not retrieve SERIAL data! Maybe it wasn't initialized.")
-            .lock()
-            .unwrap();
+            let mut serial = service::serial::SERIAL
+                .get()
+                .expect("Could not retrieve SERIAL data! Maybe it wasn't initialized.")
+                .lock()
+                .unwrap();
 
-        serial.handle_serial_port();
-    });
+            serial.handle_serial_port();
+        })
+        .expect("Failed to spawn `Serial` thread!");
 
     tray_thread
         .join()
