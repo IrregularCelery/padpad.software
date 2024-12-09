@@ -13,3 +13,6 @@ Firmware
     [] Pot handling
     [] Diplay
     [] Rotary encoder
+
+Optional
+    [] Date/Time formatting for logging system
