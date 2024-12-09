@@ -9,6 +9,7 @@ Sandbox `serial-transceiver`
 [] Add `confirm_exit` functionality to `Dashboard` app
 
 Firmware
+    [] Map pot values to 0-255
     [] EEPROM/FLASH
     [] Pot handling
     [] Diplay
