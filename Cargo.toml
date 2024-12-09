@@ -45,5 +45,5 @@ name = "tray"
 path = "sandbox/tray/main.rs"
 
 [[bin]]
-name = "dashboard"
-path = "sandbox/dashboard/main.rs"
+name = "gui"
+path = "sandbox/gui/main.rs"
