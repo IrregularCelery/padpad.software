@@ -15,6 +15,7 @@ Firmware
     [x] Pot handling
     [] Diplay
     [] Rotary encoder
+    [] Joystick/Thumbstick
 
 Optional
     [] Date/Time formatting for logging system
