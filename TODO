@@ -10,9 +10,9 @@ Sandbox `serial-transceiver`
 
 Firmware
     [] Ground all cd4051be channels to reduce cross-talk and noise
-    [] Map pot values to 0-255
+    [x] Map pot values to 0-255 (mapped to 0-99 instead)
     [] EEPROM/FLASH
-    [] Pot handling
+    [x] Pot handling
     [] Diplay
     [] Rotary encoder
 
