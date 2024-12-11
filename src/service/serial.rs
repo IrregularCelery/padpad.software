@@ -218,6 +218,7 @@ impl Serial {
                     _ => {
                         component = match key.chars().nth(0).unwrap_or('\0') {
                             'b' => "Button",
+                            'p' => "Potentiometer",
                             _ => "Unknown",
                         };
                         id = key[2..].trim().parse::<u8>().unwrap_or(0);
