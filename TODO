@@ -14,7 +14,7 @@ Firmware
     [] EEPROM/FLASH
     [x] Pot handling
     [] Diplay
-    [] Rotary encoder
+    [x] Rotary encoder
     [] Joystick/Thumbstick
 
 Optional
