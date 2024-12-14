@@ -1,6 +1,6 @@
 use tray_item::{IconSource, TrayItem};
 
-use crate::service::config_manager::CONFIG;
+use crate::config::CONFIG;
 
 pub fn handle_tray_thread() {
     #[cfg(target_os = "linux")]

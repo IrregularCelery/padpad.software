@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod config;
 mod constants;
 mod service;
 
@@ -15,7 +16,7 @@ fn main() {
     }
 
     // Read configuration or create it if it doesn't exist
-    service::config_manager::init();
+    config::init();
 
     // Initialize an empty Serial object
     service::serial::init();
