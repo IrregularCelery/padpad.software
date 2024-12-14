@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    config::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
+    constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_warn,
     service::config_manager::CONFIG,
 };

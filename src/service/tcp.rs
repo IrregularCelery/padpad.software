@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    config::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT},
+    constants::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT},
     log_error, log_info,
 };
 

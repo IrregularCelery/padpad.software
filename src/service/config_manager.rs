@@ -10,7 +10,7 @@ use std::{
 use toml;
 
 use crate::{
-    config::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
+    constants::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
     log_error, log_info,
 };
 
