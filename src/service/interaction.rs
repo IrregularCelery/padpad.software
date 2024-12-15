@@ -9,9 +9,8 @@ use std::process::Command;
 use crate::{
     config::{ComponentKind, CONFIG},
     log_error,
+    service::serial::Serial,
 };
-
-use super::serial::Serial;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum InteractionKind {
@@ -68,10 +67,10 @@ fn open_website(website_url: &str) {
     println!("Website opened: {}", full_url);
 }
 
-fn simulate_shortcut(shortcut: &str) {
+fn simulate_shortcut(keys: &str) {
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
 
-    match shortcut {
+    match keys {
         "test" => {
             enigo
                 .text("Subscribe to IrregularCelery on YouTube please :D")
@@ -117,26 +116,28 @@ pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
         .lock()
         .unwrap();
 
-    let current_profile = &config.profiles[config.current_profile];
+    let current_profile = &config.profiles[config.settings.current_profile];
 
-    let button = current_profile.components.get(&(id, ComponentKind::Button));
+    let component_global_id = format!("Button:{}", id);
 
-    if button.is_none() {
+    let interactions = current_profile.interactions.get(&component_global_id);
+
+    if interactions.is_none() {
         log_error!(
-            "Couldn't find any button with the ID `{}` in the current profile `{}`",
+            "Couldn't find any interaction for the Button `{}` in the current profile `{}`",
             id,
-            config.current_profile
+            config.settings.current_profile
         );
 
         return;
     }
 
-    let button = button.unwrap();
+    let interactions = interactions.unwrap();
 
     let interaction = if !modkey {
-        &button.interaction.0
+        &interactions.normal
     } else {
-        &button.interaction.1
+        &interactions.modkey
     };
 
     do_interaction(interaction);

@@ -83,7 +83,7 @@ macro_rules! log_info {
         $crate::log::get_logger().log(
             "INFO ",
             &format!($($arg)*),
-            "".to_string(),
+            String::new(),
             true
         )
     };
@@ -95,7 +95,7 @@ macro_rules! log_warn {
         $crate::log::get_logger().log(
             "WARN ",
             &format!($($arg)*),
-            "".to_string(),
+            String::new(),
             true
         );
     };
@@ -107,7 +107,7 @@ macro_rules! log_error {
         $crate::log::get_logger().log(
             "ERROR",
             &format!($($arg)*),
-            "".to_string(),
+            String::new(),
             true
         )
     };
@@ -134,7 +134,7 @@ macro_rules! log_print {
         $crate::log::get_logger().log(
             "PRINT",
             &format!($($arg)*),
-            "".to_string(),
+            String::new(),
             false
         )
     };

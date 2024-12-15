@@ -24,33 +24,48 @@ pub struct Config {
     file_path: String,
 
     pub settings: Settings,
-
     pub profiles: Vec<Profile>,
-    pub current_profile: usize,
+    pub layout: Layout,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Settings {
     // General
+    pub current_profile: usize,
+
+    // Device
     pub device_name: String,
-    pub port_name: String,
 
     // Serial
+    pub port_name: String,
     pub baud_rate: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Profile {
     pub name: String,
-    pub components: HashMap<(u8, ComponentKind), Component>,
+    pub interactions: HashMap<
+        String, /* component_global_id: component's key in `components` inside `Layout` */
+        Interaction,
+    >,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Layout {
+    pub name: String,
+    pub components: HashMap<String /* key format: kind:id e.g. Button:1 */, Component>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Interaction {
+    pub normal: InteractionKind,
+    pub modkey: InteractionKind,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Component {
-    pub interaction: (
-        InteractionKind, /* normal */
-        InteractionKind, /* modkey */
-    ),
+    label: String,
+    position: (f32 /* x */, f32 /* y */),
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
@@ -81,12 +96,29 @@ impl Default for Config {
                 )
             },
             settings: Settings {
+                current_profile: 0,
                 device_name: DEFAULT_DEVICE_NAME.to_string(),
-                port_name: "".to_string(),
+                port_name: String::new(),
                 baud_rate: DEFAULT_BAUD_RATE,
             },
+            // TODO: Remove these testing vectors!
             profiles: vec![Profile::default()],
-            current_profile: 0,
+            layout: Layout {
+                name: "Layout 1".to_string(),
+                components: {
+                    let mut components: HashMap<String, Component> = Default::default();
+
+                    let button1 =
+                        Component::new_button(1, "First Button".to_string(), (50.0, 50.0));
+                    components.insert(button1.0, button1.1);
+
+                    let button2 =
+                        Component::new_button(2, "Second Button".to_string(), (50.0, 100.0));
+                    components.insert(button2.0, button2.1);
+
+                    components
+                },
+            },
         }
     }
 }
@@ -94,29 +126,32 @@ impl Default for Config {
 impl Default for Profile {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
-            components: {
-                let mut components: HashMap<(u8, ComponentKind), Component> = Default::default();
+            name: "Profile 1".to_string(),
+            interactions: {
+                let mut interactions: HashMap<String, Interaction> = Default::default();
 
-                components.insert(
-                    (1, ComponentKind::Button),
-                    Component::new_button(
-                        InteractionKind::File("/home/mohsen/media/Music/ava".to_string()),
-                        InteractionKind::None,
-                    ),
+                // NOTE: The way this should happen (after the dashboard app is ready),
+                // is to auto-generate NONE interactions for all components every time
+                // you create a profile. so, user can set their interactions.
+                interactions.insert(
+                    "Button:1".to_string(),
+                    Interaction {
+                        normal: InteractionKind::File("/home/mohsen/media/Music/ava".to_string()),
+                        modkey: InteractionKind::None,
+                    },
                 );
 
-                components.insert(
-                    (2, ComponentKind::Button),
-                    Component::new_button(
-                        InteractionKind::None,
-                        InteractionKind::File(
+                interactions.insert(
+                    "Button:2".to_string(),
+                    Interaction {
+                        normal: InteractionKind::None,
+                        modkey: InteractionKind::File(
                             "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
                         ),
-                    ),
+                    },
                 );
 
-                components
+                interactions
             },
         }
     }
@@ -190,6 +225,10 @@ impl Config {
         // After reading, all the serde-ignored variables are empty
         config.file_path = Config::default().file_path;
 
+        crate::log_trace!("");
+        crate::log_trace!("{:?}", config);
+        crate::log_trace!("");
+
         Ok(config)
     }
 
@@ -214,21 +253,15 @@ impl Config {
 }
 
 impl Component {
-    pub fn new_button(interaction: InteractionKind, interaction_mod: InteractionKind) -> Self {
-        Self {
-            interaction: (interaction, interaction_mod),
-        }
-    }
+    pub fn new_button(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_key */, Self) {
+        let key = format!("Button:{}", id);
 
-    //pub fn new_potentiometer(
-    //    interaction: InteractionKind,
-    //    interaction_mod: InteractionKind,
-    //) -> Self {
-    //    Self {
-    //        kind: ComponentKind::Potentiometer,
-    //        interaction: (interaction, interaction_mod),
-    //    }
-    //}
+        (key, Self { label, position })
+    }
 }
 
 pub fn init() -> bool {
