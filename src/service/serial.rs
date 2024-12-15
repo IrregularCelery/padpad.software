@@ -7,6 +7,7 @@ use crate::{
     config::CONFIG,
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
+    service::interaction::do_button,
 };
 
 pub static SERIAL: OnceLock<Mutex<Serial>> = OnceLock::new();
@@ -141,7 +142,7 @@ impl Serial {
         }
     }
 
-    fn write(&mut self, message: String) {
+    pub fn write(&mut self, message: String) {
         if self.port.is_none() {
             log_error!("Serial port isn't connected!");
 
@@ -249,23 +250,10 @@ impl Serial {
                     value
                 );
 
-                if component == "Button" {
-                    match id {
-                        1 => {
-                            if !modkey {
-                                match value.as_str() {
-                                    "1" => {
-                                        self.write("l1".to_string());
-                                    }
-                                    "0" => {
-                                        self.write("l0".to_string());
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
+                match component {
+                    "Button" => do_button(id, value.parse::<i32>().unwrap_or(0), modkey, self),
+                    "Potentiometer" => (),
+                    _ => (),
                 }
             }
 

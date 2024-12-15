@@ -5,6 +5,8 @@ use enigo::{
 use open;
 use std::process::Command;
 
+use super::serial::Serial;
+
 fn run_command(command: &str, unix_shell: &str) {
     let cmd = command.trim();
 
@@ -74,4 +76,16 @@ fn open_file(file_full_path: &str) {
     open::that_detached(&file_path).expect("Failed to open file");
 
     println!("File opened: {}", file_path);
+}
+
+pub fn do_button(id: u8, value: i32, modkey: bool, serial: &mut Serial) {
+    // TEST
+    match id {
+        1 => {
+            if !modkey {
+                serial.write(format!("l{}", value));
+            }
+        }
+        _ => {}
+    }
 }
