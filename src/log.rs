@@ -30,7 +30,7 @@ impl Logger {
         })
     }
 
-    pub fn log(&self, level: &str, message: &str, trace_string: String) {
+    pub fn log(&self, level: &str, message: &str, trace_string: String, write_to_file: bool) {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("System time before UNIX EPOCH")
@@ -55,7 +55,9 @@ impl Logger {
         // Write to the log file
         let mut file = self.file.lock().unwrap();
 
-        writeln!(file, "{}", log_message).unwrap();
+        if write_to_file {
+            writeln!(file, "{}", log_message).unwrap();
+        }
 
         // Print to console
         println!("{}", log_message);
@@ -81,7 +83,8 @@ macro_rules! log_info {
         $crate::log::get_logger().log(
             "INFO ",
             &format!($($arg)*),
-            "".to_string()
+            "".to_string(),
+            true
         )
     };
 }
@@ -92,7 +95,8 @@ macro_rules! log_warn {
         $crate::log::get_logger().log(
             "WARN ",
             &format!($($arg)*),
-            "".to_string()
+            "".to_string(),
+            true
         );
     };
 }
@@ -103,7 +107,8 @@ macro_rules! log_error {
         $crate::log::get_logger().log(
             "ERROR",
             &format!($($arg)*),
-            "".to_string()
+            "".to_string(),
+            true
         )
     };
 }
@@ -117,7 +122,20 @@ macro_rules! log_trace {
             format!("{}:{}:{}",
             file!(),
             line!(),
-            std::any::type_name::<fn()>())
+            std::any::type_name::<fn()>()),
+            true
         );
+    };
+}
+
+#[macro_export]
+macro_rules! log_print {
+    ($($arg:tt)*) => {
+        $crate::log::get_logger().log(
+            "PRINT",
+            &format!($($arg)*),
+            "".to_string(),
+            false
+        )
     };
 }

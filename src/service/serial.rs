@@ -6,7 +6,7 @@ use std::{
 use crate::{
     config::CONFIG,
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
-    log_error, log_info, log_warn,
+    log_error, log_info, log_print, log_warn,
 };
 
 pub static SERIAL: OnceLock<Mutex<Serial>> = OnceLock::new();
@@ -206,16 +206,17 @@ impl Serial {
 
                 match key.as_str() {
                     "READY" => {
-                        println!("[INCOMING] key: {} | value: {}", key, value);
+                        log_print!("[INCOMING] key: {} | value: {}", key, value);
 
                         self.write("p1".to_string());
                     }
                     "PAIRED" => {
-                        println!("[INCOMING] key: {} | value: {}", key, value);
+                        log_print!("[INCOMING] key: {} | value: {}", key, value);
 
                         paired = true;
                     }
                     _ => {
+                        // Format: e.g. key: bm5 -> b=button m/M=modkey 5=id
                         component = match key.chars().nth(0).unwrap_or('\0') {
                             'b' => "Button",
                             'p' => "Potentiometer",
@@ -240,9 +241,12 @@ impl Serial {
                     continue;
                 }
 
-                println!(
-                    "[INCOMING] `{}` `{}` | modkey: {} | value: {}",
-                    component, id, modkey, value
+                log_print!(
+                    "[INCOMING] `{}`: `{}` | modkey: `{}` | value: `{}`",
+                    component,
+                    id,
+                    modkey,
+                    value
                 );
 
                 if component == "Button" {
