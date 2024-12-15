@@ -3,9 +3,25 @@ use enigo::{
     Enigo, Key, Keyboard, Settings,
 };
 use open;
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 
+use crate::{
+    config::{ComponentKind, CONFIG},
+    log_error,
+};
+
 use super::serial::Serial;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum InteractionKind {
+    None, /* Can be used for the interactions that are handled by the device, or no interactions */
+    Command(String /* command */, String /* shell */),
+    Application(String /* full_path */),
+    Website(String /* url */),
+    Shortcut(String /* shortcut */),
+    File(String /* full_path */),
+}
 
 fn run_command(command: &str, unix_shell: &str) {
     let cmd = command.trim();
@@ -78,14 +94,50 @@ fn open_file(file_full_path: &str) {
     println!("File opened: {}", file_path);
 }
 
-pub fn do_button(id: u8, value: i32, modkey: bool, serial: &mut Serial) {
-    // TEST
-    match id {
-        1 => {
-            if !modkey {
-                serial.write(format!("l{}", value));
-            }
-        }
-        _ => {}
+fn do_interaction(kind: &InteractionKind) {
+    match kind {
+        InteractionKind::None => (),
+        InteractionKind::Command(command, unix_shell) => run_command(&command, &unix_shell),
+        InteractionKind::Application(app_full_path) => open_application(&app_full_path),
+        InteractionKind::Website(website_url) => open_website(&website_url),
+        InteractionKind::Shortcut(shortcut) => simulate_shortcut(&shortcut),
+        InteractionKind::File(file_full_path) => open_file(&file_full_path),
     }
+}
+
+pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
+    // Only on button press for now
+    if value != 1 {
+        return;
+    }
+
+    let config = CONFIG
+        .get()
+        .expect("Could not retrieve CONFIG data!")
+        .lock()
+        .unwrap();
+
+    let current_profile = &config.profiles[config.current_profile];
+
+    let button = current_profile.components.get(&(id, ComponentKind::Button));
+
+    if button.is_none() {
+        log_error!(
+            "Couldn't find any button with the ID `{}` in the current profile `{}`",
+            id,
+            config.current_profile
+        );
+
+        return;
+    }
+
+    let button = button.unwrap();
+
+    let interaction = if !modkey {
+        &button.interaction.0
+    } else {
+        &button.interaction.1
+    };
+
+    do_interaction(interaction);
 }

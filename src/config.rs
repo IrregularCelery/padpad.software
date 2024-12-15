@@ -1,6 +1,7 @@
 use dirs;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     error::Error,
     fs::File,
     io::prelude::*,
@@ -12,6 +13,7 @@ use toml;
 use crate::{
     constants::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
     log_error, log_info,
+    service::interaction::InteractionKind,
 };
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
@@ -22,6 +24,9 @@ pub struct Config {
     file_path: String,
 
     pub settings: Settings,
+
+    pub profiles: Vec<Profile>,
+    pub current_profile: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,6 +37,26 @@ pub struct Settings {
 
     // Serial
     pub baud_rate: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Profile {
+    pub name: String,
+    pub components: HashMap<(u8, ComponentKind), Component>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Component {
+    pub interaction: (
+        InteractionKind, /* normal */
+        InteractionKind, /* modkey */
+    ),
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+pub enum ComponentKind {
+    Button,
+    Potentiometer,
 }
 
 impl Default for Config {
@@ -59,6 +84,39 @@ impl Default for Config {
                 device_name: DEFAULT_DEVICE_NAME.to_string(),
                 port_name: "".to_string(),
                 baud_rate: DEFAULT_BAUD_RATE,
+            },
+            profiles: vec![Profile::default()],
+            current_profile: 0,
+        }
+    }
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            components: {
+                let mut components: HashMap<(u8, ComponentKind), Component> = Default::default();
+
+                components.insert(
+                    (1, ComponentKind::Button),
+                    Component::new_button(
+                        InteractionKind::File("/home/mohsen/media/Music/ava".to_string()),
+                        InteractionKind::None,
+                    ),
+                );
+
+                components.insert(
+                    (2, ComponentKind::Button),
+                    Component::new_button(
+                        InteractionKind::None,
+                        InteractionKind::File(
+                            "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
+                        ),
+                    ),
+                );
+
+                components
             },
         }
     }
@@ -153,6 +211,24 @@ impl Config {
 
         Ok(file)
     }
+}
+
+impl Component {
+    pub fn new_button(interaction: InteractionKind, interaction_mod: InteractionKind) -> Self {
+        Self {
+            interaction: (interaction, interaction_mod),
+        }
+    }
+
+    //pub fn new_potentiometer(
+    //    interaction: InteractionKind,
+    //    interaction_mod: InteractionKind,
+    //) -> Self {
+    //    Self {
+    //        kind: ComponentKind::Potentiometer,
+    //        interaction: (interaction, interaction_mod),
+    //    }
+    //}
 }
 
 pub fn init() -> bool {
