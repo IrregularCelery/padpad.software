@@ -10,6 +10,10 @@ Sandbox `serial-transceiver`
 [] Add "xdg-open" is needed to README.md (open)
 [] Add "xdotool" is needed to README.md (enigo)
 
+Dashboard
+    [] Maybe! a robust system to auto-detect all the components from the device and add them
+        to layout. (No promises! :D)
+
 Firmware
     [] Ground all cd4051be channels to reduce cross-talk and noise
     [x] Map pot values to 0-255 (mapped to 0-99 instead)
