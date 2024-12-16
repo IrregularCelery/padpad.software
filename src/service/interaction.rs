@@ -104,9 +104,16 @@ fn do_interaction(kind: &InteractionKind) {
     }
 }
 
-pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
+pub fn do_button(id: u8, value: i32, modkey: bool, serial: &mut Serial) {
     // Only on button press for now
     if value != 1 {
+        return;
+    }
+
+    if id == 4 {
+        // Upload key letters for buttons - TEST
+        serial.write("u1:120|121;2:255|0;3:120|121;4:121|120;5:120|121;6:121|120;7:120|121;8:121|120;9:120|121;10:121|120;11:120|121;12:121|120;13:120|121;14:121|120;15:120|121;".to_string()); // 120 = 'w' | 121 = 'z'
+
         return;
     }
 

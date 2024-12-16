@@ -216,6 +216,10 @@ impl Serial {
 
                         paired = true;
                     }
+                    "ERROR" => {
+                        // Handle device's errors
+                        log_error!("[INCOMING] ERROR: {}", value);
+                    }
                     _ => {
                         // Format: e.g. key: bm5 -> b=button m/M=modkey 5=id
                         component = match key.chars().nth(0).unwrap_or('\0') {
