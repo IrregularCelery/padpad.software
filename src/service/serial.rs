@@ -86,7 +86,7 @@ impl Serial {
 
                         let port_name = &port.port_name;
 
-                        config.update(|c| c.settings.port_name = port_name.clone(), true);
+                        config.save(|c| c.settings.port_name = port_name.clone(), true);
 
                         match self.try_connect_to_port(port_name, config.settings.baud_rate) {
                             Ok(_) => return true,

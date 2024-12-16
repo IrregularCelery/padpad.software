@@ -158,7 +158,7 @@ impl Default for Profile {
 }
 
 impl Config {
-    pub fn reload(&mut self) {
+    pub fn load(&mut self) {
         *self = match self.read() {
             Ok(config) => config,
             Err(err) => {
@@ -169,7 +169,7 @@ impl Config {
         };
     }
 
-    pub fn update<F>(&mut self, callback: F, write_to_file: bool)
+    pub fn save<F>(&mut self, callback: F, write_to_file: bool)
     where
         F: FnOnce(&mut Self),
     {

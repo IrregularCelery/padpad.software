@@ -24,7 +24,7 @@ pub fn handle_tray_thread() {
             .lock()
             .unwrap();
 
-        config.reload();
+        config.load();
     })
     .unwrap();
 
