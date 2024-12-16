@@ -17,7 +17,7 @@ Dashboard
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
     [x] Map pot values to 0-255 (mapped to 0-99 instead)
-    [] EEPROM/FLASH
+    [x] EEPROM/FLASH
         [] Make EEPROM-saved keyboard keys/letters usable even if the device wasn't paired
     [x] Pot handling
     [] Diplay
