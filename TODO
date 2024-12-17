@@ -25,7 +25,8 @@ Firmware
     [x] Pot handling
     [] Diplay
     [x] Rotary encoder
-    [] Joystick/Thumbstick
+    [x] Joystick/Thumbstick
+        [] Add the ability to scroll with the `joystick` if the modkey was `held`
 
 Optional
     [] Date/Time formatting for logging system
