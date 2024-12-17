@@ -26,7 +26,7 @@ Firmware
     [] Diplay
     [x] Rotary encoder
     [x] Joystick/Thumbstick
-        [] Add the ability to scroll with the `joystick` if the modkey was `held`
+        [x] Add the ability to scroll with the `joystick` if the modkey was `held`
 
 Optional
     [] Date/Time formatting for logging system
