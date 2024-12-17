@@ -13,6 +13,9 @@ Sandbox `serial-transceiver`
 Dashboard
     [] Maybe! a robust system to auto-detect all the components from the device and add them
         to layout. (No promises! :D)
+    [] Add ability to upload bitmaps from the dashboard to device for "Screen Saver"
+        - Only have it when the device and software are paired/connected
+        - Save it to devive's memory
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
