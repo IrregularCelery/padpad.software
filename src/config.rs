@@ -116,6 +116,10 @@ impl Default for Config {
                         Component::new_button(2, "Second Button".to_string(), (50.0, 100.0));
                     components.insert(button2.0, button2.1);
 
+                    let button3 =
+                        Component::new_button(3, "Thid Button".to_string(), (50.0, 150.0));
+                    components.insert(button3.0, button3.1);
+
                     components
                 },
             },
@@ -137,17 +141,28 @@ impl Default for Profile {
                     "Button:1".to_string(),
                     Interaction {
                         normal: InteractionKind::File("/home/mohsen/media/Music/ava".to_string()),
-                        modkey: InteractionKind::None,
+                        modkey: InteractionKind::None(),
                     },
                 );
 
                 interactions.insert(
                     "Button:2".to_string(),
                     Interaction {
-                        normal: InteractionKind::None,
+                        normal: InteractionKind::None(),
                         modkey: InteractionKind::File(
                             "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
                         ),
+                    },
+                );
+
+                interactions.insert(
+                    "Button:3".to_string(),
+                    Interaction {
+                        normal: InteractionKind::Command(
+                            "notify-send \"hello!\"".to_string(),
+                            "sh".to_string(),
+                        ),
+                        modkey: InteractionKind::None(),
                     },
                 );
 

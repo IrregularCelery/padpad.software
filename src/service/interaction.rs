@@ -6,15 +6,11 @@ use open;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-use crate::{
-    config::{ComponentKind, CONFIG},
-    log_error,
-    service::serial::Serial,
-};
+use crate::{config::CONFIG, log_error, service::serial::Serial};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum InteractionKind {
-    None, /* Can be used for the interactions that are handled by the device, or no interactions */
+    None(), /* Can be used for interactions that are handled by the device, or no interactions */
     Command(String /* command */, String /* shell */),
     Application(String /* full_path */),
     Website(String /* url */),
@@ -95,7 +91,7 @@ fn open_file(file_full_path: &str) {
 
 fn do_interaction(kind: &InteractionKind) {
     match kind {
-        InteractionKind::None => (),
+        InteractionKind::None() => (),
         InteractionKind::Command(command, unix_shell) => run_command(&command, &unix_shell),
         InteractionKind::Application(app_full_path) => open_application(&app_full_path),
         InteractionKind::Website(website_url) => open_website(&website_url),
