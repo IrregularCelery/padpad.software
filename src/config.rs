@@ -120,6 +120,10 @@ impl Default for Config {
                         Component::new_button(3, "Thid Button".to_string(), (50.0, 150.0));
                     components.insert(button3.0, button3.1);
 
+                    let button4 =
+                        Component::new_button(4, "Fourth Button".to_string(), (50.0, 200.0));
+                    components.insert(button4.0, button4.1);
+
                     components
                 },
             },
@@ -163,6 +167,20 @@ impl Default for Profile {
                             "sh".to_string(),
                         ),
                         modkey: InteractionKind::None(),
+                    },
+                );
+
+                interactions.insert(
+                    "Button:4".to_string(),
+                    Interaction {
+                        normal: InteractionKind::Shortcut(
+                            vec![enigo::Key::Control, enigo::Key::Unicode('p')],
+                            String::new(),
+                        ),
+                        modkey: InteractionKind::Shortcut(
+                            vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
+                            String::new(),
+                        ),
                     },
                 );
 
@@ -241,7 +259,7 @@ impl Config {
         config.file_path = Config::default().file_path;
 
         crate::log_trace!("");
-        crate::log_trace!("{:?}", config);
+        crate::log_trace!("{:?}", config.profiles[config.settings.current_profile]);
         crate::log_trace!("");
 
         Ok(config)

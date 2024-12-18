@@ -14,7 +14,7 @@ pub enum InteractionKind {
     Command(String /* command */, String /* shell */),
     Application(String /* full_path */),
     Website(String /* url */),
-    Shortcut(String /* shortcut */),
+    Shortcut(Vec<Key> /* keys */, String /* text */),
     File(String /* full_path */),
 }
 
@@ -63,21 +63,36 @@ fn open_website(website_url: &str) {
     println!("Website opened: {}", full_url);
 }
 
-fn simulate_shortcut(keys: &str) {
+// If `text` parameter is NOT empty, `keys` will be ignored
+fn simulate_shortcut(keys: &Vec<Key> /* Vec<enigo::Key> */, text: &str) {
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
 
-    match keys {
-        "test" => {
-            enigo
-                .text("Subscribe to IrregularCelery on YouTube please :D")
-                .unwrap();
+    if text.is_empty() {
+        for key in keys.iter() {
+            if let Err(e) = enigo.key(key.clone(), Press) {
+                log_error!(
+                    "Shortcut simulation failed while pressing key {:?}: {:?}",
+                    key,
+                    e
+                );
+            }
         }
-        "dmenu" => {
-            enigo.key(Key::Alt, Press).unwrap();
-            enigo.key(Key::Unicode('p'), Click).unwrap();
-            enigo.key(Key::Alt, Release).unwrap();
+
+        for key in keys.iter().rev() {
+            if let Err(e) = enigo.key(key.clone(), Release) {
+                log_error!(
+                    "Shortcut simulation failed while releasing key {:?}: {:?}",
+                    key,
+                    e
+                );
+            }
         }
-        _ => println!("Shortcut not recognized or not implemented."),
+
+        return;
+    }
+
+    if let Err(e) = enigo.text(text) {
+        log_error!("Shortcut simulation failed for text `{}`: {:?}", text, e);
     }
 }
 
@@ -95,23 +110,23 @@ fn do_interaction(kind: &InteractionKind) {
         InteractionKind::Command(command, unix_shell) => run_command(&command, &unix_shell),
         InteractionKind::Application(app_full_path) => open_application(&app_full_path),
         InteractionKind::Website(website_url) => open_website(&website_url),
-        InteractionKind::Shortcut(shortcut) => simulate_shortcut(&shortcut),
+        InteractionKind::Shortcut(keys, text) => simulate_shortcut(keys, &text),
         InteractionKind::File(file_full_path) => open_file(&file_full_path),
     }
 }
 
-pub fn do_button(id: u8, value: i32, modkey: bool, serial: &mut Serial) {
+pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
     // Only on button press for now
     if value != 1 {
         return;
     }
 
-    if id == 4 {
-        // Upload key letters for buttons - TEST
-        serial.write("u1:0|111;2:98|112;3:99|113;4:100|114;5:101|115;6:102|116;7:103|117;8:104|118;9:105|119;10:106|120;11:107|121;12:108|122;13:109|32;14:48|120;15:255|0;".to_string()); // 120 = 'w' | 121 = 'z'
-
-        return;
-    }
+    //if id == 4 {
+    //    // Upload key letters for buttons - TEST
+    //    serial.write("u1:0|111;2:98|112;3:99|113;4:100|114;5:101|115;6:102|116;7:103|117;8:104|118;9:105|119;10:106|120;11:107|121;12:108|122;13:109|32;14:48|120;15:255|0;".to_string()); // 120 = 'w' | 121 = 'z'
+    //
+    //    return;
+    //}
 
     let config = CONFIG
         .get()

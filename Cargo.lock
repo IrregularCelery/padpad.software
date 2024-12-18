@@ -1277,6 +1277,7 @@ dependencies = [
  "objc2 0.5.2",
  "objc2-app-kit",
  "objc2-foundation",
+ "serde",
  "windows 0.58.0",
  "xkbcommon",
  "xkeysym",
