@@ -1,5 +1,5 @@
 use enigo::{
-    Direction::{Click, Press, Release},
+    Direction::{Press, Release},
     Enigo, Key, Keyboard, Settings,
 };
 use open;
