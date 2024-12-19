@@ -64,14 +64,19 @@ pub struct Interaction {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Component {
-    label: String,
-    position: (f32 /* x */, f32 /* y */),
+    pub label: String,
+    pub position: (f32 /* x */, f32 /* y */),
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
 pub enum ComponentKind {
+    None,
     Button,
+    LED,
     Potentiometer,
+    Joystick,
+    RotaryEncoder,
+    Display,
 }
 
 impl Default for Config {
@@ -88,9 +93,12 @@ impl Default for Config {
                 format!(
                     "{}/{}",
                     if cfg!(debug_assertions) {
-                        "./target/config"
+                        let app_path = std::env::current_exe().unwrap();
+                        let app_folder = std::path::Path::new(&app_path).parent().unwrap();
+
+                        app_folder.to_str().unwrap_or("./config/").to_string()
                     } else {
-                        file_location.to_str().unwrap_or(".")
+                        file_location.to_str().unwrap_or(".").to_string()
                     },
                     file_name
                 )
@@ -217,7 +225,7 @@ impl Config {
         }
     }
 
-    fn read(&self) -> Result<Config, Box<dyn Error>> {
+    pub fn read(&self) -> Result<Config, Box<dyn Error>> {
         let mut file_path = &self.file_path;
 
         // Look for a config file inside application's folder
@@ -265,7 +273,7 @@ impl Config {
         Ok(config)
     }
 
-    fn write(&self) -> Result<File, Box<dyn Error>> {
+    pub fn write(&self) -> Result<File, Box<dyn Error>> {
         let path = Path::new(&self.file_path);
         let parent_folder = path.parent().unwrap();
 
