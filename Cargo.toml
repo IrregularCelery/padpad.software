@@ -6,7 +6,7 @@ default-run = "padpad-software"
 
 [dependencies]
 dirs = "5.0.1"
-eframe = "0.28.1"
+eframe = "0.30.0"
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
