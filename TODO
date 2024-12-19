@@ -6,7 +6,7 @@ Sandbox `serial-transceiver`
         next time, you cannot open the app. because the file couldn't get destroyed on app exit.
     ✔ Checking for the TCP address, could be a good way too... if the address/port is in use,
         throw an error.
-[] Add `confirm_exit` functionality to `Dashboard` app
+[x] Add `confirm_exit` functionality to `Dashboard` app
 [] Add "xdg-open" is needed to README.md (open)
 [] Add "xdotool" is needed to README.md (enigo)
 [] Handle IPC between `Service` and `Dashboard`
