@@ -1,11 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use padpad_software::{config, log_error, log_info, service};
+use padpad_software::{config, log_error, log_info, service, tcp};
 
 fn main() {
     log_info!("Application started at {:?}", std::env::current_exe());
 
-    if service::tcp::is_another_instance_running() {
+    if tcp::is_another_instance_running() {
         log_error!("Another instance of the app is already running!");
 
         return;
@@ -33,7 +33,7 @@ fn main() {
         .spawn(|| {
             log_info!("TCP Server thread is started...");
 
-            service::tcp::handle_tcp_server();
+            tcp::handle_tcp_server();
         })
         .expect("Failed to spawn `TCP Server` thread!");
 

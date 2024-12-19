@@ -74,6 +74,8 @@ pub fn handle_tcp_server() {
     }
 }
 
+fn handle_tcp_client() {}
+
 fn server_to_client_messages(client_stream: &mut TcpStream, message: &str) {
     log_info!("Received message: {}", message);
 
