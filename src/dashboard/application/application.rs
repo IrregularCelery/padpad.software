@@ -1,48 +1,29 @@
-use eframe::egui;
+use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
+
+use padpad_software::{
+    config::{ComponentKind, Config},
+    log_error,
+};
 
 use super::get_current_style;
 
-#[derive(Default)]
-pub struct Application {}
+pub struct Application {
+    config: Option<Config>,
+}
 
 impl eframe::App for Application {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         egui::Rgba::TRANSPARENT.to_array()
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        use egui::*;
         let style = get_current_style();
         ctx.set_style(style);
-        ctx.set_pixels_per_point(1.0);
+        //ctx.set_pixels_per_point(1.0);
 
-        self.custom_window(ctx, |ui| {
-            ui.heading("Hello World!");
-            ui.label("PadPad is under construction!");
-            let button = ui.button("hi");
-
-            if button.hovered() {
-                ui.label("YES");
-            }
-        });
-    }
-}
-
-impl Application {
-    fn custom_window(&self, ctx: &egui::Context, add_contents: impl FnOnce(&mut egui::Ui)) {
-        use egui::*;
-
-        let panel_frame = egui::Frame {
-            fill: ctx.style().visuals.window_fill(),
-            rounding: 10.0.into(),
-            stroke: egui::Stroke {
-                color: Color32::from_gray(25),
-                width: 2.0,
-            },
-            outer_margin: 0.5.into(), // so the stroke is within the bounds
-            ..Default::default()
-        };
-
-        CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
+        // Custom window
+        CentralPanel::default().show(ctx, |ui| {
             let app_rect = ui.max_rect();
             let title_bar_height = 32.0;
             let title_bar_rect = {
@@ -74,7 +55,7 @@ impl Application {
                         .on_hover_text("Close the window");
 
                     let minimized_button = ui
-                        .add(Button::new(RichText::new(" - ").size(button_size)))
+                        .add(Button::new(RichText::new("–").size(button_size)))
                         .on_hover_text("Minimize the window");
 
                     if close_button.clicked() {
@@ -87,17 +68,117 @@ impl Application {
                 });
             });
 
-            // Add the contents:
-            let content_rect = {
-                let mut rect = app_rect;
-                rect.min.y = title_bar_rect.max.y;
-                rect
+            // Custom window content
+            ui.heading("Hello World!");
+            ui.label("PadPad is under construction!");
+
+            let button = ui.button("hi");
+
+            if button.hovered() {
+                ui.label("YES");
             }
-            .shrink(4.0);
 
-            let mut content_ui = ui.child_ui(content_rect, *ui.layout(), None);
+            if button.clicked() {
+                println!("Button was clicked");
+            }
 
-            add_contents(&mut content_ui);
+            // Layout window
+            egui::Window::new("Layout")
+                //.movable(false)
+                .resizable(false)
+                .collapsible(false)
+                .title_bar(false)
+                .hscroll(true)
+                .vscroll(true)
+                .fixed_size(egui::Vec2::new(1030.0, 580.0))
+                .frame(egui::Frame {
+                    fill: egui::Color32::RED,
+                    rounding: 4.0.into(),
+                    ..egui::Frame::default()
+                })
+                .show(ctx, |ui| {
+                    //println!("test");
+
+                    self.draw_layout(ctx, ui);
+                });
         });
+    }
+}
+
+impl Application {
+    fn draw_layout(&mut self, _ctx: &Context, ui: &mut Ui) {
+        match &self.config {
+            Some(config) => {
+                for component in &config.layout.components {
+                    let kind_id: Vec<&str> = component.0.split(':').collect();
+
+                    let kind = match kind_id.first() {
+                        Some(&"Button") => ComponentKind::Button,
+                        Some(&"LED") => ComponentKind::LED,
+                        Some(&"Potentiometer") => ComponentKind::Potentiometer,
+                        Some(&"Joystick") => ComponentKind::Joystick,
+                        Some(&"RotaryEncoder") => ComponentKind::RotaryEncoder,
+                        Some(&"Display") => ComponentKind::Display,
+                        _ => ComponentKind::None,
+                    };
+                    let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+                    let label = &component.1.label;
+                    let position: Pos2 = component.1.position.into();
+                    let size = Vec2::new(100.0, 30.0);
+
+                    match kind {
+                        ComponentKind::None => (),
+                        ComponentKind::Button => {
+                            let button = self.draw_button(ui, label, position, size);
+
+                            if button.clicked() {
+                                println!("{}: {}", label, id);
+                            };
+                        }
+                        ComponentKind::LED => (),
+                        ComponentKind::Potentiometer => (),
+                        ComponentKind::Joystick => (),
+                        ComponentKind::RotaryEncoder => (),
+                        ComponentKind::Display => (),
+                    }
+                }
+            }
+            None => {
+                // Need to wait before the config is ready
+                ui.label("Loading...");
+            }
+        }
+    }
+
+    fn draw_button(
+        &self,
+        ui: &mut Ui,
+        label: &String,
+        relative_position: Pos2, /* relative to window position */
+        size: Vec2,
+    ) -> Response {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = egui::Rect::from_min_size(position, size.into());
+
+        ui.put(rect, Button::new(label))
+    }
+}
+
+impl Default for Application {
+    fn default() -> Self {
+        Self {
+            config: match Config::default().read() {
+                Ok(config) => Some(config),
+                Err(err) => {
+                    log_error!("Error reading config file: {}", err);
+
+                    None
+                }
+            },
+        }
     }
 }
