@@ -1,10 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod config;
-mod constants;
-mod service;
-
-mod log;
+use padpad_software::{config, log_error, log_info, service};
 
 fn main() {
     log_info!("Application started at {:?}", std::env::current_exe());

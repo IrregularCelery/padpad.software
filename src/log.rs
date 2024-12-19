@@ -14,7 +14,7 @@ pub struct Logger {
     file: Mutex<std::fs::File>,
 }
 
-pub(crate) fn get_logger() -> &'static Logger {
+pub fn get_logger() -> &'static Logger {
     init_logger()
 }
 
