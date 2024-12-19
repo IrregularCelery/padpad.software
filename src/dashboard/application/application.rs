@@ -8,6 +8,10 @@ use padpad_software::{
 use super::get_current_style;
 
 pub struct Application {
+    close_app: (
+        bool, /* can_close_app */
+        bool, /* show_on_close_modal */
+    ),
     config: Option<Config>,
 }
 
@@ -20,9 +24,52 @@ impl eframe::App for Application {
         use egui::*;
         let style = get_current_style();
         ctx.set_style(style);
-        //ctx.set_pixels_per_point(1.0);
 
-        // Custom window
+        // Confirm exit functionality
+        if ctx.input(|i| i.viewport().close_requested()) {
+            // can_close_app
+            if !self.close_app.0 {
+                // Cancel closing the app if it's not allowed
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+
+                // show_on_close_modal
+                self.close_app.1 = true;
+            }
+        }
+
+        // Confirm exit modal
+        if self.close_app.1 {
+            let modal = Modal::new(Id::new("Close Modal")).show(ctx, |ui| {
+                ui.set_width(200.0);
+                ui.heading("Are you sure you want to close the application?");
+
+                ui.add_space(32.0);
+
+                egui::Sides::new().show(
+                    ui,
+                    |_ui| {},
+                    |ui| {
+                        if ui.button("Close").clicked()
+                            || ui.input(|i| i.key_pressed(egui::Key::Enter))
+                        {
+                            self.close_app.1 = false;
+                            self.close_app.0 = true;
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+
+                        if ui.button("Cancel").clicked() {
+                            self.close_app.1 = false;
+                        }
+                    },
+                );
+            });
+
+            if modal.should_close() {
+                self.close_app.1 = false;
+            }
+        }
+
+        // Custom main window
         CentralPanel::default().show(ctx, |ui| {
             let app_rect = ui.max_rect();
             let title_bar_height = 32.0;
@@ -43,8 +90,11 @@ impl eframe::App for Application {
                 ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
             }
 
-            ui.allocate_ui_at_rect(title_bar_rect, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.allocate_new_ui(
+                UiBuilder::new()
+                    .max_rect(title_bar_rect)
+                    .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                |ui| {
                     ui.add_space(8.0);
 
                     // Close and Minimize Button
@@ -65,8 +115,8 @@ impl eframe::App for Application {
                     if minimized_button.clicked() {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                     }
-                });
-            });
+                },
+            );
 
             // Custom window content
             ui.heading("Hello World!");
@@ -171,6 +221,7 @@ impl Application {
 impl Default for Application {
     fn default() -> Self {
         Self {
+            close_app: (false, false),
             config: match Config::default().read() {
                 Ok(config) => Some(config),
                 Err(err) => {
