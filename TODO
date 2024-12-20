@@ -18,6 +18,7 @@ Dashboard
         - Only have it when the device and software are paired/connected
         - Save it to devive's memory
     [] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
+        - Maybe even one for status of Device-Service connection (Serial)
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
