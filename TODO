@@ -17,6 +17,7 @@ Dashboard
     [] Add ability to upload bitmaps from the dashboard to device for "Screen Saver"
         - Only have it when the device and software are paired/connected
         - Save it to devive's memory
+    [] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
