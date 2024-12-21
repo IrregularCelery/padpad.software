@@ -4,16 +4,14 @@ use std::{
 };
 
 use crate::{
-    constants::{TCP_BUFFER_SIZE, TCP_SERVER_ADDR, TCP_SERVER_PORT},
+    constants::{TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR},
     log_error, log_info,
 };
 
 pub fn is_another_instance_running() -> bool {
-    let address = format!("{}:{}", TCP_SERVER_ADDR, TCP_SERVER_PORT);
-
     let mut another_instance_running = false;
 
-    match TcpListener::bind(&address) {
+    match TcpListener::bind(TCP_SERVER_ADDR) {
         Err(e) if e.kind() == ErrorKind::AddrInUse => another_instance_running = true,
         _ => (),
     }
@@ -22,11 +20,10 @@ pub fn is_another_instance_running() -> bool {
 }
 
 pub fn handle_tcp_server() {
-    let address = format!("{}:{}", TCP_SERVER_ADDR, TCP_SERVER_PORT);
+    let listener =
+        TcpListener::bind(TCP_SERVER_ADDR).expect("TCP server could not bind to address!");
 
-    let listener = TcpListener::bind(&address).expect("TCP server could not bind to address!");
-
-    log_info!("TCP server is running on {}", &address);
+    log_info!("TCP server is running on {}", TCP_SERVER_ADDR);
 
     for stream in listener.incoming() {
         match stream {
@@ -56,14 +53,19 @@ pub fn handle_tcp_server() {
                             Ok(bytes_read) => {
                                 let message = String::from_utf8_lossy(&buffer[..bytes_read]);
 
-                                server_to_client_messages(&mut stream, message.trim());
+                                server_to_client_message(&mut stream, message.trim());
                             }
                             Err(e) => {
-                                log_error!("TCP had an error while reading from stream: {}", e);
+                                log_error!(
+                                    "TCP server had an error while reading from stream: {}",
+                                    e
+                                );
 
                                 break;
                             }
                         }
+
+                        std::thread::sleep(std::time::Duration::from_millis(10));
                     }
                 });
             }
@@ -74,9 +76,24 @@ pub fn handle_tcp_server() {
     }
 }
 
-fn handle_tcp_client() {}
+fn handle_tcp_client() -> Result<TcpStream, String> {
+    let stream = match std::net::TcpStream::connect(TCP_SERVER_ADDR) {
+        Ok(s) => s,
+        Err(_) => {
+            return Err(
+                "Failed to connect to server!\nMake sure the `Service` app is running!".into(),
+            )
+        }
+    };
 
-fn server_to_client_messages(client_stream: &mut TcpStream, message: &str) {
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_millis(TCP_READ_TIMEOUT)))
+        .expect("Failed to set `read_timeout`");
+
+    Ok(stream)
+}
+
+fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     log_info!("Received message: {}", message);
 
     let test = client_stream.peer_addr().unwrap();
@@ -86,5 +103,45 @@ fn server_to_client_messages(client_stream: &mut TcpStream, message: &str) {
     // Send a response back to the client
     let response = message;
 
+    log_info!("Send a message: {}", message);
+
     client_stream.write_all(response.as_bytes()).unwrap();
+}
+
+pub fn client_to_server_message(message: &str) -> Result<String, String> {
+    let mut stream = match handle_tcp_client() {
+        Ok(s) => s,
+        Err(e) => return Err(e),
+    };
+
+    if let Err(e) = stream.write_all(message.as_bytes()) {
+        println!("Failed to write to server: {:?}", e);
+
+        return Err("Failed to send a message!\nMake sure the `Service` app is running!".into());
+    }
+
+    let mut buffer = vec![0; TCP_BUFFER_SIZE];
+
+    match stream.read(&mut buffer) {
+        Ok(0) => {
+            log_info!("Server disconnected.");
+        }
+        // Windows handles this differently
+        Err(e) if e.kind() == ErrorKind::ConnectionReset || e.kind() == ErrorKind::BrokenPipe => {
+            log_info!("Server disconnected.");
+        }
+        Ok(bytes_read) => {
+            let message = String::from_utf8_lossy(&buffer[..bytes_read]);
+
+            return Ok(message.trim().to_string());
+        }
+        Err(e) => {
+            let error = format!("TCP client had an error while reading from stream: {}", e);
+            log_error!("{}", error);
+
+            return Err(error);
+        }
+    }
+
+    Err("There was an `Unknown` problem while sending a message!\nMake sure the `Service` app is running!".into())
 }
