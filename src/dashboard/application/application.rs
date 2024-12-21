@@ -2,7 +2,8 @@ use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
 
 use padpad_software::{
     config::{ComponentKind, Config},
-    log_error,
+    log_error, log_trace,
+    tcp::client_to_server_message,
 };
 
 use super::get_current_style;
@@ -130,6 +131,12 @@ impl eframe::App for Application {
 
             if button.clicked() {
                 println!("Button was clicked");
+
+                if let Ok(response) =
+                    client_to_server_message("A message from TCP client to server")
+                {
+                    log_trace!("{}", response);
+                }
             }
 
             // Layout window
@@ -147,8 +154,6 @@ impl eframe::App for Application {
                     ..egui::Frame::default()
                 })
                 .show(ctx, |ui| {
-                    //println!("test");
-
                     self.draw_layout(ctx, ui);
                 });
         });
@@ -220,6 +225,19 @@ impl Application {
 
 impl Default for Application {
     fn default() -> Self {
+        // IPC handling between dashboard and service app
+        std::thread::Builder::new()
+            .name("TCP client".to_string())
+            .spawn(|| loop {
+                match client_to_server_message("ping") {
+                    Ok(r) => log_trace!("{}", r),  // Response
+                    Err(e) => log_error!("{}", e), // Error
+                }
+
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+            })
+            .expect("Failed to spawn `TCP client` thread!");
+
         Self {
             close_app: (false, false),
             config: match Config::default().read() {
