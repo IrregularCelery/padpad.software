@@ -3,10 +3,39 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     constants::{TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR},
     log_error, log_info,
 };
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServerData {
+    pub is_connected: bool,
+}
+
+impl ServerData {
+    pub fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or("{}".to_string())
+    }
+
+    pub fn parse(server_data_string: String) -> Self {
+        serde_json::from_str(&server_data_string).unwrap_or(Self::default())
+    }
+
+    pub fn set_connected(&mut self, is_connected: bool) {
+        self.is_connected = is_connected;
+    }
+}
+
+impl Default for ServerData {
+    fn default() -> Self {
+        Self {
+            is_connected: false,
+        }
+    }
+}
 
 pub fn is_another_instance_running() -> bool {
     let mut another_instance_running = false;
@@ -95,10 +124,6 @@ fn handle_tcp_client() -> Result<TcpStream, String> {
 
 fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     log_info!("Received message: {}", message);
-
-    let test = client_stream.peer_addr().unwrap();
-
-    log_info!("{:?}", test);
 
     // Send a response back to the client
     let response = message;
