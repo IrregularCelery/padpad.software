@@ -10,8 +10,8 @@ pub const SERIAL_MESSAGE_SEP: &str = ":";
 pub const SERIAL_MESSAGE_END: &str = ";";
 
 // TCP
-pub const TCP_SERVER_ADDR: &str = "127.0.0.1";
-pub const TCP_SERVER_PORT: u32 = 51690; // Random number in range of unused ports
+pub const TCP_SERVER_ADDR: &str = "127.0.0.1:51690"; // Random number in range of unused ports
+pub const TCP_READ_TIMEOUT: u64 = 5000; // Client waiting duration for server response (in ms)
 pub const TCP_BUFFER_SIZE: usize = 4096; // 4 KB buffer
 
 // Validation
