@@ -1,12 +1,16 @@
+use std::sync::{Arc, Mutex, OnceLock};
+
 use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
 
 use padpad_software::{
     config::{ComponentKind, Config},
     log_error, log_trace,
-    tcp::client_to_server_message,
+    tcp::{client_to_server_message, ServerData},
 };
 
 use super::get_current_style;
+
+static SERVER_RESPONSE_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 
 pub struct Application {
     close_app: (
@@ -14,6 +18,7 @@ pub struct Application {
         bool, /* show_on_close_modal */
     ),
     config: Option<Config>,
+    server_data: ServerData,
 }
 
 impl eframe::App for Application {
@@ -25,6 +30,15 @@ impl eframe::App for Application {
         use egui::*;
         let style = get_current_style();
         ctx.set_style(style);
+
+        // Access the latest server data
+        if let Some(server_response_data) = SERVER_RESPONSE_DATA.get() {
+            let server_data = server_response_data.lock().unwrap().clone();
+
+            self.server_data = server_data
+        }
+
+        println!("Please");
 
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
@@ -122,6 +136,7 @@ impl eframe::App for Application {
             // Custom window content
             ui.heading("Hello World!");
             ui.label("PadPad is under construction!");
+            ui.label(format!("Server status: {}", self.server_data.is_connected));
 
             let button = ui.button("hi");
 
@@ -148,6 +163,7 @@ impl eframe::App for Application {
                 .hscroll(true)
                 .vscroll(true)
                 .fixed_size(egui::Vec2::new(1030.0, 580.0))
+                .default_pos(egui::Pos2::new(150.0, 150.0))
                 .frame(egui::Frame {
                     fill: egui::Color32::RED,
                     rounding: 4.0.into(),
@@ -157,6 +173,9 @@ impl eframe::App for Application {
                     self.draw_layout(ctx, ui);
                 });
         });
+
+        // Redraw continuously at 60 FPS
+        ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
 }
 
@@ -225,16 +244,53 @@ impl Application {
 
 impl Default for Application {
     fn default() -> Self {
+        SERVER_RESPONSE_DATA
+            .set(Arc::new(Mutex::new(ServerData::default())))
+            .ok();
+
+        let server_response = SERVER_RESPONSE_DATA
+            .get()
+            .expect("Failed to get `SERVER_RESPONSE_DATA`")
+            .clone();
+
         // IPC handling between dashboard and service app
         std::thread::Builder::new()
             .name("TCP client".to_string())
-            .spawn(|| loop {
-                match client_to_server_message("ping") {
-                    Ok(r) => log_trace!("{}", r),  // Response
-                    Err(e) => log_error!("{}", e), // Error
-                }
+            .spawn(move || {
+                let mut server_data: Option<ServerData>;
 
-                std::thread::sleep(std::time::Duration::from_millis(1000));
+                loop {
+                    let response_update = |server_data: &Option<ServerData>| {
+                        let mut response = server_response
+                            .lock()
+                            .expect("Failed to lock `SERVER_RESPONSE_DATA`");
+
+                        if let Some(ref r) = server_data {
+                            let mut new_response = r.clone();
+
+                            new_response.set_connected(true);
+
+                            *response = new_response;
+                        } else {
+                            // Reset server_data if the connection was lost
+                            *response = ServerData::default();
+                        }
+                    };
+
+                    match client_to_server_message("client::get_data") {
+                        Ok(r) => {
+                            server_data = Some(ServerData::parse(r));
+                            response_update(&server_data);
+                        }
+                        Err(e) => {
+                            server_data = None;
+                            response_update(&server_data);
+                            log_error!("{}", e);
+                        }
+                    }
+
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                }
             })
             .expect("Failed to spawn `TCP client` thread!");
 
@@ -248,6 +304,7 @@ impl Default for Application {
                     None
                 }
             },
+            server_data: ServerData::default(),
         }
     }
 }
