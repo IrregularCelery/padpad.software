@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServerData {
     pub is_connected: bool,
+    pub order: String, // Server order message for client to do something. e.g. Reload config
 }
 
 impl ServerData {
@@ -33,6 +34,7 @@ impl Default for ServerData {
     fn default() -> Self {
         Self {
             is_connected: false,
+            order: String::new(),
         }
     }
 }
@@ -125,12 +127,26 @@ fn handle_tcp_client() -> Result<TcpStream, String> {
 fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     log_info!("Received message: {}", message);
 
-    // Send a response back to the client
-    let response = message;
+    let mut response: Option<String> = None;
 
-    log_info!("Send a message: {}", message);
+    match message {
+        "client::get_data" => {
+            // TEST: ServerData
+            let test_server_data = ServerData {
+                is_connected: false,
+                order: "server::reload_config".to_string(),
+            };
 
-    client_stream.write_all(response.as_bytes()).unwrap();
+            response = Some(test_server_data.to_string());
+        }
+        _ => (),
+    }
+
+    if let Some(r) = response {
+        log_info!("Sending a message to client: {}", r);
+
+        client_stream.write_all(r.as_bytes()).unwrap();
+    }
 }
 
 pub fn client_to_server_message(message: &str) -> Result<String, String> {

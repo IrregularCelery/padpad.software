@@ -137,6 +137,7 @@ impl eframe::App for Application {
             ui.heading("Hello World!");
             ui.label("PadPad is under construction!");
             ui.label(format!("Server status: {}", self.server_data.is_connected));
+            ui.label(format!("Server current order: {}", self.server_data.order));
 
             let button = ui.button("hi");
 
