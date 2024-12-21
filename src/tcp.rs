@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR},
-    log_error, log_info,
+    log_error, log_info, log_print,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -59,7 +59,7 @@ pub fn handle_tcp_server() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                log_info!("TCP new connection established.");
+                log_print!("TCP new connection established.");
 
                 std::thread::spawn(move || {
                     // Handle clients
@@ -68,7 +68,7 @@ pub fn handle_tcp_server() {
                     loop {
                         match stream.read(&mut buffer) {
                             Ok(0) => {
-                                log_info!("Client disconnected.");
+                                log_print!("Client disconnected.");
 
                                 break;
                             }
@@ -77,7 +77,7 @@ pub fn handle_tcp_server() {
                                 if e.kind() == ErrorKind::ConnectionReset
                                     || e.kind() == ErrorKind::BrokenPipe =>
                             {
-                                log_info!("Client disconnected.");
+                                log_print!("Client disconnected.");
 
                                 break;
                             }
@@ -125,7 +125,7 @@ fn handle_tcp_client() -> Result<TcpStream, String> {
 }
 
 fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
-    log_info!("Received message: {}", message);
+    log_print!("Received message: {}", message);
 
     let mut response: Option<String> = None;
 
@@ -143,7 +143,7 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     }
 
     if let Some(r) = response {
-        log_info!("Sending a message to client: {}", r);
+        log_print!("Sending a message to client: {}", r);
 
         client_stream.write_all(r.as_bytes()).unwrap();
     }
@@ -165,11 +165,11 @@ pub fn client_to_server_message(message: &str) -> Result<String, String> {
 
     match stream.read(&mut buffer) {
         Ok(0) => {
-            log_info!("Server disconnected.");
+            log_print!("Server disconnected.");
         }
         // Windows handles this differently
         Err(e) if e.kind() == ErrorKind::ConnectionReset || e.kind() == ErrorKind::BrokenPipe => {
-            log_info!("Server disconnected.");
+            log_print!("Server disconnected.");
         }
         Ok(bytes_read) => {
             let message = String::from_utf8_lossy(&buffer[..bytes_read]);
