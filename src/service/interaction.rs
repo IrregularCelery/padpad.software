@@ -6,9 +6,13 @@ use open;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-use crate::{config::CONFIG, log_error, service::serial::Serial};
+use crate::{
+    config::{ComponentKind, Interaction, CONFIG},
+    log_error,
+    service::serial::Serial,
+};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InteractionKind {
     None(), /* Can be used for interactions that are handled by the device, or no interactions */
     Command(String /* command */, String /* shell */),
@@ -115,7 +119,37 @@ fn do_interaction(kind: &InteractionKind) {
     }
 }
 
-pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
+fn get_component_interactions(id: u8, kind: ComponentKind) -> Option<Interaction> {
+    let config = CONFIG
+        .get()
+        .expect("Could not retrieve CONFIG data!")
+        .lock()
+        .unwrap();
+
+    let current_profile = &config.profiles[config.settings.current_profile];
+
+    let component_global_id = format!("{}:{}", kind, id);
+
+    let interactions = current_profile
+        .interactions
+        .get(&component_global_id)
+        .cloned();
+
+    if interactions.is_none() {
+        log_error!(
+            "Couldn't find any interaction for the Component `{}` with the id `{}` in the current profile `{}`",
+            kind,
+            id,
+            config.settings.current_profile
+        );
+
+        return None;
+    }
+
+    interactions
+}
+
+pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
     // Only on button press for now
     if value != 1 {
         return;
@@ -128,35 +162,32 @@ pub fn do_button(id: u8, value: i32, modkey: bool, _serial: &mut Serial) {
     //    return;
     //}
 
-    let config = CONFIG
-        .get()
-        .expect("Could not retrieve CONFIG data!")
-        .lock()
-        .unwrap();
-
-    let current_profile = &config.profiles[config.settings.current_profile];
-
-    let component_global_id = format!("Button:{}", id);
-
-    let interactions = current_profile.interactions.get(&component_global_id);
-
-    if interactions.is_none() {
-        log_error!(
-            "Couldn't find any interaction for the Button `{}` in the current profile `{}`",
-            id,
-            config.settings.current_profile
-        );
-
-        return;
-    }
-
-    let interactions = interactions.unwrap();
+    let interactions =
+        get_component_interactions(id, ComponentKind::Button).unwrap_or(Interaction {
+            normal: InteractionKind::None(),
+            modkey: InteractionKind::None(),
+        });
 
     let interaction = if !modkey {
         &interactions.normal
     } else {
         &interactions.modkey
     };
+
+    do_interaction(interaction);
+}
+
+pub fn do_potentiometer(
+    id: u8,
+    value: u8, /* the value is mapped between 0-99 in the device */
+) {
+    let interactions =
+        get_component_interactions(id, ComponentKind::Potentiometer).unwrap_or(Interaction {
+            normal: InteractionKind::None(),
+            modkey: InteractionKind::None(),
+        });
+
+    let interaction = &interactions.normal;
 
     do_interaction(interaction);
 }
