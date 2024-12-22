@@ -136,7 +136,18 @@ impl eframe::App for Application {
             // Custom window content
             ui.heading("Hello World!");
             ui.label("PadPad is under construction!");
-            ui.label(format!("Server status: {}", self.server_data.is_connected));
+            ui.label(format!(
+                "Server status: {}",
+                self.server_data.is_client_connected
+            ));
+            ui.label(format!(
+                "Device status: {}",
+                if self.server_data.is_device_paired {
+                    "Paired"
+                } else {
+                    "Not paired"
+                }
+            ));
             ui.label(format!("Server current order: {}", self.server_data.order));
 
             let button = ui.button("hi");
@@ -266,12 +277,12 @@ impl Default for Application {
                             .lock()
                             .expect("Failed to lock `SERVER_RESPONSE_DATA`");
 
-                        if let Some(ref r) = server_data {
-                            let mut new_response = r.clone();
+                        if let Some(ref data) = server_data {
+                            let mut new_server_data = data.clone();
 
-                            new_response.set_connected(true);
+                            new_server_data.is_client_connected = true;
 
-                            *response = new_response;
+                            *response = new_server_data;
                         } else {
                             // Reset server_data if the connection was lost
                             *response = ServerData::default();
