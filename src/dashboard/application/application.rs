@@ -38,8 +38,6 @@ impl eframe::App for Application {
             self.server_data = server_data
         }
 
-        println!("Please");
-
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
