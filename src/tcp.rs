@@ -1,6 +1,7 @@
 use std::{
     io::{ErrorKind, Read, Write},
     net::{TcpListener, TcpStream},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use serde::{Deserialize, Serialize};
@@ -10,9 +11,12 @@ use crate::{
     log_error, log_info, log_print,
 };
 
+pub static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServerData {
-    pub is_connected: bool,
+    pub is_client_connected: bool, // Connection status between TCP `server` and `client`
+    pub is_device_paired: bool,    // Connection status between `device` and `software`
     pub order: String, // Server order message for client to do something. e.g. Reload config
 }
 
@@ -24,16 +28,13 @@ impl ServerData {
     pub fn parse(server_data_string: String) -> Self {
         serde_json::from_str(&server_data_string).unwrap_or(Self::default())
     }
-
-    pub fn set_connected(&mut self, is_connected: bool) {
-        self.is_connected = is_connected;
-    }
 }
 
 impl Default for ServerData {
     fn default() -> Self {
         Self {
-            is_connected: false,
+            is_client_connected: false,
+            is_device_paired: false,
             order: String::new(),
         }
     }
@@ -131,13 +132,9 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
 
     match message {
         "client::get_data" => {
-            // TEST: ServerData
-            let test_server_data = ServerData {
-                is_connected: false,
-                order: "server::reload_config".to_string(),
-            };
-
-            response = Some(test_server_data.to_string());
+            if let Ok(server_data) = get_server_data().lock() {
+                response = Some(server_data.to_string());
+            }
         }
         _ => (),
     }
@@ -185,4 +182,10 @@ pub fn client_to_server_message(message: &str) -> Result<String, String> {
     }
 
     Err("There was an `Unknown` problem while sending a message!\nMake sure the `Service` app is running!".into())
+}
+
+pub fn get_server_data() -> Arc<Mutex<ServerData>> {
+    SERVER_DATA
+        .get_or_init(|| Arc::new(Mutex::new(ServerData::default())))
+        .clone()
 }
