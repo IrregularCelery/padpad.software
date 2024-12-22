@@ -7,9 +7,8 @@ Sandbox `serial-transceiver`
     ✔ Checking for the TCP address, could be a good way too... if the address/port is in use,
         throw an error.
 [x] Add `confirm_exit` functionality to `Dashboard` app
-[] Add "xdg-open" is needed to README.md (open)
-[] Add "xdotool" is needed to README.md (enigo)
 [x] Handle IPC between `Service` and `Dashboard`
+[] Add component values in the `ServerData`
 
 Dashboard
     [] Maybe! a robust system to auto-detect all the components from the device and add them
@@ -19,6 +18,7 @@ Dashboard
         - Save it to devive's memory
     [x] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
         [x] Maybe even one for status of Device-Service connection (Serial)
+    [] Add a modal for `ServerData` fetching errors
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
@@ -33,3 +33,7 @@ Firmware
 
 Optional
     [] Date/Time formatting for logging system
+
+README
+    [] Add "xdg-open" is needed to README.md (open)
+    [] Add "xdotool" is needed to README.md (enigo)

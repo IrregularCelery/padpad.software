@@ -4,6 +4,7 @@ use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
 
 use padpad_software::{
     config::{ComponentKind, Config},
+    constants::SERVER_DATA_UPDATE_INTERVAL,
     log_error, log_trace,
     tcp::{client_to_server_message, ServerData},
 };
@@ -287,19 +288,26 @@ impl Default for Application {
                         }
                     };
 
-                    match client_to_server_message("client::get_data") {
+                    let mut update_interval = SERVER_DATA_UPDATE_INTERVAL;
+
+                    match client_to_server_message("data") {
                         Ok(r) => {
-                            server_data = Some(ServerData::parse(r));
-                            response_update(&server_data);
+                            // "0" means the data hasn't been changed since last ping
+                            if r != "0".to_string() {
+                                server_data = Some(ServerData::parse(r));
+                                response_update(&server_data);
+                            }
                         }
                         Err(e) => {
+                            update_interval = 1000;
+
                             server_data = None;
                             response_update(&server_data);
                             log_error!("{}", e);
                         }
                     }
 
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    std::thread::sleep(std::time::Duration::from_millis(update_interval));
                 }
             })
             .expect("Failed to spawn `TCP client` thread!");

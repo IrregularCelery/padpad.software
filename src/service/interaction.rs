@@ -179,7 +179,7 @@ pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
 
 pub fn do_potentiometer(
     id: u8,
-    value: u8, /* the value is mapped between 0-99 in the device */
+    _value: u8, /* the value is mapped between 0-99 in the device */
 ) {
     let interactions =
         get_component_interactions(id, ComponentKind::Potentiometer).unwrap_or(Interaction {

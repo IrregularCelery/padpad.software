@@ -7,7 +7,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR},
+    constants::{
+        DEBUG_TCP_CLIENT_CONNECTION, DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION, TCP_BUFFER_SIZE,
+        TCP_READ_TIMEOUT, TCP_SERVER_ADDR,
+    },
     log_error, log_info, log_print,
 };
 
@@ -15,6 +18,8 @@ pub static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServerData {
+    #[serde(skip)]
+    pub last_data_string: String, // Last data that client received to compare if it needs update
     pub is_client_connected: bool, // Connection status between TCP `server` and `client`
     pub is_device_paired: bool,    // Connection status between `device` and `software`
     pub order: String, // Server order message for client to do something. e.g. Reload config
@@ -33,6 +38,7 @@ impl ServerData {
 impl Default for ServerData {
     fn default() -> Self {
         Self {
+            last_data_string: String::new(),
             is_client_connected: false,
             is_device_paired: false,
             order: String::new(),
@@ -60,7 +66,9 @@ pub fn handle_tcp_server() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                log_print!("TCP new connection established.");
+                if DEBUG_TCP_CLIENT_CONNECTION {
+                    log_print!("TCP new connection established.");
+                }
 
                 std::thread::spawn(move || {
                     // Handle clients
@@ -69,7 +77,9 @@ pub fn handle_tcp_server() {
                     loop {
                         match stream.read(&mut buffer) {
                             Ok(0) => {
-                                log_print!("Client disconnected.");
+                                if DEBUG_TCP_CLIENT_CONNECTION {
+                                    log_print!("Client disconnected.");
+                                }
 
                                 break;
                             }
@@ -78,7 +88,9 @@ pub fn handle_tcp_server() {
                                 if e.kind() == ErrorKind::ConnectionReset
                                     || e.kind() == ErrorKind::BrokenPipe =>
                             {
-                                log_print!("Client disconnected.");
+                                if DEBUG_TCP_CLIENT_CONNECTION {
+                                    log_print!("Client disconnected.");
+                                }
 
                                 break;
                             }
@@ -126,21 +138,36 @@ fn handle_tcp_client() -> Result<TcpStream, String> {
 }
 
 fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
-    log_print!("Received message: {}", message);
+    if DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION {
+        log_print!("Received message: {}", message);
+    }
 
     let mut response: Option<String> = None;
 
     match message {
-        "client::get_data" => {
-            if let Ok(server_data) = get_server_data().lock() {
-                response = Some(server_data.to_string());
+        "data" => {
+            if let Ok(mut server_data) = get_server_data().lock() {
+                let data_string = server_data.to_string();
+
+                if server_data.last_data_string.is_empty()
+                    || server_data.last_data_string != data_string
+                {
+                    response = Some(data_string.clone());
+                } else {
+                    // "0" means the data hasn't been changed since last ping
+                    response = Some("0".to_string());
+                }
+
+                server_data.last_data_string = data_string;
             }
         }
         _ => (),
     }
 
     if let Some(r) = response {
-        log_print!("Sending a message to client: {}", r);
+        if DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION {
+            log_print!("Sending a message to client: {}", r);
+        }
 
         client_stream.write_all(r.as_bytes()).unwrap();
     }
