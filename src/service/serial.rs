@@ -4,10 +4,10 @@ use std::{
 };
 
 use crate::{
-    config::CONFIG,
+    config::{ComponentKind, CONFIG},
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
-    service::interaction::do_button,
+    service::interaction::{do_button, do_potentiometer},
     tcp,
 };
 
@@ -213,7 +213,7 @@ impl Serial {
 
             if ready {
                 let mut valid = false;
-                let mut component = "";
+                let mut component = ComponentKind::None;
                 let mut id = 0;
                 let mut modkey = false;
 
@@ -236,9 +236,9 @@ impl Serial {
                     _ => {
                         // Format: e.g. key: bm5 -> b=button m/M=modkey 5=id
                         component = match key.chars().nth(0).unwrap_or('\0') {
-                            'b' => "Button",
-                            'p' => "Potentiometer",
-                            _ => "Unknown",
+                            'b' => ComponentKind::Button,
+                            'p' => ComponentKind::Potentiometer,
+                            _ => ComponentKind::None,
                         };
                         id = key[2..].trim().parse::<u8>().unwrap_or(0);
 
@@ -248,8 +248,8 @@ impl Serial {
                             _ => {}
                         }
 
-                        // if for some reason the component or id were zero, ignore them
-                        if !component.is_empty() && id != 0 {
+                        // if for some reason id was zero, ignore them
+                        if id != 0 {
                             valid = true;
                         }
                     }
@@ -268,8 +268,12 @@ impl Serial {
                 );
 
                 match component {
-                    "Button" => do_button(id, value.parse::<i32>().unwrap_or(0), modkey, self),
-                    "Potentiometer" => (),
+                    ComponentKind::Button => {
+                        do_button(id, value.parse::<i8>().unwrap_or(0), modkey, self)
+                    }
+                    ComponentKind::Potentiometer => {
+                        do_potentiometer(id, value.parse::<u8>().unwrap_or(0))
+                    }
                     _ => (),
                 }
             }
