@@ -8,6 +8,7 @@ use crate::{
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
     service::interaction::do_button,
+    tcp,
 };
 
 pub static SERIAL: OnceLock<Mutex<Serial>> = OnceLock::new();
@@ -164,8 +165,19 @@ impl Serial {
     }
 
     pub fn handle_serial_port(&mut self) {
+        // Function to set `is_device_paired` in `SERVER_DATA`
+        let update_pairing_status = |state: bool| {
+            if let Ok(mut data) = tcp::get_server_data().lock() {
+                let mut server_data = data.clone();
+
+                server_data.is_device_paired = state;
+
+                *data = server_data;
+            }
+        };
         // Device and software pairing status
         let mut paired = false;
+        update_pairing_status(paired);
 
         while !self.detect_device_and_connect() {
             log_warn!("Could not connect to any serial devices, retrying...");
@@ -215,6 +227,7 @@ impl Serial {
                         log_print!("[INCOMING] key: {} | value: {}", key, value);
 
                         paired = true;
+                        update_pairing_status(paired);
                     }
                     "ERROR" => {
                         // Handle device's errors

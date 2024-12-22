@@ -52,33 +52,6 @@ fn main() {
         })
         .expect("Failed to spawn `Serial` thread!");
 
-    // TEST: Testing thread for mutating server_data
-    std::thread::Builder::new()
-        .name("Test".to_string())
-        .spawn(|| {
-            let mut count: u32 = 0;
-            loop {
-                count = count + 1;
-
-                if let Ok(mut data) = tcp::get_server_data().lock() {
-                    let mut server_data = data.clone();
-
-                    if count % 5 == 0 {
-                        server_data.is_device_paired = true;
-                    } else {
-                        server_data.is_device_paired = false;
-                    }
-
-                    server_data.order = format!("Count: {}", count);
-
-                    *data = server_data;
-                }
-
-                std::thread::sleep(std::time::Duration::from_millis(1000));
-            }
-        })
-        .expect("Failed to spawn `Serial` thread!");
-
     tray_thread
         .join()
         .expect_err("there was a problem while spawning the `tray` thread!");
