@@ -9,7 +9,7 @@ Sandbox `serial-transceiver`
 [x] Add `confirm_exit` functionality to `Dashboard` app
 [] Add "xdg-open" is needed to README.md (open)
 [] Add "xdotool" is needed to README.md (enigo)
-[] Handle IPC between `Service` and `Dashboard`
+[x] Handle IPC between `Service` and `Dashboard`
 
 Dashboard
     [] Maybe! a robust system to auto-detect all the components from the device and add them
@@ -18,7 +18,7 @@ Dashboard
         - Only have it when the device and software are paired/connected
         - Save it to devive's memory
     [x] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
-        [] Maybe even one for status of Device-Service connection (Serial)
+        [x] Maybe even one for status of Device-Service connection (Serial)
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
