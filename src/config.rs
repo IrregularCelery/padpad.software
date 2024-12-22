@@ -56,7 +56,7 @@ pub struct Layout {
     pub components: HashMap<String /* key format: kind:id e.g. Button:1 */, Component>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Interaction {
     pub normal: InteractionKind,
     pub modkey: InteractionKind,
@@ -77,6 +77,14 @@ pub enum ComponentKind {
     Joystick,
     RotaryEncoder,
     Display,
+}
+
+impl std::fmt::Display for ComponentKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let type_str = format!("{:?}", self);
+
+        write!(f, "{}", type_str.split('(').next().unwrap_or(&type_str))
+    }
 }
 
 impl Default for Config {
