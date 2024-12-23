@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex, OnceLock};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
 
@@ -26,6 +29,7 @@ pub struct Application {
     ),
     config: Option<Config>,
     server_data: ServerData,
+    components: HashMap<String, String>,
 }
 
 impl eframe::App for Application {
@@ -261,6 +265,10 @@ impl Application {
         match &self.config {
             Some(config) => {
                 for component in &config.layout.components {
+                    // Add all components with default values
+                    self.components
+                        .insert(component.0.to_string(), "0".to_string());
+
                     let kind_id: Vec<&str> = component.0.split(':').collect();
 
                     let kind = match kind_id.first() {
@@ -273,6 +281,7 @@ impl Application {
                         _ => ComponentKind::None,
                     };
                     let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+                    let value = self.components.get(&component.0.to_string()).unwrap();
                     let label = &component.1.label;
                     let position: Pos2 = component.1.position.into();
                     let size = Vec2::new(100.0, 30.0);
@@ -280,7 +289,13 @@ impl Application {
                     match kind {
                         ComponentKind::None => (),
                         ComponentKind::Button => {
-                            let button = self.draw_button(ui, label, position, size);
+                            let button = self.draw_button(
+                                ui,
+                                label,
+                                position,
+                                size,
+                                value.parse::<i8>().unwrap_or(0),
+                            );
 
                             if button.clicked() {
                                 log_print!("{}: {}", label, id);
@@ -307,6 +322,7 @@ impl Application {
         label: &String,
         relative_position: Pos2, /* relative to window position */
         size: Vec2,
+        value: i8,
     ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
@@ -315,7 +331,15 @@ impl Application {
         );
         let rect = egui::Rect::from_min_size(position, size.into());
 
-        ui.put(rect, Button::new(label))
+        let button_color = if value > 0 {
+            egui::Color32::from_rgb(100, 200, 100)
+        } else {
+            ui.style().visuals.widgets.inactive.bg_fill
+        };
+
+        let response = ui.put(rect, Button::new(label).fill(button_color));
+
+        response
     }
 }
 
@@ -409,6 +433,7 @@ impl Default for Application {
                 }
             },
             server_data: ServerData::default(),
+            components: HashMap::default(),
         }
     }
 }
