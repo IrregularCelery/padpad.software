@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    config::{ComponentKind, CONFIG},
+    config::{ComponentKind, Config, CONFIG},
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
     service::interaction::{do_button, do_potentiometer},
@@ -87,7 +87,10 @@ impl Serial {
 
                         let port_name = &port.port_name;
 
-                        config.save(|c| c.settings.port_name = port_name.clone(), true);
+                        // Update config and tell the client to reload
+                        update_config_and_client(&mut config, |c| {
+                            c.settings.port_name = port_name.clone()
+                        });
 
                         match self.try_connect_to_port(port_name, config.settings.baud_rate) {
                             Ok(_) => return true,
@@ -330,4 +333,22 @@ pub fn init() {
     let serial = Serial::default();
 
     SERIAL.get_or_init(|| Mutex::new(serial));
+}
+
+//pub fn save<F>(&mut self, callback: F, write_to_file: bool)
+//where
+//    F: FnOnce(&mut Self),
+fn update_config_and_client<F>(config: &mut Config, callback: F)
+where
+    F: FnOnce(&mut Config),
+{
+    config.save(callback, true);
+
+    if let Ok(mut data) = tcp::get_server_data().lock() {
+        let mut server_data = data.clone();
+
+        server_data.order = "reload_config".to_string();
+
+        *data = server_data;
+    }
 }
