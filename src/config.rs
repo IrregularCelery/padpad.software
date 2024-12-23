@@ -274,10 +274,6 @@ impl Config {
         // After reading, all the serde-ignored variables are empty
         config.file_path = Config::default().file_path;
 
-        crate::log_trace!("");
-        crate::log_trace!("{:?}", config.profiles[config.settings.current_profile]);
-        crate::log_trace!("");
-
         Ok(config)
     }
 
