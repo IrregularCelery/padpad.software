@@ -8,7 +8,7 @@ Sandbox `serial-transceiver`
         throw an error.
 [x] Add `confirm_exit` functionality to `Dashboard` app
 [x] Handle IPC between `Service` and `Dashboard`
-[] Add component values in the `ServerData`
+[x] Add component values in the `ServerData` (Added `components` to `Application` instead)
 
 Dashboard
     [] Maybe! a robust system to auto-detect all the components from the device and add them
