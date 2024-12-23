@@ -145,6 +145,26 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     let mut response: Option<String> = None;
 
     match message {
+        "handled" => {
+            if let Ok(mut server_data) = get_server_data().lock() {
+                server_data.order = String::new();
+
+                let data_string = server_data.to_string();
+
+                response = Some("ok".to_string());
+
+                server_data.last_data_string = data_string;
+            }
+        }
+        "force_data" => {
+            if let Ok(mut server_data) = get_server_data().lock() {
+                let data_string = server_data.to_string();
+
+                response = Some(data_string.clone());
+
+                server_data.last_data_string = data_string;
+            }
+        }
         "data" => {
             if let Ok(mut server_data) = get_server_data().lock() {
                 let data_string = server_data.to_string();
@@ -161,7 +181,7 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
                 server_data.last_data_string = data_string;
             }
         }
-        _ => (),
+        _ => response = Some(message.to_string()),
     }
 
     if let Some(r) = response {
@@ -180,7 +200,7 @@ pub fn client_to_server_message(message: &str) -> Result<String, String> {
     };
 
     if let Err(e) = stream.write_all(message.as_bytes()) {
-        println!("Failed to write to server: {:?}", e);
+        log_error!("Failed to write to server: {:?}", e);
 
         return Err("Failed to send a message!\nMake sure the `Service` app is running!".into());
     }
