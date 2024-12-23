@@ -5,13 +5,13 @@ use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
 use padpad_software::{
     config::{ComponentKind, Config},
     constants::SERVER_DATA_UPDATE_INTERVAL,
-    log_error, log_trace,
+    log_error, log_print,
     tcp::{client_to_server_message, ServerData},
 };
 
 use super::get_current_style;
 
-static SERVER_RESPONSE_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
+static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
                                                                       // last error message
 
@@ -39,10 +39,10 @@ impl eframe::App for Application {
         ctx.set_style(style);
 
         // Access the latest server data
-        if let Some(server_response_data) = SERVER_RESPONSE_DATA.get() {
-            let server_data = server_response_data.lock().unwrap().clone();
+        if let Some(server_data) = SERVER_DATA.get() {
+            let new_server_data = server_data.lock().unwrap().clone();
 
-            self.server_data = server_data
+            self.server_data = new_server_data;
         }
 
         // Access the last error message
@@ -53,6 +53,34 @@ impl eframe::App for Application {
                 self.error_modal = (true, error_message);
             } else {
                 self.error_modal = (false, String::new());
+            }
+        }
+
+        // Handle server orders
+        if !self.server_data.order.is_empty() {
+            let mut handled = false;
+
+            match self.server_data.order.as_str() {
+                "reload_config" => {
+                    handled = true;
+
+                    if let Some(config) = &mut self.config {
+                        config.load();
+                    }
+                }
+                _ => (),
+            }
+
+            if handled {
+                if let Some(server_data) = SERVER_DATA.get() {
+                    let mut new_server_data = server_data.lock().unwrap();
+
+                    self.server_data.order = String::new();
+
+                    *new_server_data = self.server_data.clone();
+                }
+
+                client_to_server_message("handled").ok();
             }
         }
 
@@ -177,6 +205,16 @@ impl eframe::App for Application {
                     "Not paired"
                 }
             ));
+
+            ui.label(format!("Server current order: {}", self.server_data.order));
+
+            let mut port_name = if let Some(config) = &self.config {
+                config.settings.port_name.clone()
+            } else {
+                "".to_string()
+            };
+
+            ui.text_edit_singleline(&mut port_name).enabled();
             ui.label(format!("Server current order: {}", self.server_data.order));
 
             let button = ui.button("hi");
@@ -186,12 +224,10 @@ impl eframe::App for Application {
             }
 
             if button.clicked() {
-                println!("Button was clicked");
-
                 if let Ok(response) =
                     client_to_server_message("A message from TCP client to server")
                 {
-                    log_trace!("{}", response);
+                    log_print!("{}", response);
                 }
             }
 
@@ -247,7 +283,7 @@ impl Application {
                             let button = self.draw_button(ui, label, position, size);
 
                             if button.clicked() {
-                                println!("{}: {}", label, id);
+                                log_print!("{}: {}", label, id);
                             };
                         }
                         ComponentKind::LED => (),
@@ -285,7 +321,9 @@ impl Application {
 
 impl Default for Application {
     fn default() -> Self {
-        let server_response = SERVER_RESPONSE_DATA
+        let mut first_time = true;
+
+        let server_response = SERVER_DATA
             .get_or_init(|| Arc::new(Mutex::new(ServerData::default())))
             .clone();
 
@@ -300,7 +338,7 @@ impl Default for Application {
                 let update_response = |server_data: &Option<ServerData>| {
                     let mut response = server_response
                         .lock()
-                        .expect("Failed to lock `SERVER_RESPONSE_DATA`");
+                        .expect("Failed to lock `SERVER_DATA`");
 
                     if let Some(ref data) = server_data {
                         let mut new_server_data = data.clone();
@@ -315,11 +353,12 @@ impl Default for Application {
                 };
 
                 let mut server_data: Option<ServerData>;
+                let mut data_message = "force_data".to_string();
 
                 loop {
                     let mut update_interval = SERVER_DATA_UPDATE_INTERVAL;
 
-                    match client_to_server_message("data") {
+                    match client_to_server_message(&data_message) {
                         Ok(r) => {
                             // "0" means the data hasn't been changed since last ping
                             if r != "0".to_string() {
@@ -345,6 +384,12 @@ impl Default for Application {
 
                             log_error!("{}", e.replace('\n', " "));
                         }
+                    }
+
+                    if first_time {
+                        first_time = false;
+
+                        data_message = "data".to_string();
                     }
 
                     std::thread::sleep(std::time::Duration::from_millis(update_interval));
