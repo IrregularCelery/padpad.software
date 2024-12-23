@@ -18,7 +18,7 @@ Dashboard
         - Save it to devive's memory
     [x] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
         [x] Maybe even one for status of Device-Service connection (Serial)
-    [] Add a modal for `ServerData` fetching errors
+    [x] Add a modal for `ServerData` fetching errors
 
 Firmware
     [x] Ground all cd4051be channels to reduce cross-talk and noise
