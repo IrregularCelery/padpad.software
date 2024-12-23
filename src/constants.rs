@@ -13,8 +13,9 @@ pub const SERIAL_MESSAGE_END: &str = ";";
 pub const TCP_SERVER_ADDR: &str = "127.0.0.1:51690"; // Random number in range of unused ports
 pub const TCP_READ_TIMEOUT: u64 = 5000; // Client waiting duration for server response (in ms)
 pub const TCP_BUFFER_SIZE: usize = 4096; // 4 KB buffer
-pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 10; // If you don't care about the `Dashboard` being
-                                                 // responsive, you can have higher interval (in ms)
+pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the `Dashboard` being
+                                                 // responsive while device components are being used
+                                                 // you can have higher interval (in ms) (16 ≈ 60FPS)
                                                  // if client isn't connected, interval is 1000ms
 
 // Validation
