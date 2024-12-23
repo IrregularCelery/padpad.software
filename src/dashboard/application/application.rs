@@ -12,11 +12,17 @@ use padpad_software::{
 use super::get_current_style;
 
 static SERVER_RESPONSE_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
+static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
+                                                                      // last error message
 
 pub struct Application {
     close_app: (
+        bool, /* show_close_modal */
         bool, /* can_close_app */
-        bool, /* show_on_close_modal */
+    ),
+    error_modal: (
+        bool,   /* show_error_modal */
+        String, /* error_modal_text */
     ),
     config: Option<Config>,
     server_data: ServerData,
@@ -39,20 +45,31 @@ impl eframe::App for Application {
             self.server_data = server_data
         }
 
+        // Access the last error message
+        if let Some(last_error_message) = ERROR_MESSAGE.get() {
+            let error_message = last_error_message.lock().unwrap().clone();
+
+            if !error_message.is_empty() {
+                self.error_modal = (true, error_message);
+            } else {
+                self.error_modal = (false, String::new());
+            }
+        }
+
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
-            if !self.close_app.0 {
+            if !self.close_app.1 {
                 // Cancel closing the app if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
-                // show_on_close_modal
-                self.close_app.1 = true;
+                // show_close_modal
+                self.close_app.0 = true;
             }
         }
 
         // Confirm exit modal
-        if self.close_app.1 {
+        if self.close_app.0 {
             let modal = Modal::new(Id::new("Close Modal")).show(ctx, |ui| {
                 ui.set_width(200.0);
                 ui.heading("Are you sure you want to close the application?");
@@ -66,20 +83,33 @@ impl eframe::App for Application {
                         if ui.button("Close").clicked()
                             || ui.input(|i| i.key_pressed(egui::Key::Enter))
                         {
-                            self.close_app.1 = false;
-                            self.close_app.0 = true;
+                            self.close_app.0 = false;
+                            self.close_app.1 = true;
                             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         }
 
                         if ui.button("Cancel").clicked() {
-                            self.close_app.1 = false;
+                            self.close_app.0 = false;
                         }
                     },
                 );
             });
 
             if modal.should_close() {
-                self.close_app.1 = false;
+                self.close_app.0 = false;
+            }
+        }
+
+        // Error modal
+        if self.error_modal.0 {
+            let modal = Modal::new(Id::new("Error Modal")).show(ctx, |ui| {
+                ui.set_width(250.0);
+
+                ui.heading(self.error_modal.1.clone());
+            });
+
+            if modal.should_close() {
+                self.error_modal.0 = false;
             }
         }
 
@@ -255,39 +285,38 @@ impl Application {
 
 impl Default for Application {
     fn default() -> Self {
-        SERVER_RESPONSE_DATA
-            .set(Arc::new(Mutex::new(ServerData::default())))
-            .ok();
-
         let server_response = SERVER_RESPONSE_DATA
-            .get()
-            .expect("Failed to get `SERVER_RESPONSE_DATA`")
+            .get_or_init(|| Arc::new(Mutex::new(ServerData::default())))
+            .clone();
+
+        let error_message = ERROR_MESSAGE
+            .get_or_init(|| Arc::new(Mutex::new(String::new())))
             .clone();
 
         // IPC handling between dashboard and service app
         std::thread::Builder::new()
             .name("TCP client".to_string())
             .spawn(move || {
+                let update_response = |server_data: &Option<ServerData>| {
+                    let mut response = server_response
+                        .lock()
+                        .expect("Failed to lock `SERVER_RESPONSE_DATA`");
+
+                    if let Some(ref data) = server_data {
+                        let mut new_server_data = data.clone();
+
+                        new_server_data.is_client_connected = true;
+
+                        *response = new_server_data;
+                    } else {
+                        // Reset server_data if the connection was lost
+                        *response = ServerData::default();
+                    }
+                };
+
                 let mut server_data: Option<ServerData>;
 
                 loop {
-                    let response_update = |server_data: &Option<ServerData>| {
-                        let mut response = server_response
-                            .lock()
-                            .expect("Failed to lock `SERVER_RESPONSE_DATA`");
-
-                        if let Some(ref data) = server_data {
-                            let mut new_server_data = data.clone();
-
-                            new_server_data.is_client_connected = true;
-
-                            *response = new_server_data;
-                        } else {
-                            // Reset server_data if the connection was lost
-                            *response = ServerData::default();
-                        }
-                    };
-
                     let mut update_interval = SERVER_DATA_UPDATE_INTERVAL;
 
                     match client_to_server_message("data") {
@@ -295,15 +324,26 @@ impl Default for Application {
                             // "0" means the data hasn't been changed since last ping
                             if r != "0".to_string() {
                                 server_data = Some(ServerData::parse(r));
-                                response_update(&server_data);
+                                update_response(&server_data);
+
+                                // Reset error message
+                                if let Ok(mut error) = error_message.lock() {
+                                    *error = String::new();
+                                }
                             }
                         }
                         Err(e) => {
                             update_interval = 1000;
 
                             server_data = None;
-                            response_update(&server_data);
-                            log_error!("{}", e);
+                            update_response(&server_data);
+
+                            // Set error message for `error_modal` in `Application`
+                            if let Ok(mut error) = error_message.lock() {
+                                *error = e.clone();
+                            }
+
+                            log_error!("{}", e.replace('\n', " "));
                         }
                     }
 
@@ -314,6 +354,7 @@ impl Default for Application {
 
         Self {
             close_app: (false, false),
+            error_modal: (false, String::new()),
             config: match Config::default().read() {
                 Ok(config) => Some(config),
                 Err(err) => {
