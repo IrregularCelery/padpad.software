@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use eframe::egui::{self, Button, Context, Pos2, Response, Ui, Vec2};
+use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2};
 
 use padpad_software::{
     config::{ComponentKind, Config},
@@ -337,7 +337,15 @@ impl Application {
                             };
                         }
                         ComponentKind::LED => (),
-                        ComponentKind::Potentiometer => (),
+                        ComponentKind::Potentiometer => {
+                            self.draw_potentiometer(
+                                ui,
+                                label,
+                                position,
+                                size,
+                                value.parse::<u8>().unwrap_or(0),
+                            );
+                        }
                         ComponentKind::Joystick => (),
                         ComponentKind::RotaryEncoder => (),
                         ComponentKind::Display => (),
@@ -375,6 +383,27 @@ impl Application {
         let response = ui.put(rect, Button::new(label).fill(button_color));
 
         response
+    }
+
+    fn draw_potentiometer(
+        &self,
+        ui: &mut Ui,
+        _label: &String,
+        relative_position: Pos2, /* relative to window position */
+        size: Vec2,
+        value: u8,
+    ) {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = egui::Rect::from_min_size(position, size.into());
+
+        // value is mapped between 0-99, therefore we can device it by 100 to get 0-1 value
+        let value = (value as f32) / 100.0;
+
+        ui.put(rect, ProgressBar::new(value).show_percentage());
     }
 }
 
