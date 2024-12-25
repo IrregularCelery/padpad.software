@@ -128,6 +128,13 @@ impl Default for Config {
                         Component::new_button(1, "First Button".to_string(), (50.0, 50.0));
                     components.insert(button1.0, button1.1);
 
+                    let potentiometer2 = Component::new_potentiometer(
+                        2,
+                        "Potentiometer 2".to_string(),
+                        (150.0, 100.0),
+                    );
+
+                    components.insert(potentiometer2.0, potentiometer2.1);
                     let button2 =
                         Component::new_button(2, "Second Button".to_string(), (50.0, 100.0));
                     components.insert(button2.0, button2.1);
@@ -139,6 +146,13 @@ impl Default for Config {
                     let button4 =
                         Component::new_button(4, "Fourth Button".to_string(), (50.0, 200.0));
                     components.insert(button4.0, button4.1);
+
+                    let potentiometer1 = Component::new_potentiometer(
+                        1,
+                        "Potentiometer 1".to_string(),
+                        (150.0, 200.0),
+                    );
+                    components.insert(potentiometer1.0, potentiometer1.1);
 
                     components
                 },
@@ -176,6 +190,14 @@ impl Default for Profile {
                 );
 
                 interactions.insert(
+                    "Potentiometer:2".to_string(),
+                    Interaction {
+                        normal: InteractionKind::None(),
+                        modkey: InteractionKind::None(),
+                    },
+                );
+
+                interactions.insert(
                     "Button:3".to_string(),
                     Interaction {
                         normal: InteractionKind::Command(
@@ -197,6 +219,14 @@ impl Default for Profile {
                             vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
                             String::new(),
                         ),
+                    },
+                );
+
+                interactions.insert(
+                    "Potentiometer:1".to_string(),
+                    Interaction {
+                        normal: InteractionKind::None(),
+                        modkey: InteractionKind::None(),
                     },
                 );
 
@@ -269,6 +299,8 @@ impl Config {
 
         file.read_to_string(&mut toml_str)?;
 
+        log_info!("Config file found at `{}`", file_path);
+
         let mut config: Config = toml::from_str(&toml_str).unwrap_or_default();
 
         // After reading, all the serde-ignored variables are empty
@@ -302,8 +334,18 @@ impl Component {
         id: u8,
         label: String,
         position: (f32 /* x */, f32 /* y */),
-    ) -> (String /* component_key */, Self) {
-        let key = format!("Button:{}", id);
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::Button, id);
+
+        (key, Self { label, position })
+    }
+
+    pub fn new_potentiometer(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::Potentiometer, id);
 
         (key, Self { label, position })
     }
