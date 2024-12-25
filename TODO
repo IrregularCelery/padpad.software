@@ -37,3 +37,7 @@ Optional
 README
     [] Add "xdg-open" is needed to README.md (open)
     [] Add "xdotool" is needed to README.md (enigo)
+    [] Known Issue: because the ServerData only handles one component at a time,
+        if the components are updating too fast for the client to catch up,
+        on the `Dashboard` app, the visuals might not update correctly,
+        but the functionality of the device and `Service` app remains correct.
