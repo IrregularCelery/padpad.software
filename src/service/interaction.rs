@@ -10,6 +10,7 @@ use crate::{
     config::{ComponentKind, Interaction, CONFIG},
     log_error,
     service::serial::Serial,
+    tcp,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -119,7 +120,17 @@ fn do_interaction(kind: &InteractionKind) {
     }
 }
 
-fn get_component_interactions(id: u8, kind: ComponentKind) -> Option<Interaction> {
+fn update_server_data_component(component_global_id: String, value: String) {
+    if let Ok(mut data) = tcp::get_server_data().lock() {
+        let mut server_data = data.clone();
+
+        server_data.last_updated_component = (component_global_id, value);
+
+        *data = server_data;
+    }
+}
+
+fn get_component_interactions(component_global_id: String) -> Option<Interaction> {
     let config = CONFIG
         .get()
         .expect("Could not retrieve CONFIG data!")
@@ -128,8 +139,6 @@ fn get_component_interactions(id: u8, kind: ComponentKind) -> Option<Interaction
 
     let current_profile = &config.profiles[config.settings.current_profile];
 
-    let component_global_id = format!("{}:{}", kind, id);
-
     let interactions = current_profile
         .interactions
         .get(&component_global_id)
@@ -137,9 +146,8 @@ fn get_component_interactions(id: u8, kind: ComponentKind) -> Option<Interaction
 
     if interactions.is_none() {
         log_error!(
-            "Couldn't find any interaction for the Component `{}` with the id `{}` in the current profile `{}`",
-            kind,
-            id,
+            "Couldn't find any interaction for the Component `{}` in the current profile `{}`",
+            component_global_id,
             config.settings.current_profile
         );
 
@@ -150,23 +158,26 @@ fn get_component_interactions(id: u8, kind: ComponentKind) -> Option<Interaction
 }
 
 pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
+    let component_global_id = format!("{}:{}", ComponentKind::Button, id);
+
+    update_server_data_component(component_global_id.clone(), value.to_string());
+
     // Only on button press for now
     if value != 1 {
         return;
     }
 
+    // TEST: Upload key letters for buttons
     //if id == 4 {
-    //    // Upload key letters for buttons - TEST
     //    serial.write("u1:0|111;2:98|112;3:99|113;4:100|114;5:101|115;6:102|116;7:103|117;8:104|118;9:105|119;10:106|120;11:107|121;12:108|122;13:109|32;14:48|120;15:255|0;".to_string()); // 120 = 'w' | 121 = 'z'
     //
     //    return;
     //}
 
-    let interactions =
-        get_component_interactions(id, ComponentKind::Button).unwrap_or(Interaction {
-            normal: InteractionKind::None(),
-            modkey: InteractionKind::None(),
-        });
+    let interactions = get_component_interactions(component_global_id).unwrap_or(Interaction {
+        normal: InteractionKind::None(),
+        modkey: InteractionKind::None(),
+    });
 
     let interaction = if !modkey {
         &interactions.normal
@@ -179,13 +190,16 @@ pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
 
 pub fn do_potentiometer(
     id: u8,
-    _value: u8, /* the value is mapped between 0-99 in the device */
+    value: u8, /* the value is mapped between 0-99 in the device */
 ) {
-    let interactions =
-        get_component_interactions(id, ComponentKind::Potentiometer).unwrap_or(Interaction {
-            normal: InteractionKind::None(),
-            modkey: InteractionKind::None(),
-        });
+    let component_global_id = format!("{}:{}", ComponentKind::Potentiometer, id);
+
+    update_server_data_component(component_global_id.clone(), value.to_string());
+
+    let interactions = get_component_interactions(component_global_id).unwrap_or(Interaction {
+        normal: InteractionKind::None(),
+        modkey: InteractionKind::None(),
+    });
 
     let interaction = &interactions.normal;
 
