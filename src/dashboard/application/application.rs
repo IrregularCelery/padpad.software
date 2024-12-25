@@ -9,7 +9,7 @@ use padpad_software::{
     config::{ComponentKind, Config},
     constants::SERVER_DATA_UPDATE_INTERVAL,
     log_error, log_print,
-    tcp::{client_to_server_message, get_server_data, ServerData},
+    tcp::{client_to_server_message, ServerData},
 };
 
 use super::get_current_style;
@@ -43,13 +43,82 @@ impl eframe::App for Application {
         ctx.set_style(style);
 
         // Access the latest server data
-        self.update_server_data();
+        if let Some(server_data) = SERVER_DATA.get() {
+            let new_server_data = server_data.lock().unwrap().clone();
 
-        self.update_error_message();
+            self.server_data = new_server_data;
+        }
 
-        self.handle_server_orders();
+        // Access the last error message
+        if let Some(last_error_message) = ERROR_MESSAGE.get() {
+            let error_message = last_error_message.lock().unwrap().clone();
 
-        self.update_component_values();
+            if !error_message.is_empty() {
+                self.error_modal = (true, error_message);
+            } else {
+                self.error_modal = (false, String::new());
+            }
+        }
+
+        // Handle server orders
+        if !self.server_data.order.is_empty() {
+            let mut handled = false;
+
+            match self.server_data.order.as_str() {
+                "reload_config" => {
+                    handled = true;
+
+                    if let Some(config) = &mut self.config {
+                        config.load();
+                    }
+                }
+                _ => (),
+            }
+
+            if handled {
+                if let Some(server_data) = SERVER_DATA.get() {
+                    let mut new_server_data = server_data.lock().unwrap();
+
+                    self.server_data.order = String::new();
+
+                    *new_server_data = self.server_data.clone();
+                }
+
+                client_to_server_message("handled").ok();
+            }
+        }
+
+        // Fill self.components with default values
+        if self.components.is_empty() {
+            if let Some(config) = &self.config {
+                for component in &config.layout.components {
+                    // Add all components with default values
+                    if !self.components.contains_key(&component.0.to_string()) {
+                        self.components
+                            .insert(component.0.to_string(), "0".to_string());
+                    }
+                }
+            }
+        }
+
+        // Update component values
+        if !self.server_data.last_updated_component.0.is_empty() {
+            let component_global_id = self.server_data.last_updated_component.0.clone();
+            let value = self.server_data.last_updated_component.1.clone();
+
+            *self
+                .components
+                .entry(component_global_id)
+                .or_insert(String::new()) = value;
+
+            if let Some(server_data) = SERVER_DATA.get() {
+                let mut new_server_data = server_data.lock().unwrap();
+
+                self.server_data.last_updated_component = (String::new(), String::new());
+
+                *new_server_data = self.server_data.clone();
+            }
+        }
 
         self.close_modal(ctx);
 
@@ -171,90 +240,7 @@ impl eframe::App for Application {
 }
 
 impl Application {
-    fn update_server_data(&mut self) {
-        if let Some(server_data) = SERVER_DATA.get() {
-            let new_server_data = server_data.lock().unwrap().clone();
-
-            self.server_data = new_server_data;
-        }
-    }
-
-    fn update_error_message(&mut self) {
-        if let Some(last_error_message) = ERROR_MESSAGE.get() {
-            let error_message = last_error_message.lock().unwrap().clone();
-
-            if !error_message.is_empty() {
-                self.error_modal = (true, error_message);
-            } else {
-                self.error_modal = (false, String::new());
-            }
-        }
-    }
-
-    fn handle_server_orders(&mut self) {
-        if !self.server_data.order.is_empty() {
-            let mut handled = false;
-
-            match self.server_data.order.as_str() {
-                "reload_config" => {
-                    handled = true;
-
-                    if let Some(config) = &mut self.config {
-                        config.load();
-                    }
-                }
-                _ => (),
-            }
-
-            if handled {
-                if let Some(server_data) = SERVER_DATA.get() {
-                    let mut new_server_data = server_data.lock().unwrap();
-
-                    self.server_data.order = String::new();
-
-                    *new_server_data = self.server_data.clone();
-                }
-
-                client_to_server_message("handled").ok();
-            }
-        }
-    }
-
-    fn update_component_values(&mut self) {
-        // Fill self.components with default values
-        if self.components.is_empty() {
-            if let Some(config) = &self.config {
-                for component in &config.layout.components {
-                    // Add all components with default values
-                    if !self.components.contains_key(&component.0.to_string()) {
-                        self.components
-                            .insert(component.0.to_string(), "0".to_string());
-                    }
-                }
-            }
-        }
-
-        // Update values
-        if !self.server_data.last_updated_component.0.is_empty() {
-            let component_global_id = self.server_data.last_updated_component.0.clone();
-            let value = self.server_data.last_updated_component.1.clone();
-
-            *self
-                .components
-                .entry(component_global_id)
-                .or_insert(String::new()) = value;
-
-            if let Some(server_data) = SERVER_DATA.get() {
-                let mut new_server_data = server_data.lock().unwrap();
-
-                self.server_data.last_updated_component = (String::new(), String::new());
-
-                *new_server_data = self.server_data.clone();
-            }
-        }
-    }
-
-    fn close_modal(&mut self, ctx: &egui::Context) {
+    fn close_modal(&mut self, ctx: &Context) {
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
@@ -267,6 +253,7 @@ impl Application {
             }
         }
 
+        // Confirm exit modal
         if self.close_app.0 {
             let modal = egui::Modal::new(egui::Id::new("Close Modal")).show(ctx, |ui| {
                 ui.set_width(200.0);
@@ -299,7 +286,7 @@ impl Application {
         }
     }
 
-    fn error_modal(&mut self, ctx: &egui::Context) {
+    fn error_modal(&mut self, ctx: &Context) {
         if self.error_modal.0 {
             let modal = egui::Modal::new(egui::Id::new("Error Modal")).show(ctx, |ui| {
                 ui.set_width(250.0);
@@ -395,7 +382,9 @@ impl Default for Application {
     fn default() -> Self {
         let mut first_time = true;
 
-        let server_response = get_server_data();
+        let server_response = SERVER_DATA
+            .get_or_init(|| Arc::new(Mutex::new(ServerData::default())))
+            .clone();
 
         let error_message = ERROR_MESSAGE
             .get_or_init(|| Arc::new(Mutex::new(String::new())))
