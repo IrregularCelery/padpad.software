@@ -22,6 +22,10 @@ pub struct ServerData {
     pub last_data_string: String, // Last data that client received to compare if it needs update
     pub is_client_connected: bool, // Connection status between TCP `server` and `client`
     pub is_device_paired: bool,    // Connection status between `device` and `software`
+    pub last_updated_component: (
+        String, /* component_global_id */
+        String, /* value */
+    ), // To send the component's value, that was just changed to the client
     pub order: String, // Server order message for client to do something. e.g. Reload config
 }
 
@@ -41,6 +45,7 @@ impl Default for ServerData {
             last_data_string: String::new(),
             is_client_connected: false,
             is_device_paired: false,
+            last_updated_component: (String::new(), String::new()),
             order: String::new(),
         }
     }
@@ -154,6 +159,7 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
                 response = Some("ok".to_string());
 
                 server_data.last_data_string = data_string;
+                server_data.last_updated_component = (String::new(), String::new())
             }
         }
         "force_data" => {
@@ -163,6 +169,7 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
                 response = Some(data_string.clone());
 
                 server_data.last_data_string = data_string;
+                server_data.last_updated_component = (String::new(), String::new())
             }
         }
         "data" => {
@@ -179,6 +186,7 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
                 }
 
                 server_data.last_data_string = data_string;
+                server_data.last_updated_component = (String::new(), String::new())
             }
         }
         _ => response = Some(message.to_string()),
