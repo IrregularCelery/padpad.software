@@ -27,6 +27,7 @@ Firmware
         [x] Make EEPROM-saved keyboard keys/letters usable even if the device wasn't paired
     [x] Pot handling
     [] Diplay
+        [] Settings menu for device-related stuff. e.g. disable/enable joystick mouse movement
     [x] Rotary encoder
     [x] Joystick/Thumbstick
         [x] Add the ability to scroll with the `joystick` if the modkey was `held`
