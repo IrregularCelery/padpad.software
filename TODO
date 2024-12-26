@@ -36,6 +36,9 @@ Firmware
 Optional
     [] Date/Time formatting for logging system
 
+PROB-NOT!
+    [] Handle `Display` on a separate core!
+
 README
     [] Add "xdg-open" is needed to README.md (open)
     [] Add "xdotool" is needed to README.md (enigo)
