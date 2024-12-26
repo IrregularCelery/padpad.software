@@ -27,6 +27,7 @@ Firmware
         [x] Make EEPROM-saved keyboard keys/letters usable even if the device wasn't paired
     [x] Pot handling
     [] Diplay
+        [] Default screen can be an uploaded bitmap or two strings for `Title` and `Description`
         [] Settings menu for device-related stuff. e.g. disable/enable joystick mouse movement
     [x] Rotary encoder
     [x] Joystick/Thumbstick
