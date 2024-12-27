@@ -37,7 +37,7 @@ Optional
     [] Date/Time formatting for logging system
 
 PROB-NOT!
-    [] Handle `Display` on a separate core!
+    [x] Handle `Display` on a separate core! (Well... that was too easy!)
 
 README
     [] Add "xdg-open" is needed to README.md (open)
