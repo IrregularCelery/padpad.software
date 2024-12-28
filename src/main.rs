@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use padpad_software::{config, log_error, log_info, service, tcp};
+use padpad_software::{config, constants::DEBUG_SERIAL_DISABLE, log_error, log_info, service, tcp};
 
 fn main() {
     log_info!("Application started at {:?}", std::env::current_exe());
@@ -40,6 +40,10 @@ fn main() {
     let serial_thread = std::thread::Builder::new()
         .name("Serial".to_string())
         .spawn(|| {
+            if DEBUG_SERIAL_DISABLE {
+                return;
+            }
+
             log_info!("Serial thread is started...");
 
             let mut serial = service::serial::SERIAL
