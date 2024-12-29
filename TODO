@@ -29,6 +29,8 @@ Firmware
     [] Diplay
         [] Default screen can be an uploaded bitmap or two strings for `Title` and `Description`
         [] Settings menu for device-related stuff. e.g. disable/enable joystick mouse movement
+        [] Add clock time on the `Home` view and implement a serial function to sync the time
+            with software
     [x] Rotary encoder
     [x] Joystick/Thumbstick
         [x] Add the ability to scroll with the `joystick` if the modkey was `held`
