@@ -41,6 +41,10 @@ Optional
 PROB-NOT!
     [x] Handle `Display` on a separate core! (Well... that was too easy!)
 
+FIXME
+    [] Fix multi-core saving bug in which the program crashes if the flash is
+        accessed as the display is being updated
+
 README
     [] Add "xdg-open" is needed to README.md (open)
     [] Add "xdotool" is needed to README.md (enigo)
