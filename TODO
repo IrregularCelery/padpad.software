@@ -45,6 +45,7 @@ FIXME
     [x] Fix multi-core saving bug in which the program crashes if the flash is
         accessed as the display is being updated (FIXED, AGAIN!)
     [x] Fix timing bug with device clock
+    [] Refactor the `ledFlash()` function not to use `delay()` functions
 
 README
     [] Add "xdg-open" is needed to README.md (open)
