@@ -44,7 +44,7 @@ PROB-NOT!
 FIXME
     [x] Fix multi-core saving bug in which the program crashes if the flash is
         accessed as the display is being updated (FIXED, AGAIN!)
-    [] Fix timing bug with device clock
+    [x] Fix timing bug with device clock
 
 README
     [] Add "xdg-open" is needed to README.md (open)
