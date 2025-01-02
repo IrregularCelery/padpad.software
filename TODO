@@ -28,8 +28,8 @@ Firmware
     [x] Pot handling
     [] Diplay
         [] Default screen can be an uploaded bitmap or two strings for `Title` and `Description`
-        [] Settings menu for device-related stuff. e.g. disable/enable joystick mouse movement
-        [] Add clock time on the `Home` view and implement a serial function to sync the time
+        [x] Settings menu for device-related stuff. e.g. disable/enable joystick mouse movement
+        [x] Add clock time on the `Home` view and implement a serial function to sync the time
             with software
     [x] Rotary encoder
     [x] Joystick/Thumbstick
@@ -45,7 +45,7 @@ FIXME
     [x] Fix multi-core saving bug in which the program crashes if the flash is
         accessed as the display is being updated (FIXED, AGAIN!)
     [x] Fix timing bug with device clock
-    [] Refactor the `ledFlash()` function not to use `delay()` functions
+    [x] Refactor the `ledFlash()` function not to use `delay()` functions
 
 README
     [] Add "xdg-open" is needed to README.md (open)
