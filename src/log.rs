@@ -38,10 +38,9 @@ impl Logger {
         separated: bool, // Add two empty lines before and after this log message
         write_to_file: bool,
     ) {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("System time before UNIX EPOCH")
-            .as_secs();
+        let timestamp = chrono::Local::now()
+            .format("%Y-%m-%d %H:%M:%S.%f")
+            .to_string();
         let thread_id = std::thread::current();
         let mut trace = String::new();
 
