@@ -112,13 +112,20 @@ impl Default for Config {
                 )
             },
             settings: Settings {
-                current_profile: 0,
+                current_profile: 2,
                 device_name: DEFAULT_DEVICE_NAME.to_string(),
                 port_name: String::new(),
                 baud_rate: DEFAULT_BAUD_RATE,
             },
             // TODO: Remove these testing vectors!
-            profiles: vec![Profile::default()],
+            profiles: vec![
+                Profile::new_profile("Profile 1".to_string()),
+                Profile::new_profile("Profile 2".to_string()),
+                Profile::new_profile("Profile 3".to_string()),
+                Profile::new_profile("Profile 4".to_string()),
+                Profile::new_profile("Profile 5".to_string()),
+                Profile::new_profile("Profile 6".to_string()),
+            ],
             layout: Layout {
                 name: "Layout 1".to_string(),
                 components: {
@@ -161,10 +168,10 @@ impl Default for Config {
     }
 }
 
-impl Default for Profile {
-    fn default() -> Self {
+impl Profile {
+    fn new_profile(profile_name: String) -> Self {
         Self {
-            name: "Profile 1".to_string(),
+            name: profile_name,
             interactions: {
                 let mut interactions: HashMap<String, Interaction> = Default::default();
 
