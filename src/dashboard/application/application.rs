@@ -191,14 +191,17 @@ impl eframe::App for Application {
 
             ui.label(format!("Server current order: {}", self.server_data.order));
 
-            let mut port_name = if let Some(config) = &self.config {
-                config.settings.port_name.clone()
-            } else {
-                "".to_string()
-            };
+            let mut port_name = String::new();
+            let mut current_profile = String::new();
+
+            if let Some(config) = &self.config {
+                port_name = config.settings.port_name.clone();
+                current_profile = config.settings.current_profile.to_string();
+            }
 
             ui.text_edit_singleline(&mut port_name).enabled();
-            ui.label(format!("Server current order: {}", self.server_data.order));
+
+            ui.label(format!("Current profile: {}", current_profile));
 
             let button = ui.button("hi");
 
@@ -206,13 +209,7 @@ impl eframe::App for Application {
                 ui.label("YES");
             }
 
-            if button.clicked() {
-                if let Ok(response) =
-                    client_to_server_message("A message from TCP client to server")
-                {
-                    log_print!("{}", response);
-                }
-            }
+            if button.clicked() {}
 
             // Layout window
             egui::Window::new("Layout")
