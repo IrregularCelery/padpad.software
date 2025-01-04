@@ -6,7 +6,7 @@ pub const CONFIG_FILE_NAME: &str = "config.toml";
 // Serial
 pub const DEFAULT_BAUD_RATE: u32 = 38_400;
 pub const SERIAL_MESSAGE_SEP: &str = ":";
-//pub const SERIAL_MESSAGE_INNER_SEP: &str = ":";
+pub const SERIAL_MESSAGE_INNER_SEP: &str = "|";
 pub const SERIAL_MESSAGE_END: &str = ";";
 
 // TCP
@@ -26,6 +26,6 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
 //];
 
 // Debug
-pub const DEBUG_SERIAL_DISABLE: bool = true; // Disables Serial comm for testing dashboard
+pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testing dashboard
 pub const DEBUG_TCP_CLIENT_CONNECTION: bool = false;
 pub const DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION: bool = false; // Logging received/sent messages

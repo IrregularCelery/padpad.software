@@ -3,9 +3,11 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
+use chrono::Timelike;
+
 use crate::{
     config::{ComponentKind, Config, CONFIG},
-    constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_SEP},
+    constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
     service::interaction::{do_button, do_potentiometer},
     tcp,
@@ -153,13 +155,16 @@ impl Serial {
             return;
         }
 
+        // Messages should end with new_line '\n'
+        let format_message = message.clone() + "\n";
+
         match self
             .port
             .as_mut()
             .unwrap()
             .lock()
             .unwrap()
-            .write(message.as_bytes())
+            .write(format_message.as_bytes())
         {
             Ok(_) => log_info!("[OUTGOING] Message `{}` was sent over `serial`.", message),
             Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => (),
@@ -224,7 +229,7 @@ impl Serial {
                     "READY" => {
                         log_print!("[INCOMING] key: {} | value: {}", key, value);
 
-                        self.write("p1".to_string());
+                        self.write("c1".to_string()); // `c` => Connection, `1` => true
                     }
                     "PAIRED" => {
                         log_print!("[INCOMING] key: {} | value: {}", key, value);
@@ -235,6 +240,59 @@ impl Serial {
                     "ERROR" => {
                         // Handle device's errors
                         log_error!("[INCOMING] ERROR: {}", value);
+                    }
+                    "REQUEST" => {
+                        let (request_key, request_value) = value
+                            .split_once(SERIAL_MESSAGE_INNER_SEP)
+                            .unwrap_or((&value, ""));
+
+                        log_info!(
+                            "[REQUESTED] key: {} | value: {}",
+                            request_key,
+                            request_value
+                        );
+
+                        let mut config = CONFIG
+                            .get()
+                            .expect("Could not retrieve CONFIG data!")
+                            .lock()
+                            .unwrap();
+
+                        match request_key {
+                            // Device is requesting startup data such as `time` and `profiles`
+                            "STARTUP" => {
+                                let total_seconds =
+                                    chrono::Local::now().num_seconds_from_midnight();
+                                let date = chrono::Local::now().format("%b. %d").to_string();
+
+                                let profiles = {
+                                    let mut profiles_string = String::new();
+
+                                    for profile in &config.profiles {
+                                        profiles_string.push_str(profile.name.as_str());
+                                        profiles_string.push_str(SERIAL_MESSAGE_INNER_SEP);
+                                    }
+
+                                    profiles_string
+                                };
+
+                                self.write(format!("t{}", total_seconds)); // Time
+                                self.write(format!("d{}", date)); // Date
+                                self.write(format!("p{}", profiles)); // Profiles
+                                self.write(format!(
+                                    "P{}",
+                                    config.settings.current_profile.to_string()
+                                )); // Current profile
+                            }
+                            "profile" => {
+                                let selected_profile = request_value.parse::<usize>().unwrap_or(0);
+
+                                update_config_and_client(&mut config, |c| {
+                                    c.settings.current_profile = selected_profile;
+                                });
+                            }
+                            _ => (),
+                        }
                     }
                     _ => {
                         // Format: e.g. key: bm5 -> b=button m/M=modkey 5=id
@@ -335,9 +393,6 @@ pub fn init() {
     SERIAL.get_or_init(|| Mutex::new(serial));
 }
 
-//pub fn save<F>(&mut self, callback: F, write_to_file: bool)
-//where
-//    F: FnOnce(&mut Self),
 fn update_config_and_client<F>(config: &mut Config, callback: F)
 where
     F: FnOnce(&mut Config),
