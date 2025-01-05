@@ -56,6 +56,8 @@ fn main() {
         })
         .expect("Failed to spawn `Serial` thread!");
 
+    println!("Test commit for Signature");
+
     tray_thread
         .join()
         .expect_err("there was a problem while spawning the `tray` thread!");
