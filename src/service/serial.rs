@@ -6,7 +6,7 @@ use std::{
 use chrono::Timelike;
 
 use crate::{
-    config::{ComponentKind, Config, CONFIG},
+    config::{update_config_and_client, ComponentKind, Config, CONFIG},
     constants::{SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP},
     log_error, log_info, log_print, log_warn,
     service::interaction::{do_button, do_potentiometer},
@@ -449,19 +449,4 @@ pub fn init() {
     let serial = Serial::default();
 
     SERIAL.get_or_init(|| Mutex::new(serial));
-}
-
-fn update_config_and_client<F>(config: &mut Config, callback: F)
-where
-    F: FnOnce(&mut Config),
-{
-    config.save(callback, true);
-
-    if let Ok(mut data) = tcp::get_server_data().lock() {
-        let mut server_data = data.clone();
-
-        server_data.order = "reload_config".to_string();
-
-        *data = server_data;
-    }
 }

@@ -14,6 +14,7 @@ use crate::{
     constants::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
     log_error, log_info,
     service::interaction::InteractionKind,
+    tcp::get_server_data,
 };
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
@@ -376,4 +377,20 @@ pub fn init() -> bool {
     };
 
     true
+}
+
+// Function for applying changes to config and send a message to `TCP clients` to reload it
+pub fn update_config_and_client<F>(config: &mut Config, callback: F)
+where
+    F: FnOnce(&mut Config),
+{
+    config.save(callback, true);
+
+    if let Ok(mut data) = get_server_data().lock() {
+        let mut server_data = data.clone();
+
+        server_data.order = "reload_config".to_string();
+
+        *data = server_data;
+    }
 }
