@@ -14,7 +14,7 @@ use crate::{
     constants::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
     log_error, log_info,
     service::interaction::InteractionKind,
-    tcp::get_server_data,
+    tcp::{client_to_server_message, get_server_data},
 };
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
@@ -26,7 +26,7 @@ pub struct Config {
 
     pub settings: Settings,
     pub profiles: Vec<Profile>,
-    pub layout: Layout,
+    pub layout: Option<Layout>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -120,51 +120,14 @@ impl Default for Config {
             },
             // TODO: Remove these testing vectors!
             profiles: vec![
-                Profile::new_profile("Profile 1".to_string(), false),
+                Profile::new_profile("Profile 1".to_string(), true),
                 Profile::new_profile("Profile 2".to_string(), true),
-                Profile::new_profile("Profile 3".to_string(), false),
-                Profile::new_profile("Profile 4".to_string(), false),
+                Profile::new_profile("Profile 3".to_string(), true),
+                Profile::new_profile("Profile 4".to_string(), true),
                 Profile::new_profile("Profile 5".to_string(), false),
-                Profile::new_profile("Profile 6".to_string(), false),
+                Profile::new_profile("Profile 6".to_string(), true),
             ],
-            layout: Layout {
-                name: "Layout 1".to_string(),
-                components: {
-                    let mut components: HashMap<String, Component> = Default::default();
-
-                    let button1 =
-                        Component::new_button(1, "First Button".to_string(), (50.0, 50.0));
-                    components.insert(button1.0, button1.1);
-
-                    let potentiometer2 = Component::new_potentiometer(
-                        2,
-                        "Potentiometer 2".to_string(),
-                        (150.0, 100.0),
-                    );
-
-                    components.insert(potentiometer2.0, potentiometer2.1);
-                    let button2 =
-                        Component::new_button(2, "Second Button".to_string(), (50.0, 100.0));
-                    components.insert(button2.0, button2.1);
-
-                    let button3 =
-                        Component::new_button(3, "Thid Button".to_string(), (50.0, 150.0));
-                    components.insert(button3.0, button3.1);
-
-                    let button4 =
-                        Component::new_button(4, "Fourth Button".to_string(), (50.0, 200.0));
-                    components.insert(button4.0, button4.1);
-
-                    let potentiometer1 = Component::new_potentiometer(
-                        1,
-                        "Potentiometer 1".to_string(),
-                        (150.0, 200.0),
-                    );
-                    components.insert(potentiometer1.0, potentiometer1.1);
-
-                    components
-                },
-            },
+            layout: None,
         }
     }
 }
@@ -393,4 +356,14 @@ where
 
         *data = server_data;
     }
+}
+
+// Function for applying changes to config and send a message to `TCP server` to reload it
+pub fn update_config_and_server<F>(config: &mut Config, callback: F)
+where
+    F: FnOnce(&mut Config),
+{
+    config.save(callback, true);
+
+    client_to_server_message("reload_config").ok();
 }
