@@ -11,8 +11,8 @@ Sandbox `serial-transceiver`
 [x] Add component values in the `ServerData` (Added `components` to `Application` instead)
 
 Dashboard
-    [] Maybe! a robust system to auto-detect all the components from the device and add them
-        to layout. (No promises! :D)
+    [x] Maybe! a robust system to auto-detect all the components from the device and add them
+        to layout. *No promises! :D* (Hmmm, yeah..., done!)
     [] Add ability to upload bitmaps from the dashboard to device for "Screen Saver"
         - Only have it when the device and software are paired/connected
         - Save it to devive's memory
