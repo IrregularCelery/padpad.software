@@ -36,7 +36,7 @@ Firmware
         [x] Add the ability to scroll with the `joystick` if the modkey was `held`
 
 Optional
-    [] Date/Time formatting for logging system
+    [x] Date/Time formatting for logging system
 
 PROB-NOT!
     [x] Handle `Display` on a separate core! (Well... that was too easy!)
