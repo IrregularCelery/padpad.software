@@ -22,6 +22,7 @@ pub struct ServerData {
     pub last_data_string: String, // Last data that client received to compare if it needs update
     pub is_client_connected: bool, // Connection status between TCP `server` and `client`
     pub is_device_paired: bool,    // Connection status between `device` and `software`
+    pub raw_layout: (String /* buttons */, String /* potentiometers */),
     pub last_updated_component: (
         String, /* component_global_id */
         String, /* value */
@@ -45,6 +46,7 @@ impl Default for ServerData {
             last_data_string: String::new(),
             is_client_connected: false,
             is_device_paired: false,
+            raw_layout: (String::new(), String::new()),
             last_updated_component: (String::new(), String::new()),
             order: String::new(),
         }

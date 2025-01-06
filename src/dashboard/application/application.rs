@@ -203,6 +203,12 @@ impl eframe::App for Application {
 
             ui.label(format!("Current profile: {}", current_profile));
 
+            // Raw components layout
+            ui.label(format!(
+                "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
+                self.server_data.raw_layout.0, self.server_data.raw_layout.1
+            ));
+
             let button = ui.button("hi");
 
             if button.hovered() {

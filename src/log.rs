@@ -3,7 +3,6 @@ use std::{
     io::{self, Write},
     path::Path,
     sync::{Mutex, OnceLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::constants::APP_NAME;
