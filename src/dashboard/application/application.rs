@@ -6,8 +6,8 @@ use std::{
 use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2};
 
 use padpad_software::{
-    config::{ComponentKind, Config},
-    constants::SERVER_DATA_UPDATE_INTERVAL,
+    config::{update_config_and_server, Component, ComponentKind, Config, Layout},
+    constants::{SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
 };
@@ -30,6 +30,9 @@ pub struct Application {
     config: Option<Config>,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
+
+    // TEMP VARIABLES
+    new_layout_name: String,
 }
 
 impl eframe::App for Application {
@@ -91,11 +94,12 @@ impl eframe::App for Application {
         // Fill self.components with default values
         if self.components.is_empty() {
             if let Some(config) = &self.config {
-                for component in &config.layout.components {
-                    // Add all components with default values
-                    if !self.components.contains_key(&component.0.to_string()) {
+                if let Some(layout) = &config.layout {
+                    for component in &layout.components {
+                        // Add all components with default values
                         self.components
-                            .insert(component.0.to_string(), "0".to_string());
+                            .entry(component.0.to_string())
+                            .or_insert_with(|| "0".to_string());
                     }
                 }
             }
@@ -120,9 +124,9 @@ impl eframe::App for Application {
             }
         }
 
-        self.close_modal(ctx);
-
         self.error_modal(ctx);
+
+        self.close_modal(ctx);
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -208,6 +212,10 @@ impl eframe::App for Application {
                 "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
                 self.server_data.raw_layout.0, self.server_data.raw_layout.1
             ));
+
+            if ui.button("Auto-detect components").clicked() {
+                self.detect_components();
+            }
 
             let button = ui.button("hi");
 
@@ -303,10 +311,46 @@ impl Application {
         }
     }
 
+    fn new_layout(&mut self, name: String) {
+        if let Some(config) = &mut self.config {
+            // Currently, Only one layout is supported
+            if config.layout.is_some() {
+                return;
+            }
+
+            let layout = Layout {
+                name,
+                components: Default::default(),
+            };
+
+            update_config_and_server(config, |c| {
+                c.layout = Some(layout);
+            });
+        }
+    }
+
+    fn draw_empty_layout(&mut self, ui: &mut Ui) {
+        ui.label("Layout is empty!");
+
+        ui.text_edit_singleline(&mut self.new_layout_name);
+
+        if ui.button("Add new layout").clicked() {
+            self.new_layout(self.new_layout_name.clone());
+        }
+    }
+
     fn draw_layout(&mut self, _ctx: &Context, ui: &mut Ui) {
         match &self.config {
             Some(config) => {
-                for component in &config.layout.components {
+                let layout = if let Some(layout) = &config.layout {
+                    layout
+                } else {
+                    self.draw_empty_layout(ui);
+
+                    return;
+                };
+
+                for component in &layout.components {
                     let kind_id: Vec<&str> = component.0.split(':').collect();
 
                     let kind = match kind_id.first() {
@@ -319,7 +363,10 @@ impl Application {
                         _ => ComponentKind::None,
                     };
                     let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
-                    let value = self.components.get(&component.0.to_string()).unwrap();
+                    let value = match self.components.get(&component.0.to_string()) {
+                        Some(v) => String::from(v),
+                        None => String::new(),
+                    };
                     let label = &component.1.label;
                     let position: Pos2 = component.1.position.into();
                     let size = Vec2::new(100.0, 30.0);
@@ -407,6 +454,134 @@ impl Application {
         let value = (value as f32) / 100.0;
 
         ui.put(rect, ProgressBar::new(value).show_percentage());
+    }
+
+    // TODO: Add gui message that lets user know, this operation will override current layout
+    // TODO: Add corrent spacing for auto-generated components
+    fn detect_components(&mut self) {
+        let config = match &self.config {
+            Some(config) => config,
+            None => return,
+        };
+
+        let layout_name = if let Some(layout) = &config.layout {
+            layout.name.clone()
+        } else {
+            log_error!("Access violation: Tried to access layout without creating it first!");
+
+            return;
+        };
+
+        let mut layout = Layout {
+            name: layout_name,
+            components: Default::default(),
+        };
+
+        let mut index = 0;
+
+        // Buttons
+        let test = self.get_buttons();
+
+        for (button_id, _button_normal, _button_mod) in test {
+            index += 1;
+
+            let button_name = format!("{} {}", ComponentKind::Button, button_id);
+
+            let layout_button = Component::new_button(
+                button_id,
+                button_name,
+                (index as f32 * 30.0, index as f32 * 30.0),
+            );
+
+            layout.components.insert(layout_button.0, layout_button.1);
+        }
+
+        // Potentiometers
+        for (potentiometer_id, _potentiometer_value) in self.get_potentiometers() {
+            index += 1;
+
+            let potentiometer_name = format!("{} {}", ComponentKind::Button, potentiometer_id);
+
+            let layout_potentiometer = Component::new_potentiometer(
+                potentiometer_id,
+                potentiometer_name,
+                (index as f32 * 30.0, index as f32 * 30.0),
+            );
+
+            layout
+                .components
+                .insert(layout_potentiometer.0, layout_potentiometer.1);
+        }
+
+        if let Some(config) = &mut self.config {
+            update_config_and_server(config, |c| {
+                c.layout = Some(layout);
+            });
+        }
+    }
+
+    // Format: 1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|...
+    // separated by groups of three like "1|97|98"
+    // 1,2,3... = button id in keymap (Started from 1)
+    // 97|98 => 97 = letter 'a' normal, b = letter 'b' modkey
+    // letters are in ascii number. e.g. 97 = a
+    fn get_buttons(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            u8, /* id */
+            u8, /* normal_key */
+            u8, /* mod_key */
+        ),
+    > {
+        let buttons_string = self.server_data.raw_layout.0.clone();
+
+        let parts: Vec<u8> = buttons_string
+            .split(SERIAL_MESSAGE_INNER_SEP)
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect();
+
+        let mut buttons: Vec<(u8, u8, u8)> = vec![];
+
+        // Get values in groups of 3
+        for part in parts.chunks(3) {
+            let id = part[0];
+            let normal_key = part[1];
+            let mod_key = part[2];
+
+            buttons.push((id, normal_key, mod_key));
+        }
+
+        buttons.into_iter()
+    }
+
+    // Format: 1|25|2|45|3|12|4|99|5|75|...
+    // separated by groups of two like "1|25"
+    // 1,2,3... = potentiometer id (Started from 1)
+    // 25 => value of the potentiometer
+    fn get_potentiometers(&self) -> impl Iterator<Item = (u8 /* id */, u8 /* value */)> {
+        let potentiometers_string = &self.server_data.raw_layout.1;
+
+        let mut potentiometers: Vec<(u8, u8)> = vec![];
+
+        if potentiometers_string.is_empty() {
+            return potentiometers.into_iter();
+        }
+
+        let numbers: Vec<u8> = potentiometers_string
+            .split(SERIAL_MESSAGE_INNER_SEP)
+            .map(|s| s.parse::<u8>().unwrap())
+            .collect();
+
+        // Get values in groups of 2
+        for chunk in numbers.chunks(2) {
+            let id = chunk[0];
+            let value = chunk[1];
+
+            potentiometers.push((id, value));
+        }
+
+        potentiometers.into_iter()
     }
 }
 
@@ -501,6 +676,9 @@ impl Default for Application {
             },
             server_data: ServerData::default(),
             components: HashMap::default(),
+
+            // TEMP VARIABLES
+            new_layout_name: String::new(),
         }
     }
 }

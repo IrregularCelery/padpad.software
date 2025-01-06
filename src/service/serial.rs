@@ -259,28 +259,6 @@ impl Serial {
 
                                     *data = server_data;
                                 }
-
-                                //// Format: 1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|...
-                                //// separated by groups of three like "1|97|98"
-                                //// 1,2,3... = button id in keymap (Started from 1)
-                                //// 97|98 => 97 = letter 'a' normal, b = letter 'b' modkey
-                                //// letters are in ascii number. e.g. 97 = a
-                                //let numbers: Vec<u8> = data_value
-                                //    .split(SERIAL_MESSAGE_INNER_SEP)
-                                //    .map(|s| s.parse::<u8>().unwrap())
-                                //    .collect();
-                                //
-                                //// Get values in groups of 3
-                                //for chunk in numbers.chunks(3) {
-                                //    let button_id = chunk[0];
-                                //    let button_normal = chunk[1];
-                                //    let button_mod = chunk[2];
-                                //
-                                //    println!(
-                                //        "button_id: {}, normal: {}, mod: {}",
-                                //        button_id, button_normal, button_mod
-                                //    );
-                                //}
                             }
                             // 'p' => Potentiometers
                             'p' => {
@@ -291,26 +269,6 @@ impl Serial {
 
                                     *data = server_data;
                                 }
-
-                                //// Format: 1|25|2|45|3|12|4|99|5|75|...
-                                //// separated by groups of two like "1|25"
-                                //// 1,2,3... = potentiometer id (Started from 1)
-                                //// 25 => value of the potentiometer
-                                //let numbers: Vec<u8> = data_value
-                                //    .split(SERIAL_MESSAGE_INNER_SEP)
-                                //    .map(|s| s.parse::<u8>().unwrap())
-                                //    .collect();
-                                //
-                                //// Get values in groups of 2
-                                //for chunk in numbers.chunks(2) {
-                                //    let potentiometer_id = chunk[0];
-                                //    let potentiometer_value = chunk[1];
-                                //
-                                //    println!(
-                                //        "potentiometer_id: {}, value: {}",
-                                //        potentiometer_id, potentiometer_value
-                                //    );
-                                //}
                             }
                             _ => {}
                         }

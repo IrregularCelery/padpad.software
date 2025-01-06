@@ -7,6 +7,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    config::CONFIG,
     constants::{
         DEBUG_TCP_CLIENT_CONNECTION, DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION, TCP_BUFFER_SIZE,
         TCP_READ_TIMEOUT, TCP_SERVER_ADDR,
@@ -152,6 +153,17 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
     let mut response: Option<String> = None;
 
     match message {
+        "reload_config" => {
+            let mut config = CONFIG
+                .get()
+                .expect("Could not retrieve CONFIG data!")
+                .lock()
+                .unwrap();
+
+            config.load();
+
+            response = Some("ok".to_string());
+        }
         "handled" => {
             if let Ok(mut server_data) = get_server_data().lock() {
                 server_data.order = String::new();
