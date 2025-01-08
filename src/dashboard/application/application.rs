@@ -7,7 +7,7 @@ use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2}
 
 use padpad_software::{
     config::{update_config_and_server, Component, ComponentKind, Config, Layout},
-    constants::{SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
+    constants::{SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL},
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
 };
@@ -215,6 +215,10 @@ impl eframe::App for Application {
 
             if ui.button("Auto-detect components").clicked() {
                 self.detect_components();
+            }
+
+            if ui.button("Send serial message").clicked() {
+                self.request_send_serial("t50").ok();
             }
 
             let button = ui.button("hi");
@@ -582,6 +586,14 @@ impl Application {
         }
 
         potentiometers.into_iter()
+    }
+
+    // Helper methods
+
+    fn request_send_serial(&self, message: &str) -> Result<String, String> {
+        let request = format!("send_serial{}{}", SERIAL_MESSAGE_SEP, message);
+
+        client_to_server_message(&request)
     }
 }
 
