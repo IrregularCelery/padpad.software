@@ -228,16 +228,31 @@ impl eframe::App for Application {
             let button = ui.button("hi");
 
             // Upload X BitMap
-            egui::Window::new("Upload X BitMap").show(ctx, |ui| {
-                ui.text_edit_multiline(&mut self.xbm_string);
+            egui::Window::new("Upload X BitMap")
+                .vscroll(true)
+                .show(ctx, |ui| {
+                    ui.text_edit_multiline(&mut self.xbm_string);
 
-                if ui.button("Upload and Test").clicked() {
-                    match extract_hex_bytes_and_serialize(&self.xbm_string, HOME_IMAGE_SIZE) {
-                        Ok(bytes) => log_print!("BYTES: {}", bytes),
-                        Err(error) => log_print!("ERROR: {}", error),
+                    if ui.button("Upload and Test").clicked() {
+                        match extract_hex_bytes_and_serialize(&self.xbm_string, HOME_IMAGE_SIZE) {
+                            Ok(bytes) => {
+                                // `ui` = `Upload *HOME* Image`
+                                let message = format!("ui{}", &bytes);
+
+                                self.request_send_serial(message.as_str()).ok();
+
+                                log_print!("BYTES: {}", bytes)
+                            }
+                            Err(error) => log_print!("ERROR: {}", error),
+                        }
                     }
-                }
-            });
+
+                    if ui.button("Remove X BitMap").clicked() {
+                        // `ui` = `Upload *HOME* Image`, and since there's no value
+                        // the device removes current image and set its default
+                        self.request_send_serial("ui").ok();
+                    }
+                });
 
             if button.hovered() {
                 ui.label("YES");
