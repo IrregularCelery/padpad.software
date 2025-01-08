@@ -217,6 +217,20 @@ impl Serial {
                 }
             }
 
+            // Handle message which `TCP client` requested to be sent via serial
+            if let Ok(mut data) = tcp::get_server_data().lock() {
+                let mut server_data = data.clone();
+
+                if !server_data.pending_serial_message.is_empty() {
+                    println!("Trying...");
+                    self.write(server_data.pending_serial_message);
+
+                    server_data.pending_serial_message = String::new();
+
+                    *data = server_data;
+                }
+            }
+
             let (ready, key, value) = message.parse();
 
             if ready {

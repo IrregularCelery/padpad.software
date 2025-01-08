@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     config::CONFIG,
     constants::{
-        DEBUG_TCP_CLIENT_CONNECTION, DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION, TCP_BUFFER_SIZE,
-        TCP_READ_TIMEOUT, TCP_SERVER_ADDR,
+        DEBUG_TCP_CLIENT_CONNECTION, DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION, SERIAL_MESSAGE_SEP,
+        TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR,
     },
     log_error, log_info, log_print,
 };
@@ -29,6 +29,7 @@ pub struct ServerData {
         String, /* value */
     ), // To send the component's value, that was just changed to the client
     pub order: String, // Server order message for client to do something. e.g. Reload config
+    pub pending_serial_message: String, // Requested message by the client to be sent via serial
 }
 
 impl ServerData {
@@ -50,6 +51,7 @@ impl Default for ServerData {
             raw_layout: (String::new(), String::new()),
             last_updated_component: (String::new(), String::new()),
             order: String::new(),
+            pending_serial_message: String::new(),
         }
     }
 }
@@ -152,7 +154,11 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
 
     let mut response: Option<String> = None;
 
-    match message {
+    let (key, value) = message
+        .split_once(SERIAL_MESSAGE_SEP)
+        .unwrap_or((&message, ""));
+
+    match key {
         "reload_config" => {
             let mut config = CONFIG
                 .get()
@@ -201,6 +207,13 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
 
                 server_data.last_data_string = data_string;
                 server_data.last_updated_component = (String::new(), String::new())
+            }
+        }
+        "send_serial" => {
+            if let Ok(mut server_data) = get_server_data().lock() {
+                server_data.pending_serial_message = value.to_string();
+
+                response = Some("ok".to_string());
             }
         }
         _ => response = Some(message.to_string()),
