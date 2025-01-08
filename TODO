@@ -54,3 +54,9 @@ README
         if the components are updating too fast for the client to catch up,
         on the `Dashboard` app, the visuals might not update correctly,
         but the functionality of the device and `Service` app remains correct.
+
+REMINDERS
+    There's a hard to reproduce bug in which, if there are profiles with components
+    that doesn't have interactions, the config won't load properly, therefore
+    the layout resets every time you open the app.
+    (It'll probably be fixed when the `new_profile` is implemented)
