@@ -24,6 +24,8 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
 //    SERIAL_MESSAGE_INNER_SEP,
 //    SERIAL_MESSAGE_END,
 //];
+pub const HOME_IMAGE_SIZE: usize = 252; // ((WIDTH + (8 - 1)) / 8) * HEIGHT
+                                        // Check out `DISPLAY_HOME_IMAGE_SIZE` in padpad.firmware
 
 // Debug
 pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testing dashboard

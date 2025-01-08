@@ -7,9 +7,12 @@ use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2}
 
 use padpad_software::{
     config::{update_config_and_server, Component, ComponentKind, Config, Layout},
-    constants::{SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL},
+    constants::{
+        HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
+    },
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
+    utility::extract_hex_bytes_and_serialize,
 };
 
 use super::get_current_style;
@@ -33,6 +36,7 @@ pub struct Application {
 
     // TEMP VARIABLES
     new_layout_name: String,
+    xbm_string: String,
 }
 
 impl eframe::App for Application {
@@ -222,6 +226,18 @@ impl eframe::App for Application {
             }
 
             let button = ui.button("hi");
+
+            // Upload X BitMap
+            egui::Window::new("Upload X BitMap").show(ctx, |ui| {
+                ui.text_edit_multiline(&mut self.xbm_string);
+
+                if ui.button("Upload and Test").clicked() {
+                    match extract_hex_bytes_and_serialize(&self.xbm_string, HOME_IMAGE_SIZE) {
+                        Ok(bytes) => log_print!("BYTES: {}", bytes),
+                        Err(error) => log_print!("ERROR: {}", error),
+                    }
+                }
+            });
 
             if button.hovered() {
                 ui.label("YES");
@@ -691,6 +707,7 @@ impl Default for Application {
 
             // TEMP VARIABLES
             new_layout_name: String::new(),
+            xbm_string: String::new(),
         }
     }
 }
