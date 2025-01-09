@@ -7,15 +7,15 @@ use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2}
 
 use padpad_software::{
     config::{update_config_and_server, Component, ComponentKind, Config, Layout},
-    constants::{
-        HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
-    },
+    constants::{HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
     utility::extract_hex_bytes_and_serialize,
 };
 
-use super::get_current_style;
+use crate::application::utility::request_send_serial;
+
+use super::{get_current_style, widgets::Modal};
 
 static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
@@ -30,6 +30,8 @@ pub struct Application {
         bool,   /* show_error_modal */
         String, /* error_modal_text */
     ),
+    modal: Modal,
+    deferred_callback: Option<Box<dyn FnOnce(&mut Self)>>,
     config: Option<Config>,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
@@ -128,9 +130,11 @@ impl eframe::App for Application {
             }
         }
 
-        self.error_modal(ctx);
+        self.handle_modal(ctx);
 
-        self.close_modal(ctx);
+        self.handle_error_modal(ctx);
+
+        self.handle_close_modal(ctx);
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -222,7 +226,7 @@ impl eframe::App for Application {
             }
 
             if ui.button("Send serial message").clicked() {
-                self.request_send_serial("t50").ok();
+                request_send_serial("t50").ok();
             }
 
             let button = ui.button("hi");
@@ -233,24 +237,45 @@ impl eframe::App for Application {
                 .show(ctx, |ui| {
                     ui.text_edit_multiline(&mut self.xbm_string);
 
+                    if ui.button("Save to memory").clicked() {
+                        // `m` = `Memory`, `1` = true
+                        request_send_serial("m1").ok();
+                    }
+
                     if ui.button("Upload and Test").clicked() {
-                        match extract_hex_bytes_and_serialize(&self.xbm_string, HOME_IMAGE_SIZE) {
-                            Ok(bytes) => {
-                                // `ui` = `Upload *HOME* Image`
-                                let message = format!("ui{}", &bytes);
+                        if self.server_data.is_device_paired {
+                            let xbm_string = self.xbm_string.clone();
 
-                                self.request_send_serial(message.as_str()).ok();
+                            self.show_yes_no_modal(
+                                "Override memory".to_string(),
+                                "This operation will override the current memory!\nAre you sure you want to continue?".to_string(),
+                                move || {
+                                    match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
+                                    {
+                                        Ok(bytes) => {
+                                            // `ui` = `Upload *HOME* Image`
+                                            let message = format!("ui{}", &bytes);
 
-                                log_print!("BYTES: {}", bytes)
-                            }
-                            Err(error) => log_print!("ERROR: {}", error),
+                                            request_send_serial(message.as_str()).ok();
+                                        }
+                                        Err(error) => log_print!("ERROR: {}", error),
+                                    }
+                                },
+                                || {}
+                            );
+
+                        } else {
+                            self.show_message_modal(
+                                "Unavailable".to_string(),
+                                "Device must be paired to be able to upload to it!".to_string(),
+                            );
                         }
                     }
 
                     if ui.button("Remove X BitMap").clicked() {
                         // `ui` = `Upload *HOME* Image`, and since there's no value
                         // the device removes current image and set its default
-                        self.request_send_serial("ui").ok();
+                        request_send_serial("ui").ok();
                     }
                 });
 
@@ -280,13 +305,19 @@ impl eframe::App for Application {
                 });
         });
 
+        self.execute_deferred_callback();
+
+        if self.deferred_callback.is_some() {
+            println!("YES");
+        }
+
         // Redraw continuously at 60 FPS
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
 }
 
 impl Application {
-    fn close_modal(&mut self, ctx: &Context) {
+    fn handle_close_modal(&mut self, ctx: &Context) {
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
@@ -332,7 +363,7 @@ impl Application {
         }
     }
 
-    fn error_modal(&mut self, ctx: &Context) {
+    fn handle_error_modal(&mut self, ctx: &Context) {
         if self.error_modal.0 {
             let modal = egui::Modal::new(egui::Id::new("Error Modal")).show(ctx, |ui| {
                 ui.set_width(250.0);
@@ -344,6 +375,109 @@ impl Application {
                 self.error_modal.0 = false;
             }
         }
+    }
+
+    fn handle_modal(&mut self, ctx: &Context) {
+        match &mut self.modal {
+            Modal::Message { title, message } => {
+                let modal = egui::Modal::new(egui::Id::new("Modal::Message")).show(ctx, |ui| {
+                    ui.set_width(300.0);
+
+                    ui.heading(title);
+                    ui.label(message.clone());
+
+                    ui.add_space(32.0);
+
+                    egui::Sides::new().show(
+                        ui,
+                        |_ui| {},
+                        |ui| {
+                            if ui.button("Ok").clicked() {
+                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
+                            }
+                        },
+                    );
+                });
+
+                if modal.should_close() {
+                    self.close_modal();
+                }
+            }
+            Modal::YesNo {
+                title,
+                question,
+                on_yes,
+                on_no,
+            } => {
+                let modal = egui::Modal::new(egui::Id::new("Modal::YesNo")).show(ctx, |ui| {
+                    ui.heading(title);
+                    ui.label(question.clone());
+
+                    ui.add_space(32.0);
+
+                    egui::Sides::new().show(
+                        ui,
+                        |_ui| {},
+                        |ui| {
+                            if ui.button("Yes").clicked() {
+                                (on_yes)();
+
+                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
+                            }
+
+                            if ui.button("No").clicked() {
+                                (on_no)();
+
+                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
+                            }
+                        },
+                    );
+                });
+
+                if modal.should_close() {
+                    self.close_modal();
+                }
+            }
+            Modal::Custom { content } => {
+                let modal = egui::Modal::new(egui::Id::new("Modal::Custom")).show(ctx, |ui| {
+                    (content)(ui);
+                });
+
+                if modal.should_close() {
+                    self.close_modal();
+                }
+            }
+            Modal::None => (),
+        }
+    }
+
+    fn show_message_modal(&mut self, title: String, message: String) {
+        self.modal = Modal::Message { title, message }
+    }
+
+    fn show_yes_no_modal(
+        &mut self,
+        title: String,
+        question: String,
+        on_yes: impl FnMut() + 'static,
+        on_no: impl FnMut() + 'static,
+    ) {
+        self.modal = Modal::YesNo {
+            title,
+            question,
+            on_yes: Box::new(on_yes),
+            on_no: Box::new(on_no),
+        }
+    }
+
+    fn show_custom_modal(&mut self, content: impl FnMut(&mut Ui) + 'static) {
+        self.modal = Modal::Custom {
+            content: Box::new(content),
+        };
+    }
+
+    fn close_modal(&mut self) {
+        self.modal = Modal::None;
     }
 
     fn new_layout(&mut self, name: String) {
@@ -621,10 +755,11 @@ impl Application {
 
     // Helper methods
 
-    fn request_send_serial(&self, message: &str) -> Result<String, String> {
-        let request = format!("send_serial{}{}", SERIAL_MESSAGE_SEP, message);
-
-        client_to_server_message(&request)
+    // We have to call some functions this way because of not being able to borrow self multiple times
+    fn execute_deferred_callback(&mut self) {
+        if let Some(callback) = self.deferred_callback.take() {
+            callback(self);
+        }
     }
 }
 
@@ -709,6 +844,8 @@ impl Default for Application {
         Self {
             close_app: (false, false),
             error_modal: (false, String::new()),
+            modal: Modal::None,
+            deferred_callback: None,
             config: match Config::default().read() {
                 Ok(config) => Some(config),
                 Err(err) => {
