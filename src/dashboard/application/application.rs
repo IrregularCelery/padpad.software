@@ -1,5 +1,7 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
+    rc::Rc,
     sync::{Arc, Mutex, OnceLock},
 };
 
@@ -21,6 +23,18 @@ static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
                                                                       // last error message
 
+pub struct AppWrapper {
+    app: Rc<RefCell<Application>>,
+}
+
+impl AppWrapper {
+    pub fn new(app: Application) -> Self {
+        Self {
+            app: Rc::new(RefCell::new(app)),
+        }
+    }
+}
+
 pub struct Application {
     close_app: (
         bool, /* show_close_modal */
@@ -41,7 +55,7 @@ pub struct Application {
     xbm_string: String,
 }
 
-impl eframe::App for Application {
+impl eframe::App for AppWrapper {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         egui::Rgba::TRANSPARENT.to_array()
     }
@@ -51,11 +65,14 @@ impl eframe::App for Application {
         let style = get_current_style();
         ctx.set_style(style);
 
+        let app_cloned = self.app.clone();
+        let mut app = self.app.borrow_mut();
+
         // Access the latest server data
         if let Some(server_data) = SERVER_DATA.get() {
             let new_server_data = server_data.lock().unwrap().clone();
 
-            self.server_data = new_server_data;
+            app.server_data = new_server_data;
         }
 
         // Access the last error message
@@ -63,21 +80,21 @@ impl eframe::App for Application {
             let error_message = last_error_message.lock().unwrap().clone();
 
             if !error_message.is_empty() {
-                self.error_modal = (true, error_message);
+                app.error_modal = (true, error_message);
             } else {
-                self.error_modal = (false, String::new());
+                app.error_modal = (false, String::new());
             }
         }
 
         // Handle server orders
-        if !self.server_data.order.is_empty() {
+        if !app.server_data.order.is_empty() {
             let mut handled = false;
 
-            match self.server_data.order.as_str() {
+            match app.server_data.order.as_str() {
                 "reload_config" => {
                     handled = true;
 
-                    if let Some(config) = &mut self.config {
+                    if let Some(config) = &mut app.config {
                         config.load();
                     }
                 }
@@ -88,53 +105,38 @@ impl eframe::App for Application {
                 if let Some(server_data) = SERVER_DATA.get() {
                     let mut new_server_data = server_data.lock().unwrap();
 
-                    self.server_data.order = String::new();
+                    app.server_data.order = String::new();
 
-                    *new_server_data = self.server_data.clone();
+                    *new_server_data = app.server_data.clone();
                 }
 
                 client_to_server_message("handled").ok();
             }
         }
 
-        // Fill self.components with default values
-        if self.components.is_empty() {
-            if let Some(config) = &self.config {
-                if let Some(layout) = &config.layout {
-                    for component in &layout.components {
-                        // Add all components with default values
-                        self.components
-                            .entry(component.0.to_string())
-                            .or_insert_with(|| "0".to_string());
-                    }
-                }
-            }
-        }
-
         // Update component values
-        if !self.server_data.last_updated_component.0.is_empty() {
-            let component_global_id = self.server_data.last_updated_component.0.clone();
-            let value = self.server_data.last_updated_component.1.clone();
+        if !app.server_data.last_updated_component.0.is_empty() {
+            let component_global_id = app.server_data.last_updated_component.0.clone();
+            let value = app.server_data.last_updated_component.1.clone();
 
-            *self
-                .components
+            *app.components
                 .entry(component_global_id)
                 .or_insert(String::new()) = value;
 
             if let Some(server_data) = SERVER_DATA.get() {
                 let mut new_server_data = server_data.lock().unwrap();
 
-                self.server_data.last_updated_component = (String::new(), String::new());
+                app.server_data.last_updated_component = (String::new(), String::new());
 
-                *new_server_data = self.server_data.clone();
+                *new_server_data = app.server_data.clone();
             }
         }
 
-        self.handle_modal(ctx);
+        app.handle_modal(ctx);
 
-        self.handle_error_modal(ctx);
+        app.handle_error_modal(ctx);
 
-        self.handle_close_modal(ctx);
+        app.handle_close_modal(ctx);
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -190,23 +192,23 @@ impl eframe::App for Application {
             ui.label("PadPad is under construction!");
             ui.label(format!(
                 "Server status: {}",
-                self.server_data.is_client_connected
+                app.server_data.is_client_connected
             ));
             ui.label(format!(
                 "Device status: {}",
-                if self.server_data.is_device_paired {
+                if app.server_data.is_device_paired {
                     "Paired"
                 } else {
                     "Not paired"
                 }
             ));
 
-            ui.label(format!("Server current order: {}", self.server_data.order));
+            ui.label(format!("Server current order: {}", app.server_data.order));
 
             let mut port_name = String::new();
             let mut current_profile = String::new();
 
-            if let Some(config) = &self.config {
+            if let Some(config) = &app.config {
                 port_name = config.settings.port_name.clone();
                 current_profile = config.settings.current_profile.to_string();
             }
@@ -218,11 +220,11 @@ impl eframe::App for Application {
             // Raw components layout
             ui.label(format!(
                 "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
-                self.server_data.raw_layout.0, self.server_data.raw_layout.1
+                app.server_data.raw_layout.0, app.server_data.raw_layout.1
             ));
 
             if ui.button("Auto-detect components").clicked() {
-                self.detect_components();
+                app.detect_components();
             }
 
             if ui.button("Send serial message").clicked() {
@@ -235,37 +237,38 @@ impl eframe::App for Application {
             egui::Window::new("Upload X BitMap")
                 .vscroll(true)
                 .show(ctx, |ui| {
-                    ui.text_edit_multiline(&mut self.xbm_string);
+                    ui.text_edit_multiline(&mut app.xbm_string);
 
                     if ui.button("Save to memory").clicked() {
-                        // `m` = `Memory`, `1` = true
-                        request_send_serial("m1").ok();
-                    }
-
-                    if ui.button("Upload and Test").clicked() {
-                        if self.server_data.is_device_paired {
-                            let xbm_string = self.xbm_string.clone();
-
-                            self.show_yes_no_modal(
+                            app.show_yes_no_modal(
                                 "Override memory".to_string(),
                                 "This operation will override the current memory!\nAre you sure you want to continue?".to_string(),
                                 move || {
-                                    match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
-                                    {
-                                        Ok(bytes) => {
-                                            // `ui` = `Upload *HOME* Image`
-                                            let message = format!("ui{}", &bytes);
-
-                                            request_send_serial(message.as_str()).ok();
-                                        }
-                                        Err(error) => log_print!("ERROR: {}", error),
-                                    }
+                                    // `m` = `Memory`, `1` = true
+                                    request_send_serial("m1").ok();
                                 },
-                                || {}
+                                || {},
                             );
+                    }
 
+                    if ui.button("Upload and Test").clicked() {
+                        if app.server_data.is_device_paired {
+                            let xbm_string = app.xbm_string.clone();
+
+                            match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
+                            {
+                                Ok(bytes) => {
+                                    // `ui` = `Upload *HOME* Image`
+                                    let message = format!("ui{}", &bytes);
+
+                                    request_send_serial(message.as_str()).ok();
+
+                                    app.show_message_modal("Ok".to_string(), "New X BitMap image was uploaded to the device.".to_string());
+                                }
+                                Err(error) => log_print!("ERROR: {}", error),
+                            }
                         } else {
-                            self.show_message_modal(
+                            app.show_message_modal(
                                 "Unavailable".to_string(),
                                 "Device must be paired to be able to upload to it!".to_string(),
                             );
@@ -273,9 +276,16 @@ impl eframe::App for Application {
                     }
 
                     if ui.button("Remove X BitMap").clicked() {
-                        // `ui` = `Upload *HOME* Image`, and since there's no value
-                        // the device removes current image and set its default
-                        request_send_serial("ui").ok();
+                        app.show_yes_no_modal(
+                            "Reset \"Home Image\"".to_string(),
+                            "You're about to remove and reset current \"Home Image\" on your device!\nAre you sure you want to continue?".to_string(),
+                            || {
+                                // `ui` = `Upload *HOME* Image`, and since there's no value
+                                // the device removes current image and set its default
+                                request_send_serial("ui").ok();
+                            },
+                            || {}
+                        );
                     }
                 });
 
@@ -301,13 +311,13 @@ impl eframe::App for Application {
                     ..egui::Frame::default()
                 })
                 .show(ctx, |ui| {
-                    self.draw_layout(ctx, ui);
+                    app.draw_layout(ctx, ui);
                 });
         });
 
-        self.execute_deferred_callback();
+        app.execute_deferred_callback();
 
-        if self.deferred_callback.is_some() {
+        if app.deferred_callback.is_some() {
             println!("YES");
         }
 
@@ -410,6 +420,8 @@ impl Application {
                 on_no,
             } => {
                 let modal = egui::Modal::new(egui::Id::new("Modal::YesNo")).show(ctx, |ui| {
+                    ui.set_width(350.0);
+
                     ui.heading(title);
                     ui.label(question.clone());
 
