@@ -46,7 +46,7 @@ FIXME
         accessed as the display is being updated (FIXED, AGAIN!)
     [x] Fix timing bug with device clock
     [x] Refactor the `ledFlash()` function not to use `delay()` functions
-    [] Saving `home_image` in the flash does not work atm, since we're storing
+    [x] Saving `home_image` in the flash does not work atm, since we're storing
         the pointer!!!
 
 README
