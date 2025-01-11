@@ -55,6 +55,7 @@ pub struct Profile {
 pub struct Layout {
     pub name: String,
     pub components: HashMap<String /* key format: kind:id e.g. Button:1 */, Component>,
+    pub size: (f32 /* width */, f32 /* height */),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -128,6 +129,18 @@ impl Default for Config {
                 Profile::new_profile("Profile 6".to_string(), true),
             ],
             layout: None,
+        }
+    }
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Self {
+            name: "New Layout".to_string(),
+            components: Default::default(),
+            // TODO: Make this dynamic by getting the current screen size and subtract the
+            // rest of the ui, to calculate the maximum layout size
+            size: (1030.0, 580.0),
         }
     }
 }
