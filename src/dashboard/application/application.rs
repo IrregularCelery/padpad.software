@@ -33,6 +33,103 @@ impl AppWrapper {
             app: Rc::new(RefCell::new(app)),
         }
     }
+
+    fn handle_modal(&mut self, ctx: &Context) {
+        let mut close_modal = false;
+        let mut callbacks: Vec<Box<dyn FnMut()>> = Vec::new();
+
+        {
+            let mut app = self.app.borrow_mut();
+
+            match &mut app.modal {
+                Modal::Message { title, message } => {
+                    let modal = egui::Modal::new(egui::Id::new("Modal::Message")).show(ctx, |ui| {
+                        ui.set_width(300.0);
+
+                        ui.heading(title);
+                        ui.label(message.clone());
+
+                        ui.add_space(32.0);
+
+                        egui::Sides::new().show(
+                            ui,
+                            |_ui| {},
+                            |ui| {
+                                if ui.button("Ok").clicked() {
+                                    close_modal = true;
+                                }
+                            },
+                        );
+                    });
+
+                    if modal.should_close() {
+                        close_modal = true;
+                    }
+                }
+                Modal::YesNo {
+                    title,
+                    question,
+                    on_yes,
+                    on_no,
+                } => {
+                    let modal = egui::Modal::new(egui::Id::new("Modal::YesNo")).show(ctx, |ui| {
+                        ui.set_width(350.0);
+
+                        ui.heading(title);
+                        ui.label(question.clone());
+
+                        ui.add_space(32.0);
+
+                        egui::Sides::new().show(
+                            ui,
+                            |_ui| {},
+                            |ui| {
+                                if ui.button("Yes").clicked() {
+                                    close_modal = true;
+
+                                    if let Some(callback) = on_yes.take() {
+                                        callbacks.push(callback);
+                                    }
+                                }
+
+                                if ui.button("No").clicked() {
+                                    close_modal = true;
+
+                                    if let Some(callback) = on_no.take() {
+                                        callbacks.push(callback);
+                                    }
+                                }
+                            },
+                        );
+                    });
+
+                    if modal.should_close() {
+                        close_modal = true;
+
+                        if let Some(callback) = on_no.take() {
+                            callbacks.push(callback);
+                        }
+                    }
+                }
+                Modal::Custom { content } => {
+                    egui::Modal::new(egui::Id::new("Modal::Custom")).show(ctx, |ui| {
+                        (content)(ui);
+                    });
+                }
+                Modal::None => (),
+            }
+        }
+
+        if close_modal {
+            let mut app = self.app.borrow_mut();
+
+            app.close_modal();
+        }
+
+        for mut callback in callbacks {
+            callback();
+        }
+    }
 }
 
 pub struct Application {
@@ -45,7 +142,6 @@ pub struct Application {
         String, /* error_modal_text */
     ),
     modal: Modal,
-    deferred_callback: Option<Box<dyn FnOnce(&mut Self)>>,
     config: Option<Config>,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
@@ -65,81 +161,85 @@ impl eframe::App for AppWrapper {
         let style = get_current_style();
         ctx.set_style(style);
 
-        let app_cloned = self.app.clone();
-        let mut app = self.app.borrow_mut();
+        {
+            let mut app = self.app.borrow_mut();
 
-        // Access the latest server data
-        if let Some(server_data) = SERVER_DATA.get() {
-            let new_server_data = server_data.lock().unwrap().clone();
+            // Access the latest server data
+            if let Some(server_data) = SERVER_DATA.get() {
+                let new_server_data = server_data.lock().unwrap().clone();
 
-            app.server_data = new_server_data;
-        }
-
-        // Access the last error message
-        if let Some(last_error_message) = ERROR_MESSAGE.get() {
-            let error_message = last_error_message.lock().unwrap().clone();
-
-            if !error_message.is_empty() {
-                app.error_modal = (true, error_message);
-            } else {
-                app.error_modal = (false, String::new());
+                app.server_data = new_server_data;
             }
-        }
 
-        // Handle server orders
-        if !app.server_data.order.is_empty() {
-            let mut handled = false;
+            // Access the last error message
+            if let Some(last_error_message) = ERROR_MESSAGE.get() {
+                let error_message = last_error_message.lock().unwrap().clone();
 
-            match app.server_data.order.as_str() {
-                "reload_config" => {
-                    handled = true;
-
-                    if let Some(config) = &mut app.config {
-                        config.load();
-                    }
+                if !error_message.is_empty() {
+                    app.error_modal = (true, error_message);
+                } else {
+                    app.error_modal = (false, String::new());
                 }
-                _ => (),
             }
 
-            if handled {
+            // Handle server orders
+            if !app.server_data.order.is_empty() {
+                let mut handled = false;
+
+                match app.server_data.order.as_str() {
+                    "reload_config" => {
+                        handled = true;
+
+                        if let Some(config) = &mut app.config {
+                            config.load();
+                        }
+                    }
+                    _ => (),
+                }
+
+                if handled {
+                    if let Some(server_data) = SERVER_DATA.get() {
+                        let mut new_server_data = server_data.lock().unwrap();
+
+                        app.server_data.order = String::new();
+
+                        *new_server_data = app.server_data.clone();
+                    }
+
+                    client_to_server_message("handled").ok();
+                }
+            }
+
+            // Update component values
+            if !app.server_data.last_updated_component.0.is_empty() {
+                let component_global_id = app.server_data.last_updated_component.0.clone();
+                let value = app.server_data.last_updated_component.1.clone();
+
+                *app.components
+                    .entry(component_global_id)
+                    .or_insert(String::new()) = value;
+
                 if let Some(server_data) = SERVER_DATA.get() {
                     let mut new_server_data = server_data.lock().unwrap();
 
-                    app.server_data.order = String::new();
+                    app.server_data.last_updated_component = (String::new(), String::new());
 
                     *new_server_data = app.server_data.clone();
                 }
-
-                client_to_server_message("handled").ok();
             }
         }
 
-        // Update component values
-        if !app.server_data.last_updated_component.0.is_empty() {
-            let component_global_id = app.server_data.last_updated_component.0.clone();
-            let value = app.server_data.last_updated_component.1.clone();
+        self.handle_modal(ctx);
 
-            *app.components
-                .entry(component_global_id)
-                .or_insert(String::new()) = value;
+        {
+            let mut app = self.app.borrow_mut();
 
-            if let Some(server_data) = SERVER_DATA.get() {
-                let mut new_server_data = server_data.lock().unwrap();
+            app.handle_error_modal(ctx);
 
-                app.server_data.last_updated_component = (String::new(), String::new());
+            app.handle_close_modal(ctx);
 
-                *new_server_data = app.server_data.clone();
-            }
-        }
-
-        app.handle_modal(ctx);
-
-        app.handle_error_modal(ctx);
-
-        app.handle_close_modal(ctx);
-
-        // Custom main window
-        CentralPanel::default().show(ctx, |ui| {
+            // Custom main window
+            CentralPanel::default().show(ctx, |ui| {
             let app_rect = ui.max_rect();
             let title_bar_height = 32.0;
             let title_bar_rect = {
@@ -219,12 +319,23 @@ impl eframe::App for AppWrapper {
 
             // Raw components layout
             ui.label(format!(
-                "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
-                app.server_data.raw_layout.0, app.server_data.raw_layout.1
+                    "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
+                    app.server_data.raw_layout.0, app.server_data.raw_layout.1
             ));
 
             if ui.button("Auto-detect components").clicked() {
-                app.detect_components();
+                let app_clone = self.app.clone();
+
+                app.show_yes_no_modal(
+                    "Override layout".to_string(),
+                    "This operation will override the current layout!\nAre you sure you want to proceed?".to_string(),
+                    move || {
+                        let mut app = app_clone.borrow_mut();
+
+                        app.detect_components();
+                    },
+                    || {},
+                );
             }
 
             if ui.button("Send serial message").clicked() {
@@ -314,11 +425,6 @@ impl eframe::App for AppWrapper {
                     app.draw_layout(ctx, ui);
                 });
         });
-
-        app.execute_deferred_callback();
-
-        if app.deferred_callback.is_some() {
-            println!("YES");
         }
 
         // Redraw continuously at 60 FPS
@@ -387,82 +493,6 @@ impl Application {
         }
     }
 
-    fn handle_modal(&mut self, ctx: &Context) {
-        match &mut self.modal {
-            Modal::Message { title, message } => {
-                let modal = egui::Modal::new(egui::Id::new("Modal::Message")).show(ctx, |ui| {
-                    ui.set_width(300.0);
-
-                    ui.heading(title);
-                    ui.label(message.clone());
-
-                    ui.add_space(32.0);
-
-                    egui::Sides::new().show(
-                        ui,
-                        |_ui| {},
-                        |ui| {
-                            if ui.button("Ok").clicked() {
-                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
-                            }
-                        },
-                    );
-                });
-
-                if modal.should_close() {
-                    self.close_modal();
-                }
-            }
-            Modal::YesNo {
-                title,
-                question,
-                on_yes,
-                on_no,
-            } => {
-                let modal = egui::Modal::new(egui::Id::new("Modal::YesNo")).show(ctx, |ui| {
-                    ui.set_width(350.0);
-
-                    ui.heading(title);
-                    ui.label(question.clone());
-
-                    ui.add_space(32.0);
-
-                    egui::Sides::new().show(
-                        ui,
-                        |_ui| {},
-                        |ui| {
-                            if ui.button("Yes").clicked() {
-                                (on_yes)();
-
-                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
-                            }
-
-                            if ui.button("No").clicked() {
-                                (on_no)();
-
-                                self.deferred_callback = Some(Box::new(|app| app.close_modal()));
-                            }
-                        },
-                    );
-                });
-
-                if modal.should_close() {
-                    self.close_modal();
-                }
-            }
-            Modal::Custom { content } => {
-                let modal = egui::Modal::new(egui::Id::new("Modal::Custom")).show(ctx, |ui| {
-                    (content)(ui);
-                });
-
-                if modal.should_close() {
-                    self.close_modal();
-                }
-            }
-            Modal::None => (),
-        }
-    }
-
     fn show_message_modal(&mut self, title: String, message: String) {
         self.modal = Modal::Message { title, message }
     }
@@ -477,8 +507,8 @@ impl Application {
         self.modal = Modal::YesNo {
             title,
             question,
-            on_yes: Box::new(on_yes),
-            on_no: Box::new(on_no),
+            on_yes: Some(Box::new(on_yes)),
+            on_no: Some(Box::new(on_no)),
         }
     }
 
@@ -637,7 +667,6 @@ impl Application {
         ui.put(rect, ProgressBar::new(value).show_percentage());
     }
 
-    // TODO: Add gui message that lets user know, this operation will override current layout
     // TODO: Add corrent spacing for auto-generated components
     fn detect_components(&mut self) {
         let config = match &self.config {
@@ -717,18 +746,26 @@ impl Application {
     > {
         let buttons_string = self.server_data.raw_layout.0.clone();
 
+        let mut buttons: Vec<(u8, u8, u8)> = vec![];
+
+        if buttons_string.is_empty() {
+            return buttons.into_iter();
+        }
+
         let parts: Vec<u8> = buttons_string
             .split(SERIAL_MESSAGE_INNER_SEP)
             .map(|s| s.parse::<u8>().unwrap())
             .collect();
-
-        let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
         // Get values in groups of 3
         for part in parts.chunks(3) {
             let id = part[0];
             let normal_key = part[1];
             let mod_key = part[2];
+
+            if id == 0 {
+                continue;
+            }
 
             buttons.push((id, normal_key, mod_key));
         }
@@ -759,19 +796,14 @@ impl Application {
             let id = chunk[0];
             let value = chunk[1];
 
+            if id == 0 {
+                continue;
+            }
+
             potentiometers.push((id, value));
         }
 
         potentiometers.into_iter()
-    }
-
-    // Helper methods
-
-    // We have to call some functions this way because of not being able to borrow self multiple times
-    fn execute_deferred_callback(&mut self) {
-        if let Some(callback) = self.deferred_callback.take() {
-            callback(self);
-        }
     }
 }
 
@@ -857,7 +889,6 @@ impl Default for Application {
             close_app: (false, false),
             error_modal: (false, String::new()),
             modal: Modal::None,
-            deferred_callback: None,
             config: match Config::default().read() {
                 Ok(config) => Some(config),
                 Err(err) => {

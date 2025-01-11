@@ -9,8 +9,8 @@ pub enum Modal {
     YesNo {
         title: String,
         question: String,
-        on_yes: Box<dyn FnMut()>,
-        on_no: Box<dyn FnMut()>,
+        on_yes: Option<Box<dyn FnMut()>>,
+        on_no: Option<Box<dyn FnMut()>>,
     },
     Custom {
         content: Box<dyn FnMut(&mut Ui)>,
