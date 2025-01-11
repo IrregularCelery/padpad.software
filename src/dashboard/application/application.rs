@@ -7,6 +7,7 @@ use std::{
 
 use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2};
 
+use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
     config::{update_config_and_server, Component, ComponentKind, Config, Layout},
     constants::{HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
@@ -14,10 +15,6 @@ use padpad_software::{
     tcp::{client_to_server_message, ServerData},
     utility::extract_hex_bytes_and_serialize,
 };
-
-use crate::application::utility::request_send_serial;
-
-use super::{get_current_style, widgets::Modal};
 
 static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
@@ -303,14 +300,20 @@ impl eframe::App for AppWrapper {
                 }
             ));
 
+            circular_progress(ui, 0.325, 50.0);
+
             ui.label(format!("Server current order: {}", app.server_data.order));
 
             let mut port_name = String::new();
             let mut current_profile = String::new();
+            let mut layout_size = (0.0, 0.0);
 
             if let Some(config) = &app.config {
                 port_name = config.settings.port_name.clone();
                 current_profile = config.settings.current_profile.to_string();
+                if let Some(layout) = &config.layout {
+                     layout_size = layout.size;
+                }
             }
 
             ui.text_edit_singleline(&mut port_name).enabled();
@@ -414,7 +417,7 @@ impl eframe::App for AppWrapper {
                 .title_bar(false)
                 .hscroll(true)
                 .vscroll(true)
-                .fixed_size(egui::Vec2::new(1030.0, 580.0))
+                .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
                 .default_pos(egui::Pos2::new(150.0, 150.0))
                 .frame(egui::Frame {
                     fill: egui::Color32::RED,
@@ -531,7 +534,7 @@ impl Application {
 
             let layout = Layout {
                 name,
-                components: Default::default(),
+                ..Default::default()
             };
 
             update_config_and_server(config, |c| {
@@ -684,7 +687,7 @@ impl Application {
 
         let mut layout = Layout {
             name: layout_name,
-            components: Default::default(),
+            ..Default::default()
         };
 
         let mut index = 0;
