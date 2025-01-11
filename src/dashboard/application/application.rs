@@ -237,197 +237,199 @@ impl eframe::App for AppWrapper {
 
             // Custom main window
             CentralPanel::default().show(ctx, |ui| {
-            let app_rect = ui.max_rect();
-            let title_bar_height = 32.0;
-            let title_bar_rect = {
-                let mut rect = app_rect;
-                rect.max.y = rect.min.y + title_bar_height;
-                rect
-            };
+                let app_rect = ui.max_rect();
+                let title_bar_height = 32.0;
+                let title_bar_rect = {
+                    let mut rect = app_rect;
+                    rect.max.y = rect.min.y + title_bar_height;
+                    rect
+                };
 
-            // Adding support for dragging from the top bar of the app
-            let title_bar_response = ui.interact(
-                title_bar_rect,
-                Id::new("title_bar"),
-                Sense::click_and_drag(),
-            );
-
-            if title_bar_response.drag_started_by(PointerButton::Primary) {
-                ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
-            }
-
-            ui.allocate_new_ui(
-                UiBuilder::new()
-                    .max_rect(title_bar_rect)
-                    .layout(egui::Layout::right_to_left(egui::Align::Center)),
-                |ui| {
-                    ui.add_space(8.0);
-
-                    // Close and Minimize Button
-                    let button_size = 16.0;
-
-                    let close_button = ui
-                        .add(Button::new(RichText::new("×").size(button_size)))
-                        .on_hover_text("Close the window");
-
-                    let minimized_button = ui
-                        .add(Button::new(RichText::new("–").size(button_size)))
-                        .on_hover_text("Minimize the window");
-
-                    if close_button.clicked() {
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-
-                    if minimized_button.clicked() {
-                        ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
-                    }
-                },
-            );
-
-            // Custom window content
-            ui.heading("Hello World!");
-            ui.label("PadPad is under construction!");
-            ui.label(format!(
-                "Server status: {}",
-                app.server_data.is_client_connected
-            ));
-            ui.label(format!(
-                "Device status: {}",
-                if app.server_data.is_device_paired {
-                    "Paired"
-                } else {
-                    "Not paired"
-                }
-            ));
-
-            circular_progress(ui, 0.325, 50.0);
-
-            ui.label(format!("Server current order: {}", app.server_data.order));
-
-            let mut port_name = String::new();
-            let mut current_profile = String::new();
-            let mut layout_size = (0.0, 0.0);
-
-            if let Some(config) = &app.config {
-                port_name = config.settings.port_name.clone();
-                current_profile = config.settings.current_profile.to_string();
-                if let Some(layout) = &config.layout {
-                     layout_size = layout.size;
-                }
-            }
-
-            ui.text_edit_singleline(&mut port_name).enabled();
-
-            ui.label(format!("Current profile: {}", current_profile));
-
-            // Raw components layout
-            ui.label(format!(
-                    "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
-                    app.server_data.raw_layout.0, app.server_data.raw_layout.1
-            ));
-
-            if ui.button("Auto-detect components").clicked() {
-                let app_clone = self.app.clone();
-
-                app.show_yes_no_modal(
-                    "Override layout".to_string(),
-                    "This operation will override the current layout!\nAre you sure you want to proceed?".to_string(),
-                    move || {
-                        let mut app = app_clone.borrow_mut();
-
-                        app.detect_components();
-                    },
-                    || {},
+                // Adding support for dragging from the top bar of the app
+                let title_bar_response = ui.interact(
+                    title_bar_rect,
+                    Id::new("title_bar"),
+                    Sense::click_and_drag(),
                 );
-            }
 
-            if ui.button("Send serial message").clicked() {
-                request_send_serial("t50").ok();
-            }
+                if title_bar_response.drag_started_by(PointerButton::Primary) {
+                    ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
+                }
 
-            let button = ui.button("hi");
+                ui.allocate_new_ui(
+                    UiBuilder::new()
+                        .max_rect(title_bar_rect)
+                        .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                    |ui| {
+                        ui.add_space(8.0);
 
-            // Upload X BitMap
-            egui::Window::new("Upload X BitMap")
-                .vscroll(true)
-                .show(ctx, |ui| {
-                    ui.text_edit_multiline(&mut app.xbm_string);
+                        // Close and Minimize Button
+                        let button_size = 16.0;
 
-                    if ui.button("Save to memory").clicked() {
+                        let close_button = ui
+                            .add(Button::new(RichText::new("×").size(button_size)))
+                            .on_hover_text("Close the window");
+
+                        let minimized_button = ui
+                            .add(Button::new(RichText::new("–").size(button_size)))
+                            .on_hover_text("Minimize the window");
+
+                        if close_button.clicked() {
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+
+                        if minimized_button.clicked() {
+                            ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                        }
+                    },
+                );
+
+                let mut port_name = String::new();
+                let mut current_profile = String::new();
+                let mut layout_size = (0.0, 0.0);
+
+                if let Some(config) = &app.config {
+                    port_name = config.settings.port_name.clone();
+                    current_profile = config.settings.current_profile.to_string();
+                    if let Some(layout) = &config.layout {
+                        layout_size = layout.size;
+                    }
+                }
+
+                egui::Window::new("Debug").show(ctx, |ui| {
+                    ui.heading("Hello World!");
+                    ui.label("PadPad is under construction!");
+                    ui.label(format!(
+                        "Server status: {}",
+                        app.server_data.is_client_connected
+                    ));
+                    ui.label(format!(
+                        "Device status: {}",
+                        if app.server_data.is_device_paired {
+                            "Paired"
+                        } else {
+                            "Not paired"
+                        }
+                    ));
+
+                    circular_progress(ui, 0.325, 50.0);
+
+                    ui.label(format!("Server current order: {}", app.server_data.order));
+
+                    ui.text_edit_singleline(&mut port_name).enabled();
+
+                    ui.label(format!("Current profile: {}", current_profile));
+
+                    // Raw components layout
+                    ui.label(format!(
+                        "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
+                        app.server_data.raw_layout.0, app.server_data.raw_layout.1
+                    ));
+
+                    if ui.button("Auto-detect components").clicked() {
+                        let app_clone = self.app.clone();
+
+                        app.show_yes_no_modal(
+                            "Override layout".to_string(),
+                            "This operation will override the current layout!\n\
+                            Are you sure you want to proceed?"
+                                .to_string(),
+                            move || {
+                                let mut app = app_clone.borrow_mut();
+
+                                app.detect_components();
+                            },
+                            || {},
+                        );
+                    }
+                });
+
+                // Upload X BitMap
+                egui::Window::new("Upload X BitMap")
+                    .vscroll(true)
+                    .show(ctx, |ui| {
+                        ui.text_edit_multiline(&mut app.xbm_string);
+
+                        if ui.button("Save to memory").clicked() {
                             app.show_yes_no_modal(
                                 "Override memory".to_string(),
-                                "This operation will override the current memory!\nAre you sure you want to continue?".to_string(),
+                                "This operation will override the current memory!\n\
+                                Are you sure you want to continue?"
+                                    .to_string(),
                                 move || {
                                     // `m` = `Memory`, `1` = true
                                     request_send_serial("m1").ok();
                                 },
                                 || {},
                             );
-                    }
+                        }
 
-                    if ui.button("Upload and Test").clicked() {
-                        if app.server_data.is_device_paired {
-                            let xbm_string = app.xbm_string.clone();
+                        if ui.button("Upload and Test").clicked() {
+                            if app.server_data.is_device_paired {
+                                let xbm_string = app.xbm_string.clone();
 
-                            match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
-                            {
-                                Ok(bytes) => {
-                                    // `ui` = `Upload *HOME* Image`
-                                    let message = format!("ui{}", &bytes);
+                                match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
+                                {
+                                    Ok(bytes) => {
+                                        // `ui` = `Upload *HOME* Image`
+                                        let message = format!("ui{}", &bytes);
 
-                                    request_send_serial(message.as_str()).ok();
+                                        request_send_serial(message.as_str()).ok();
 
-                                    app.show_message_modal("Ok".to_string(), "New X BitMap image was uploaded to the device.".to_string());
+                                        app.show_message_modal(
+                                            "Ok".to_string(),
+                                            "New X BitMap image \
+                                            was uploaded to the device."
+                                                .to_string(),
+                                        );
+                                    }
+                                    Err(error) => {
+                                        app.show_message_modal("Error".to_string(), error);
+                                    }
                                 }
-                                Err(error) => log_print!("ERROR: {}", error),
+                            } else {
+                                app.show_message_modal(
+                                    "Unavailable".to_string(),
+                                    "Device must be paired to be able to upload to it!".to_string(),
+                                );
                             }
-                        } else {
-                            app.show_message_modal(
-                                "Unavailable".to_string(),
-                                "Device must be paired to be able to upload to it!".to_string(),
+                        }
+
+                        if ui.button("Remove X BitMap").clicked() {
+                            app.show_yes_no_modal(
+                                "Reset \"Home Image\"".to_string(),
+                                "You're about to remove and reset current \"Home Image\" \
+                                on your device!\nAre you sure you want to continue?"
+                                    .to_string(),
+                                || {
+                                    // `ui` = `Upload *HOME* Image`, and since there's no value
+                                    // the device removes current image and set its default
+                                    request_send_serial("ui").ok();
+                                },
+                                || {},
                             );
                         }
-                    }
+                    });
 
-                    if ui.button("Remove X BitMap").clicked() {
-                        app.show_yes_no_modal(
-                            "Reset \"Home Image\"".to_string(),
-                            "You're about to remove and reset current \"Home Image\" on your device!\nAre you sure you want to continue?".to_string(),
-                            || {
-                                // `ui` = `Upload *HOME* Image`, and since there's no value
-                                // the device removes current image and set its default
-                                request_send_serial("ui").ok();
-                            },
-                            || {}
-                        );
-                    }
-                });
-
-            if button.hovered() {
-                ui.label("YES");
-            }
-
-            if button.clicked() {}
-
-            // Layout window
-            egui::Window::new("Layout")
-                //.movable(false)
-                .resizable(false)
-                .collapsible(false)
-                .title_bar(false)
-                .hscroll(true)
-                .vscroll(true)
-                .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
-                .default_pos(egui::Pos2::new(150.0, 150.0))
-                .frame(egui::Frame {
-                    fill: egui::Color32::RED,
-                    rounding: 4.0.into(),
-                    ..egui::Frame::default()
-                })
-                .show(ctx, |ui| {
-                    app.draw_layout(ctx, ui);
-                });
-        });
+                // Layout window
+                egui::Window::new("Layout")
+                    //.movable(false)
+                    .resizable(false)
+                    .collapsible(false)
+                    .title_bar(false)
+                    .hscroll(true)
+                    .vscroll(true)
+                    .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
+                    .default_pos(egui::Pos2::new(150.0, 150.0))
+                    .frame(egui::Frame {
+                        fill: egui::Color32::RED,
+                        rounding: 4.0.into(),
+                        ..egui::Frame::default()
+                    })
+                    .show(ctx, |ui| {
+                        app.draw_layout(ctx, ui);
+                    });
+            });
         }
 
         // Redraw continuously at 60 FPS
@@ -693,9 +695,7 @@ impl Application {
         let mut index = 0;
 
         // Buttons
-        let test = self.get_buttons();
-
-        for (button_id, _button_normal, _button_mod) in test {
+        for (button_id, _button_normal, _button_mod) in self.get_buttons() {
             index += 1;
 
             let button_name = format!("{} {}", ComponentKind::Button, button_id);
