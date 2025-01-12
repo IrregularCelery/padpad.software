@@ -1,7 +1,5 @@
 use std::{
-    cell::RefCell,
     collections::HashMap,
-    rc::Rc,
     sync::{Arc, Mutex, OnceLock},
 };
 
@@ -20,115 +18,6 @@ static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
                                                                       // last error message
 
-pub struct AppWrapper {
-    app: Rc<RefCell<Application>>,
-}
-
-impl AppWrapper {
-    pub fn new(app: Application) -> Self {
-        Self {
-            app: Rc::new(RefCell::new(app)),
-        }
-    }
-
-    fn handle_modal(&mut self, ctx: &Context) {
-        let mut close_modal = false;
-        let mut callbacks: Vec<Box<dyn FnMut()>> = Vec::new();
-
-        {
-            let mut app = self.app.borrow_mut();
-
-            match &mut app.modal {
-                Modal::Message { title, message } => {
-                    let modal = egui::Modal::new(egui::Id::new("Modal::Message")).show(ctx, |ui| {
-                        ui.set_width(300.0);
-
-                        ui.heading(title);
-                        ui.label(message.clone());
-
-                        ui.add_space(32.0);
-
-                        egui::Sides::new().show(
-                            ui,
-                            |_ui| {},
-                            |ui| {
-                                if ui.button("Ok").clicked() {
-                                    close_modal = true;
-                                }
-                            },
-                        );
-                    });
-
-                    if modal.should_close() {
-                        close_modal = true;
-                    }
-                }
-                Modal::YesNo {
-                    title,
-                    question,
-                    on_yes,
-                    on_no,
-                } => {
-                    let modal = egui::Modal::new(egui::Id::new("Modal::YesNo")).show(ctx, |ui| {
-                        ui.set_width(350.0);
-
-                        ui.heading(title);
-                        ui.label(question.clone());
-
-                        ui.add_space(32.0);
-
-                        egui::Sides::new().show(
-                            ui,
-                            |_ui| {},
-                            |ui| {
-                                if ui.button("Yes").clicked() {
-                                    close_modal = true;
-
-                                    if let Some(callback) = on_yes.take() {
-                                        callbacks.push(callback);
-                                    }
-                                }
-
-                                if ui.button("No").clicked() {
-                                    close_modal = true;
-
-                                    if let Some(callback) = on_no.take() {
-                                        callbacks.push(callback);
-                                    }
-                                }
-                            },
-                        );
-                    });
-
-                    if modal.should_close() {
-                        close_modal = true;
-
-                        if let Some(callback) = on_no.take() {
-                            callbacks.push(callback);
-                        }
-                    }
-                }
-                Modal::Custom { content } => {
-                    egui::Modal::new(egui::Id::new("Modal::Custom")).show(ctx, |ui| {
-                        (content)(ui);
-                    });
-                }
-                Modal::None => (),
-            }
-        }
-
-        if close_modal {
-            let mut app = self.app.borrow_mut();
-
-            app.close_modal();
-        }
-
-        for mut callback in callbacks {
-            callback();
-        }
-    }
-}
-
 pub struct Application {
     close_app: (
         bool, /* show_close_modal */
@@ -138,17 +27,18 @@ pub struct Application {
         bool,   /* show_error_modal */
         String, /* error_modal_text */
     ),
-    modal: Modal,
+    modal: Arc<Mutex<ModalManager>>,
     config: Option<Config>,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
 
     // TEMP VARIABLES
     new_layout_name: String,
+    new_layout_size: (f32, f32),
     xbm_string: String,
 }
 
-impl eframe::App for AppWrapper {
+impl eframe::App for Application {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         egui::Rgba::TRANSPARENT.to_array()
     }
@@ -158,358 +48,380 @@ impl eframe::App for AppWrapper {
 
         ctx.set_style(get_current_style());
 
-        {
-            let mut app = self.app.borrow_mut();
+        // Access the latest server data
+        if let Some(server_data) = SERVER_DATA.get() {
+            let new_server_data = server_data.lock().unwrap().clone();
 
-            // Access the latest server data
-            if let Some(server_data) = SERVER_DATA.get() {
-                let new_server_data = server_data.lock().unwrap().clone();
+            self.server_data = new_server_data;
+        }
 
-                app.server_data = new_server_data;
+        // Access the last error message
+        if let Some(last_error_message) = ERROR_MESSAGE.get() {
+            let error_message = last_error_message.lock().unwrap().clone();
+
+            if !error_message.is_empty() {
+                self.error_modal = (true, error_message);
+            } else {
+                self.error_modal = (false, String::new());
             }
+        }
 
-            // Access the last error message
-            if let Some(last_error_message) = ERROR_MESSAGE.get() {
-                let error_message = last_error_message.lock().unwrap().clone();
+        // Handle server orders
+        if !self.server_data.order.is_empty() {
+            let mut handled = false;
 
-                if !error_message.is_empty() {
-                    app.error_modal = (true, error_message);
-                } else {
-                    app.error_modal = (false, String::new());
-                }
-            }
+            match self.server_data.order.as_str() {
+                "reload_config" => {
+                    handled = true;
 
-            // Handle server orders
-            if !app.server_data.order.is_empty() {
-                let mut handled = false;
-
-                match app.server_data.order.as_str() {
-                    "reload_config" => {
-                        handled = true;
-
-                        if let Some(config) = &mut app.config {
-                            config.load();
-                        }
+                    if let Some(config) = &mut self.config {
+                        config.load();
                     }
-                    _ => (),
                 }
-
-                if handled {
-                    if let Some(server_data) = SERVER_DATA.get() {
-                        let mut new_server_data = server_data.lock().unwrap();
-
-                        app.server_data.order = String::new();
-
-                        *new_server_data = app.server_data.clone();
-                    }
-
-                    client_to_server_message("handled").ok();
-                }
+                _ => (),
             }
 
-            // Update component values
-            if !app.server_data.last_updated_component.0.is_empty() {
-                let component_global_id = app.server_data.last_updated_component.0.clone();
-                let value = app.server_data.last_updated_component.1.clone();
-
-                *app.components
-                    .entry(component_global_id)
-                    .or_insert(String::new()) = value;
-
+            if handled {
                 if let Some(server_data) = SERVER_DATA.get() {
                     let mut new_server_data = server_data.lock().unwrap();
 
-                    app.server_data.last_updated_component = (String::new(), String::new());
+                    self.server_data.order = String::new();
 
-                    *new_server_data = app.server_data.clone();
+                    *new_server_data = self.server_data.clone();
                 }
+
+                client_to_server_message("handled").ok();
+            }
+        }
+
+        // Update component values
+        if !self.server_data.last_updated_component.0.is_empty() {
+            let component_global_id = self.server_data.last_updated_component.0.clone();
+            let value = self.server_data.last_updated_component.1.clone();
+
+            *self
+                .components
+                .entry(component_global_id)
+                .or_insert(String::new()) = value;
+
+            if let Some(server_data) = SERVER_DATA.get() {
+                let mut new_server_data = server_data.lock().unwrap();
+
+                self.server_data.last_updated_component = (String::new(), String::new());
+
+                *new_server_data = self.server_data.clone();
             }
         }
 
         self.handle_modal(ctx);
 
-        {
-            let mut app = self.app.borrow_mut();
+        self.handle_error_modal(ctx);
 
-            app.handle_error_modal(ctx);
+        self.handle_close_modal(ctx);
 
-            app.handle_close_modal(ctx);
+        // Custom main window
+        CentralPanel::default().show(ctx, |ui| {
+            let app_rect = ui.max_rect();
+            let title_bar_height = 32.0;
+            let title_bar_rect = {
+                let mut rect = app_rect;
+                rect.max.y = rect.min.y + title_bar_height;
+                rect
+            };
 
-            // Custom main window
-            CentralPanel::default().show(ctx, |ui| {
-                let app_rect = ui.max_rect();
-                let title_bar_height = 32.0;
-                let title_bar_rect = {
-                    let mut rect = app_rect;
-                    rect.max.y = rect.min.y + title_bar_height;
-                    rect
-                };
+            // Adding support for dragging from the top bar of the self
+            let title_bar_response = ui.interact(
+                title_bar_rect,
+                Id::new("title_bar"),
+                Sense::click_and_drag(),
+            );
 
-                // Adding support for dragging from the top bar of the app
-                let title_bar_response = ui.interact(
-                    title_bar_rect,
-                    Id::new("title_bar"),
-                    Sense::click_and_drag(),
-                );
+            if title_bar_response.drag_started_by(PointerButton::Primary) {
+                ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
+            }
 
-                if title_bar_response.drag_started_by(PointerButton::Primary) {
-                    ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
-                }
+            ui.allocate_new_ui(
+                UiBuilder::new()
+                    .max_rect(title_bar_rect)
+                    .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                |ui| {
+                    ui.add_space(8.0);
 
-                ui.allocate_new_ui(
-                    UiBuilder::new()
-                        .max_rect(title_bar_rect)
-                        .layout(egui::Layout::right_to_left(egui::Align::Center)),
-                    |ui| {
-                        ui.add_space(8.0);
+                    // Close and Minimize Button
+                    let button_size = 16.0;
 
-                        // Close and Minimize Button
-                        let button_size = 16.0;
+                    let close_button = ui
+                        .add(Button::new(RichText::new("×").size(button_size)))
+                        .on_hover_text("Close the window");
 
-                        let close_button = ui
-                            .add(Button::new(RichText::new("×").size(button_size)))
-                            .on_hover_text("Close the window");
+                    let minimized_button = ui
+                        .add(Button::new(RichText::new("–").size(button_size)))
+                        .on_hover_text("Minimize the window");
 
-                        let minimized_button = ui
-                            .add(Button::new(RichText::new("–").size(button_size)))
-                            .on_hover_text("Minimize the window");
-
-                        if close_button.clicked() {
-                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-
-                        if minimized_button.clicked() {
-                            ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
-                        }
-                    },
-                );
-
-                let mut port_name = String::new();
-                let mut current_profile = String::new();
-                let mut layout_size = (0.0, 0.0);
-
-                if let Some(config) = &app.config {
-                    port_name = config.settings.port_name.clone();
-                    current_profile = config.settings.current_profile.to_string();
-                    if let Some(layout) = &config.layout {
-                        layout_size = layout.size;
-                    }
-                }
-
-                egui::Window::new("Debug").show(ctx, |ui| {
-                    ui.heading("Hello World!");
-                    ui.label("PadPad is under construction!");
-                    ui.label(format!(
-                        "Server status: {}",
-                        app.server_data.is_client_connected
-                    ));
-                    ui.label(format!(
-                        "Device status: {}",
-                        if app.server_data.is_device_paired {
-                            "Paired"
-                        } else {
-                            "Not paired"
-                        }
-                    ));
-
-                    circular_progress(ui, 0.325, 50.0);
-
-                    ui.label(format!("Server current order: {}", app.server_data.order));
-
-                    if ui.button("New Layout").clicked() {
-                        app.show_custom_modal(move |ui| {
-                            ui.set_width(450.0);
-
-                            ui.with_layout(
-                                Layout::from_main_dir_and_cross_align(
-                                    Direction::TopDown,
-                                    Align::Center,
-                                ),
-                                |ui| {
-                                    ui.allocate_ui(
-                                        vec2(ui.available_width() - 100.0, 250.0),
-                                        |ui| {
-                                            ui.label("Create new Layout");
-
-                                            ui.horizontal(|ui| {
-                                                let mut name_string = String::new();
-
-                                                ui.label("Name");
-                                                ui.text_edit_singleline(&mut name_string);
-                                            });
-
-                                            ui.add_space(8.0);
-
-                                            ui.horizontal(|ui| {
-                                                let mut layout_width = 0;
-                                                let mut layout_height = 0;
-
-                                                ui.label("Width");
-
-                                                ui.add(
-                                                    egui::DragValue::new(&mut layout_width)
-                                                        .speed(1.0),
-                                                );
-
-                                                ui.add_space(8.0);
-                                                ui.label("Height");
-
-                                                ui.add(
-                                                    egui::DragValue::new(&mut layout_height)
-                                                        .speed(1.0),
-                                                );
-                                            });
-
-                                            ui.add_space(8.0);
-
-                                            ui.horizontal(|ui| {
-                                                if ui.button("Cancel").clicked() {}
-                                                if ui.button("Create").clicked() {}
-                                            });
-                                        },
-                                    );
-                                },
-                            );
-                        });
+                    if close_button.clicked() {
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
 
-                    ui.text_edit_singleline(&mut port_name).enabled();
+                    if minimized_button.clicked() {
+                        ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                    }
+                },
+            );
 
-                    //ui.label("Single-line with proposed size (may be larger):");
-                    //ui.add_sized([200.0, 50.0], egui::TextEdit::singleline(&mut port_name));
+            let mut port_name = String::new();
+            let mut current_profile = String::new();
+            let mut layout_size = (0.0, 0.0);
 
-                    //ui.allocate_ui(vec2(150.0, ui.available_size_before_wrap().y), |ui| {
-                    //    ui.with_layout(
-                    //        Layout::from_main_dir_and_cross_align(
-                    //            Direction::TopDown,
-                    //            Align::Center,
-                    //        ),
-                    //        |ui| {
-                    //            ui.text_edit_singleline(&mut port_name).enabled();
-                    //        },
-                    //    );
-                    //});
+            if let Some(config) = &self.config {
+                port_name = config.settings.port_name.clone();
+                current_profile = config.settings.current_profile.to_string();
+                if let Some(layout) = &config.layout {
+                    layout_size = layout.size;
+                }
+            }
 
-                    //ui.with_layout(
-                    //    Layout::from_main_dir_and_cross_align(Direction::TopDown, Align::Center),
-                    //    |ui| {
-                    //        ui.text_edit_singleline(&mut port_name).enabled();
-                    //    },
-                    //);
+            egui::Window::new("Debug").show(ctx, |ui| {
+                ui.heading("Hello World!");
+                ui.label("PadPad is under construction!");
+                ui.label(format!(
+                    "Server status: {}",
+                    self.server_data.is_client_connected
+                ));
+                ui.label(format!(
+                    "Device status: {}",
+                    if self.server_data.is_device_paired {
+                        "Paired"
+                    } else {
+                        "Not paired"
+                    }
+                ));
 
-                    ui.label(format!("Current profile: {}", current_profile));
+                circular_progress(ui, 0.325, 50.0);
 
-                    // Raw components layout
-                    ui.label(format!(
-                        "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
-                        app.server_data.raw_layout.0, app.server_data.raw_layout.1
-                    ));
+                ui.label(format!("Server current order: {}", self.server_data.order));
 
-                    if ui.button("Auto-detect components").clicked() {
-                        let app_clone = self.app.clone();
+                if ui.button("New Layout").clicked() {
+                    self.show_custom_modal("create-new-layout", move |ui, app| {
+                        ui.set_width(450.0);
 
-                        app.show_yes_no_modal(
-                            "Override layout".to_string(),
-                            "This operation will override the current layout!\n\
-                            Are you sure you want to proceed?"
-                                .to_string(),
-                            move || {
-                                let mut app = app_clone.borrow_mut();
+                        ui.with_layout(
+                            Layout::from_main_dir_and_cross_align(
+                                Direction::TopDown,
+                                Align::Center,
+                            ),
+                            |ui| {
+                                ui.allocate_ui(vec2(ui.available_width() - 100.0, 250.0), |ui| {
+                                    ui.label("Create new Layout");
 
-                                app.detect_components();
+                                    ui.horizontal(|ui| {
+                                        ui.label("Name");
+                                        ui.text_edit_singleline(&mut app.new_layout_name);
+                                    });
+
+                                    ui.add_space(8.0);
+
+                                    ui.horizontal(|ui| {
+                                        ui.label("Width");
+
+                                        ui.add(
+                                            egui::DragValue::new(&mut app.new_layout_size.0)
+                                                .speed(1.0),
+                                        );
+
+                                        ui.add_space(8.0);
+                                        ui.label("Height");
+
+                                        ui.add(
+                                            egui::DragValue::new(&mut app.new_layout_size.1)
+                                                .speed(1.0),
+                                        );
+                                    });
+
+                                    ui.add_space(8.0);
+
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Cancel").clicked() {
+                                            app.close_modal();
+                                        }
+                                        if ui.button("Create").clicked() {
+                                            if let Some(config) = &mut app.config {
+                                                if config.layout.is_none() {
+                                                    app.new_layout(
+                                                        app.new_layout_name.clone(),
+                                                        app.new_layout_size,
+                                                    );
+
+                                                    app.close_modal();
+                                                } else {
+                                                    app.show_yes_no_modal(
+                                                        "layout-override-confirmation-create",
+                                                        "Overriding current layout".to_string(),
+                                                        "You already have a layout, \
+                                                        do you want to override it?\n\
+                                                        This will remove all the added \
+                                                        components as well!"
+                                                            .to_string(),
+                                                        |app| {
+                                                            app.new_layout(
+                                                                app.new_layout_name.clone(),
+                                                                app.new_layout_size,
+                                                            );
+
+                                                            app.close_modal();
+                                                        },
+                                                        |_app| {},
+                                                        true,
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    });
+                                });
                             },
-                            || {},
                         );
-                    }
-                });
+                    });
+                }
 
-                // Upload X BitMap
-                egui::Window::new("Upload X BitMap")
-                    .vscroll(true)
-                    .show(ctx, |ui| {
-                        ui.text_edit_multiline(&mut app.xbm_string);
+                ui.text_edit_singleline(&mut port_name).enabled();
 
-                        if ui.button("Save to memory").clicked() {
-                            app.show_yes_no_modal(
+                ui.label(format!("Current profile: {}", current_profile));
+
+                // Raw components layout
+                ui.label(format!(
+                    "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
+                    self.server_data.raw_layout.0, self.server_data.raw_layout.1
+                ));
+
+                if ui.button("Auto-detect components").clicked() {
+                    self.show_yes_no_modal(
+                        "layout-override-confirmation-auto-detect-components",
+                        "Override layout".to_string(),
+                        "This operation will override the current layout!\n\
+                            Are you sure you want to proceed?"
+                            .to_string(),
+                        |app| {
+                            app.close_modal();
+
+                            match app.detect_components() {
+                                Ok(message) => app.show_message_modal(
+                                    "auto-detected-components-ok",
+                                    "Success".to_string(),
+                                    message,
+                                ),
+                                Err(error) => app.show_message_modal(
+                                    "auto-detected-components-error",
+                                    "Error".to_string(),
+                                    error,
+                                ),
+                            }
+                        },
+                        |app| {
+                            app.close_modal();
+                        },
+                        false,
+                    );
+                }
+            });
+
+            // Upload X BitMap
+            egui::Window::new("Upload X BitMap")
+                .vscroll(true)
+                .show(ctx, |ui| {
+                    ui.text_edit_multiline(&mut self.xbm_string);
+
+                    if ui.button("Save to memory").clicked() {
+                        if self.server_data.is_device_paired {
+                            self.show_yes_no_modal(
+                                "memory-override-confirmation",
                                 "Override memory".to_string(),
                                 "This operation will override the current memory!\n\
                                 Are you sure you want to continue?"
                                     .to_string(),
-                                move || {
+                                |_app| {
                                     // `m` = `Memory`, `1` = true
                                     request_send_serial("m1").ok();
                                 },
-                                || {},
+                                |_app| {},
+                                true,
                             );
+                        } else {
+                            self.show_not_paired_error();
                         }
+                    }
 
-                        if ui.button("Upload and Test").clicked() {
-                            if app.server_data.is_device_paired {
-                                let xbm_string = app.xbm_string.clone();
+                    if ui.button("Upload and Test").clicked() {
+                        if self.server_data.is_device_paired {
+                            let xbm_string = self.xbm_string.clone();
 
-                                match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE)
-                                {
-                                    Ok(bytes) => {
-                                        // `ui` = `Upload *HOME* Image`
-                                        let message = format!("ui{}", &bytes);
+                            match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
+                                Ok(bytes) => {
+                                    // `ui` = `Upload *HOME* Image`
+                                    let message = format!("ui{}", &bytes);
 
-                                        request_send_serial(message.as_str()).ok();
+                                    request_send_serial(message.as_str()).ok();
 
-                                        app.show_message_modal(
-                                            "Ok".to_string(),
-                                            "New X BitMap image \
+                                    self.show_message_modal(
+                                        "xbm-upload-ok",
+                                        "Ok".to_string(),
+                                        "New X BitMap image \
                                             was uploaded to the device."
-                                                .to_string(),
-                                        );
-                                    }
-                                    Err(error) => {
-                                        app.show_message_modal("Error".to_string(), error);
-                                    }
+                                            .to_string(),
+                                    );
                                 }
-                            } else {
-                                app.show_message_modal(
-                                    "Unavailable".to_string(),
-                                    "Device must be paired to be able to upload to it!".to_string(),
-                                );
+                                Err(error) => {
+                                    self.show_message_modal(
+                                        "xbm-upload-error",
+                                        "Error".to_string(),
+                                        error,
+                                    );
+                                }
                             }
+                        } else {
+                            self.show_not_paired_error();
                         }
+                    }
 
-                        if ui.button("Remove X BitMap").clicked() {
-                            app.show_yes_no_modal(
+                    if ui.button("Remove X BitMap").clicked() {
+                        if self.server_data.is_device_paired {
+                            self.show_yes_no_modal(
+                                "xbm-remove-confirmation",
                                 "Reset \"Home Image\"".to_string(),
                                 "You're about to remove and reset current \"Home Image\" \
                                 on your device!\nAre you sure you want to continue?"
                                     .to_string(),
-                                || {
+                                |_app| {
                                     // `ui` = `Upload *HOME* Image`, and since there's no value
                                     // the device removes current image and set its default
                                     request_send_serial("ui").ok();
                                 },
-                                || {},
+                                |_app| {},
+                                true,
                             );
+                        } else {
+                            self.show_not_paired_error();
                         }
-                    });
+                    }
+                });
 
-                // Layout window
-                egui::Window::new("Layout")
-                    //.movable(false)
-                    .resizable(false)
-                    .collapsible(false)
-                    .title_bar(false)
-                    .hscroll(true)
-                    .vscroll(true)
-                    .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
-                    .default_pos(egui::Pos2::new(150.0, 150.0))
-                    .frame(egui::Frame {
-                        fill: egui::Color32::RED,
-                        rounding: 4.0.into(),
-                        ..egui::Frame::default()
-                    })
-                    .show(ctx, |ui| {
-                        app.draw_layout(ctx, ui);
-                    });
-            });
-        }
+            // Layout window
+            egui::Window::new("Layout")
+                //.movable(false)
+                .resizable(false)
+                .collapsible(false)
+                .title_bar(false)
+                .hscroll(true)
+                .vscroll(true)
+                .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
+                .default_pos(egui::Pos2::new(150.0, 150.0))
+                .frame(egui::Frame {
+                    fill: egui::Color32::RED,
+                    rounding: 4.0.into(),
+                    ..egui::Frame::default()
+                })
+                .show(ctx, |ui| {
+                    self.draw_layout(ctx, ui);
+                });
+        });
 
         // Redraw continuously at 60 FPS
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
@@ -522,7 +434,7 @@ impl Application {
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
             if !self.close_app.1 {
-                // Cancel closing the app if it's not allowed
+                // Cancel closing the self if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
                 // show_close_modal
@@ -577,44 +489,125 @@ impl Application {
         }
     }
 
-    fn show_message_modal(&mut self, title: String, message: String) {
-        self.modal = Modal::Message { title, message }
-    }
+    fn handle_modal(&mut self, ctx: &Context) {
+        let modals = match self.modal.lock() {
+            Ok(modal) => modal.stack.clone(),
+            Err(_) => vec![],
+        };
 
-    fn show_yes_no_modal(
-        &mut self,
-        title: String,
-        question: String,
-        on_yes: impl FnMut() + 'static,
-        on_no: impl FnMut() + 'static,
-    ) {
-        self.modal = Modal::YesNo {
-            title,
-            question,
-            on_yes: Some(Box::new(on_yes)),
-            on_no: Some(Box::new(on_no)),
+        let mut close_indices = Vec::new();
+
+        for (index, modal) in modals.iter().enumerate() {
+            let modal_ui = egui::Modal::new(egui::Id::new(modal.id)).show(ctx, |ui| {
+                (modal.content)(ui, self);
+            });
+
+            if modal_ui.should_close() {
+                close_indices.push(index);
+            }
+        }
+
+        if !close_indices.is_empty() {
+            if let Ok(mut modal) = self.modal.lock() {
+                for &index in close_indices.iter().rev() {
+                    modal.stack.remove(index);
+                }
+            }
         }
     }
 
-    fn show_custom_modal(&mut self, content: impl FnMut(&mut Ui) + 'static) {
-        self.modal = Modal::Custom {
-            content: Box::new(content),
-        };
-    }
-
-    fn close_modal(&mut self) {
-        self.modal = Modal::None;
-    }
-
-    fn new_layout(&mut self, name: String) {
-        if let Some(config) = &mut self.config {
-            // Currently, Only one layout is supported
-            if config.layout.is_some() {
-                return;
+    fn show_custom_modal(
+        &self,
+        id: &'static str,
+        content: impl Fn(&mut Ui, &mut Application) + Send + Sync + 'static,
+    ) {
+        if let Ok(mut modal) = self.modal.lock() {
+            if !modal.contains_modal(id) {
+                modal.stack.push(Modal {
+                    id,
+                    content: Arc::new(content),
+                });
             }
+        }
+    }
 
+    fn show_message_modal(&self, id: &'static str, title: String, message: String) {
+        self.show_custom_modal(id, move |ui, app| {
+            ui.set_width(300.0);
+
+            ui.heading(title.clone());
+            ui.label(message.clone());
+
+            ui.add_space(32.0);
+
+            if ui.button("Ok").clicked() {
+                app.close_modal();
+            }
+        });
+    }
+
+    /// If you want to show another modal from callbacks, you need to set the `auto_close` to false
+    /// and close the modal manually, because `auto_close` closes the very latest modal
+    fn show_yes_no_modal(
+        &self,
+        id: &'static str,
+        title: String,
+        question: String,
+        on_confirm: impl Fn(&mut Application) + Send + Sync + 'static,
+        on_deny: impl Fn(&mut Application) + Send + Sync + 'static,
+        auto_close: bool,
+    ) {
+        self.show_custom_modal(id, move |ui, app| {
+            ui.set_width(350.0);
+
+            ui.heading(title.clone());
+            ui.label(question.clone());
+
+            ui.add_space(32.0);
+
+            ui.horizontal(|ui| {
+                if ui.button("Yes").clicked() {
+                    on_confirm(app);
+
+                    if auto_close {
+                        app.close_modal();
+                    }
+                }
+                if ui.button("No").clicked() {
+                    on_deny(app);
+
+                    if auto_close {
+                        app.close_modal();
+                    }
+                }
+            });
+        });
+    }
+
+    fn close_modal(&self) {
+        self.close_modals(1);
+    }
+
+    /// Closes the last number of modals, 1 means only last modal
+    fn close_modals(&self, number: usize) {
+        if let Ok(mut modal) = self.modal.lock() {
+            modal.close_last_modals(number);
+        }
+    }
+
+    fn show_not_paired_error(&self) {
+        self.show_message_modal(
+            "device-not-paired",
+            "Unavailable".to_string(),
+            "Device must be paired for this action!".to_string(),
+        );
+    }
+
+    fn new_layout(&mut self, name: String, size: (f32, f32)) {
+        if let Some(config) = &mut self.config {
             let layout = Layout {
                 name,
+                size,
                 ..Default::default()
             };
 
@@ -626,12 +619,6 @@ impl Application {
 
     fn draw_empty_layout(&mut self, ui: &mut Ui) {
         ui.label("Layout is empty!");
-
-        ui.text_edit_singleline(&mut self.new_layout_name);
-
-        if ui.button("Add new layout").clicked() {
-            self.new_layout(self.new_layout_name.clone());
-        }
     }
 
     fn draw_layout(&mut self, _ctx: &Context, ui: &mut Ui) {
@@ -752,22 +739,26 @@ impl Application {
     }
 
     // TODO: Add corrent spacing for auto-generated components
-    fn detect_components(&mut self) {
+    fn detect_components(&mut self) -> Result<String, String> {
         let config = match &self.config {
             Some(config) => config,
-            None => return,
+            None => return Err("There was an error while accessing the config!".to_string()),
         };
 
-        let layout_name = if let Some(layout) = &config.layout {
-            layout.name.clone()
+        let current_layout = if let Some(layout) = &config.layout {
+            (layout.name.clone(), layout.size)
         } else {
-            log_error!("Access violation: Tried to access layout without creating it first!");
+            let error =
+                "Access violation: Tried to access layout without creating it first!".to_string();
 
-            return;
+            log_error!("{}", error);
+
+            return Err(error);
         };
 
         let mut layout = Layout {
-            name: layout_name,
+            name: current_layout.0,
+            size: current_layout.1,
             ..Default::default()
         };
 
@@ -805,11 +796,21 @@ impl Application {
                 .insert(layout_potentiometer.0, layout_potentiometer.1);
         }
 
+        if index < 1 {
+            return Err("Couldn't find any componenets!\n\
+                Make sure your device is connected properly."
+                .to_string());
+        }
+
         if let Some(config) = &mut self.config {
             update_config_and_server(config, |c| {
                 c.layout = Some(layout);
             });
+
+            return Ok("Detected componenets were added to your layout.".to_string());
         }
+
+        Err("Unknown problem occured!".to_string())
     }
 
     // Format: 1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|...
@@ -826,7 +827,9 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        let buttons_string = self.server_data.raw_layout.0.clone();
+        // TODO: REMOVE THESE TEST VALUES!
+        let buttons_string = String::from("1|97|98|2|99|100|3|101|102|4|103|104|5|105|106");
+        //let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -901,7 +904,7 @@ impl Default for Application {
             .get_or_init(|| Arc::new(Mutex::new(String::new())))
             .clone();
 
-        // IPC handling between dashboard and service app
+        // IPC handling between dashboard and service self
         std::thread::Builder::new()
             .name("TCP client".to_string())
             .spawn(move || {
@@ -970,7 +973,7 @@ impl Default for Application {
         Self {
             close_app: (false, false),
             error_modal: (false, String::new()),
-            modal: Modal::None,
+            modal: Arc::new(Mutex::new(ModalManager::new())),
             config: match Config::default().read() {
                 Ok(config) => Some(config),
                 Err(err) => {
@@ -983,7 +986,8 @@ impl Default for Application {
             components: HashMap::default(),
 
             // TEMP VARIABLES
-            new_layout_name: String::new(),
+            new_layout_name: "New Layout".to_string(),
+            new_layout_size: (1030.0, 580.0),
             xbm_string: String::new(),
         }
     }

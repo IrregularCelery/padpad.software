@@ -28,6 +28,6 @@ pub const HOME_IMAGE_SIZE: usize = 252; // ((WIDTH + (8 - 1)) / 8) * HEIGHT
                                         // Check out `DISPLAY_HOME_IMAGE_SIZE` in padpad.firmware
 
 // Debug
-pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testing dashboard
+pub const DEBUG_SERIAL_DISABLE: bool = true; // Disables Serial comm for testing dashboard
 pub const DEBUG_TCP_CLIENT_CONNECTION: bool = false;
 pub const DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION: bool = false; // Logging received/sent messages

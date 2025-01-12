@@ -1,23 +1,35 @@
+use std::sync::Arc;
+
 use eframe::{
     egui::{Color32, Pos2, Response, Sense, Stroke, Ui, Vec2},
     epaint,
 };
 
-pub enum Modal {
-    None,
-    Message {
-        title: String,
-        message: String,
-    },
-    YesNo {
-        title: String,
-        question: String,
-        on_yes: Option<Box<dyn FnMut()>>,
-        on_no: Option<Box<dyn FnMut()>>,
-    },
-    Custom {
-        content: Box<dyn FnMut(&mut Ui)>,
-    },
+#[derive(Default)]
+pub struct ModalManager {
+    pub stack: Vec<Modal>,
+}
+
+#[derive(Clone)]
+pub struct Modal {
+    pub id: &'static str,
+    pub content: Arc<dyn Fn(&mut Ui, &mut super::Application) + Send + Sync + 'static>,
+}
+
+impl ModalManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn contains_modal(&self, id: &str) -> bool {
+        self.stack.iter().any(|modal| modal.id == id)
+    }
+
+    pub fn close_last_modals(&mut self, number: usize) {
+        let new_len = self.stack.len().saturating_sub(number);
+
+        self.stack.truncate(new_len);
+    }
 }
 
 // TODO: Needs to be changed quite a lot!

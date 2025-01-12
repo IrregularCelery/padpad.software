@@ -4,13 +4,12 @@ use eframe::egui;
 
 mod application;
 
-use application::{application::AppWrapper, Application};
+use application::Application;
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let app = Application::default();
-    let app_wrapper = AppWrapper::new(app);
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -35,6 +34,6 @@ fn main() -> eframe::Result {
         )
         .as_str(),
         options,
-        Box::new(|_cc| Ok(Box::new(app_wrapper))),
+        Box::new(|_cc| Ok(Box::new(app))),
     )
 }

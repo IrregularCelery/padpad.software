@@ -145,86 +145,6 @@ impl Default for Layout {
     }
 }
 
-impl Profile {
-    // TEST: Only for testing purposes! This method will get heavily changed!
-    fn new_profile(profile_name: String, no_interactions: bool) -> Self {
-        Self {
-            name: profile_name,
-            interactions: {
-                let mut interactions: HashMap<String, Interaction> = Default::default();
-
-                if !no_interactions {
-                    // NOTE: The way this should happen (after the dashboard app is ready),
-                    // is to auto-generate NONE interactions for all components every time
-                    // you create a profile. so, user can set their interactions.
-                    interactions.insert(
-                        "Button:1".to_string(),
-                        Interaction {
-                            normal: InteractionKind::File(
-                                "/home/mohsen/media/Music/ava".to_string(),
-                            ),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:2".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::File(
-                                "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
-                            ),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Potentiometer:2".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:3".to_string(),
-                        Interaction {
-                            normal: InteractionKind::Command(
-                                "notify-send \"hello!\"".to_string(),
-                                "sh".to_string(),
-                            ),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:4".to_string(),
-                        Interaction {
-                            normal: InteractionKind::Shortcut(
-                                vec![enigo::Key::Control, enigo::Key::Unicode('p')],
-                                String::new(),
-                            ),
-                            modkey: InteractionKind::Shortcut(
-                                vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
-                                String::new(),
-                            ),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Potentiometer:1".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-                }
-
-                interactions
-            },
-        }
-    }
-}
-
 impl Config {
     pub fn load(&mut self) {
         *self = match self.read() {
@@ -315,6 +235,86 @@ impl Config {
         file.write_all(toml_str.as_bytes())?;
 
         Ok(file)
+    }
+}
+
+impl Profile {
+    // TEST: Only for testing purposes! This method will get heavily changed!
+    fn new_profile(profile_name: String, no_interactions: bool) -> Self {
+        Self {
+            name: profile_name,
+            interactions: {
+                let mut interactions: HashMap<String, Interaction> = Default::default();
+
+                if !no_interactions {
+                    // NOTE: The way this should happen (after the dashboard app is ready),
+                    // is to auto-generate NONE interactions for all components every time
+                    // you create a profile. so, user can set their interactions.
+                    interactions.insert(
+                        "Button:1".to_string(),
+                        Interaction {
+                            normal: InteractionKind::File(
+                                "/home/mohsen/media/Music/ava".to_string(),
+                            ),
+                            modkey: InteractionKind::None(),
+                        },
+                    );
+
+                    interactions.insert(
+                        "Button:2".to_string(),
+                        Interaction {
+                            normal: InteractionKind::None(),
+                            modkey: InteractionKind::File(
+                                "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
+                            ),
+                        },
+                    );
+
+                    interactions.insert(
+                        "Potentiometer:2".to_string(),
+                        Interaction {
+                            normal: InteractionKind::None(),
+                            modkey: InteractionKind::None(),
+                        },
+                    );
+
+                    interactions.insert(
+                        "Button:3".to_string(),
+                        Interaction {
+                            normal: InteractionKind::Command(
+                                "notify-send \"hello!\"".to_string(),
+                                "sh".to_string(),
+                            ),
+                            modkey: InteractionKind::None(),
+                        },
+                    );
+
+                    interactions.insert(
+                        "Button:4".to_string(),
+                        Interaction {
+                            normal: InteractionKind::Shortcut(
+                                vec![enigo::Key::Control, enigo::Key::Unicode('p')],
+                                String::new(),
+                            ),
+                            modkey: InteractionKind::Shortcut(
+                                vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
+                                String::new(),
+                            ),
+                        },
+                    );
+
+                    interactions.insert(
+                        "Potentiometer:1".to_string(),
+                        Interaction {
+                            normal: InteractionKind::None(),
+                            modkey: InteractionKind::None(),
+                        },
+                    );
+                }
+
+                interactions
+            },
+        }
     }
 }
 
