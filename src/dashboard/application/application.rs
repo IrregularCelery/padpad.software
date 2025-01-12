@@ -20,12 +20,12 @@ static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global 
 
 pub struct Application {
     close_app: (
-        bool, /* show_close_modal */
+        bool, /* show_close_popup */
         bool, /* can_close_app */
     ),
-    error_modal: (
-        bool,   /* show_error_modal */
-        String, /* error_modal_text */
+    unavoidable_error: (
+        bool,   /* show_unavoidable_error */
+        String, /* unavoidable_error_text */
     ),
     modal: Arc<Mutex<ModalManager>>,
     config: Option<Config>,
@@ -48,76 +48,101 @@ impl eframe::App for Application {
 
         ctx.set_style(get_current_style());
 
-        // Access the latest server data
-        if let Some(server_data) = SERVER_DATA.get() {
-            let new_server_data = server_data.lock().unwrap().clone();
+        // Server data
+        self.handle_server_data();
 
-            self.server_data = new_server_data;
-        }
-
-        // Access the last error message
-        if let Some(last_error_message) = ERROR_MESSAGE.get() {
-            let error_message = last_error_message.lock().unwrap().clone();
-
-            if !error_message.is_empty() {
-                self.error_modal = (true, error_message);
-            } else {
-                self.error_modal = (false, String::new());
-            }
-        }
-
-        // Handle server orders
-        if !self.server_data.order.is_empty() {
-            let mut handled = false;
-
-            match self.server_data.order.as_str() {
-                "reload_config" => {
-                    handled = true;
-
-                    if let Some(config) = &mut self.config {
-                        config.load();
-                    }
-                }
-                _ => (),
-            }
-
-            if handled {
-                if let Some(server_data) = SERVER_DATA.get() {
-                    let mut new_server_data = server_data.lock().unwrap();
-
-                    self.server_data.order = String::new();
-
-                    *new_server_data = self.server_data.clone();
-                }
-
-                client_to_server_message("handled").ok();
-            }
-        }
-
-        // Update component values
-        if !self.server_data.last_updated_component.0.is_empty() {
-            let component_global_id = self.server_data.last_updated_component.0.clone();
-            let value = self.server_data.last_updated_component.1.clone();
-
-            *self
-                .components
-                .entry(component_global_id)
-                .or_insert(String::new()) = value;
-
-            if let Some(server_data) = SERVER_DATA.get() {
-                let mut new_server_data = server_data.lock().unwrap();
-
-                self.server_data.last_updated_component = (String::new(), String::new());
-
-                *new_server_data = self.server_data.clone();
-            }
-        }
-
+        // Modal manager
         self.handle_modal(ctx);
 
-        self.handle_error_modal(ctx);
+        // Unavoidable errors
+        self.handle_unavoidable_error(ctx);
 
-        self.handle_close_modal(ctx);
+        // Application confirm close popup
+        self.handle_close_popup(ctx);
+
+        // Layout
+        self.draw_layout(ctx);
+
+        // TEST: Upload X BitMap
+        egui::Window::new("Upload X BitMap")
+            .default_open(false)
+            .vscroll(true)
+            .show(ctx, |ui| {
+                ui.text_edit_multiline(&mut self.xbm_string);
+
+                if ui.button("Save to memory").clicked() {
+                    if self.server_data.is_device_paired {
+                        self.show_yes_no_modal(
+                            "memory-override-confirmation",
+                            "Override memory".to_string(),
+                            "This operation will override the current memory!\n\
+                                Are you sure you want to continue?"
+                                .to_string(),
+                            |_app| {
+                                // `m` = `Memory`, `1` = true
+                                request_send_serial("m1").ok();
+                            },
+                            |_app| {},
+                            true,
+                        );
+                    } else {
+                        self.show_not_paired_error();
+                    }
+                }
+
+                if ui.button("Upload and Test").clicked() {
+                    if self.server_data.is_device_paired {
+                        let xbm_string = self.xbm_string.clone();
+
+                        match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
+                            Ok(bytes) => {
+                                // `ui` = `Upload *HOME* Image`
+                                let message = format!("ui{}", &bytes);
+
+                                request_send_serial(message.as_str()).ok();
+
+                                self.show_message_modal(
+                                    "xbm-upload-ok",
+                                    "Ok".to_string(),
+                                    "New X BitMap image \
+                                            was uploaded to the device."
+                                        .to_string(),
+                                );
+                            }
+                            Err(error) => {
+                                self.show_message_modal(
+                                    "xbm-upload-error",
+                                    "Error".to_string(),
+                                    error,
+                                );
+                            }
+                        }
+                    } else {
+                        self.show_not_paired_error();
+                    }
+                }
+
+                if ui.button("Remove X BitMap").clicked() {
+                    if self.server_data.is_device_paired {
+                        self.show_yes_no_modal(
+                            "xbm-remove-confirmation",
+                            "Reset \"Home Image\"".to_string(),
+                            "You're about to remove and reset current \"Home Image\" \
+                                on your device!\nAre you sure you want to continue?"
+                                .to_string(),
+                            |_app| {
+                                // `ui` = `Upload *HOME* Image`, and since there's no value
+                                // the device removes current image and set its default
+                                request_send_serial("ui").ok();
+                            },
+                            |_app| {},
+                            true,
+                        );
+                    } else {
+                        self.show_not_paired_error();
+                    }
+                }
+            });
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -168,260 +193,12 @@ impl eframe::App for Application {
                 },
             );
 
-            let mut port_name = String::new();
-            let mut current_profile = String::new();
-            let mut layout_size = (0.0, 0.0);
-
-            if let Some(config) = &self.config {
-                port_name = config.settings.port_name.clone();
-                current_profile = config.settings.current_profile.to_string();
-                if let Some(layout) = &config.layout {
-                    layout_size = layout.size;
-                }
-            }
-
-            egui::Window::new("Debug").show(ctx, |ui| {
-                ui.heading("Hello World!");
-                ui.label("PadPad is under construction!");
-                ui.label(format!(
-                    "Server status: {}",
-                    self.server_data.is_client_connected
-                ));
-                ui.label(format!(
-                    "Device status: {}",
-                    if self.server_data.is_device_paired {
-                        "Paired"
-                    } else {
-                        "Not paired"
-                    }
-                ));
-
-                circular_progress(ui, 0.325, 50.0);
-
-                ui.label(format!("Server current order: {}", self.server_data.order));
-
-                if ui.button("New Layout").clicked() {
-                    self.show_custom_modal("create-new-layout", move |ui, app| {
-                        ui.set_width(450.0);
-
-                        ui.with_layout(
-                            Layout::from_main_dir_and_cross_align(
-                                Direction::TopDown,
-                                Align::Center,
-                            ),
-                            |ui| {
-                                ui.allocate_ui(vec2(ui.available_width() - 100.0, 250.0), |ui| {
-                                    ui.label("Create new Layout");
-
-                                    ui.horizontal(|ui| {
-                                        ui.label("Name");
-                                        ui.text_edit_singleline(&mut app.new_layout_name);
-                                    });
-
-                                    ui.add_space(8.0);
-
-                                    ui.horizontal(|ui| {
-                                        ui.label("Width");
-
-                                        ui.add(
-                                            egui::DragValue::new(&mut app.new_layout_size.0)
-                                                .speed(1.0),
-                                        );
-
-                                        ui.add_space(8.0);
-                                        ui.label("Height");
-
-                                        ui.add(
-                                            egui::DragValue::new(&mut app.new_layout_size.1)
-                                                .speed(1.0),
-                                        );
-                                    });
-
-                                    ui.add_space(8.0);
-
-                                    ui.horizontal(|ui| {
-                                        if ui.button("Cancel").clicked() {
-                                            app.close_modal();
-                                        }
-                                        if ui.button("Create").clicked() {
-                                            if let Some(config) = &mut app.config {
-                                                if config.layout.is_none() {
-                                                    app.new_layout(
-                                                        app.new_layout_name.clone(),
-                                                        app.new_layout_size,
-                                                    );
-
-                                                    app.close_modal();
-                                                } else {
-                                                    app.show_yes_no_modal(
-                                                        "layout-override-confirmation-create",
-                                                        "Overriding current layout".to_string(),
-                                                        "You already have a layout, \
-                                                        do you want to override it?\n\
-                                                        This will remove all the added \
-                                                        components as well!"
-                                                            .to_string(),
-                                                        |app| {
-                                                            app.new_layout(
-                                                                app.new_layout_name.clone(),
-                                                                app.new_layout_size,
-                                                            );
-
-                                                            app.close_modal();
-                                                        },
-                                                        |_app| {},
-                                                        true,
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    });
-                                });
-                            },
-                        );
-                    });
-                }
-
-                ui.text_edit_singleline(&mut port_name).enabled();
-
-                ui.label(format!("Current profile: {}", current_profile));
-
-                // Raw components layout
-                ui.label(format!(
-                    "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
-                    self.server_data.raw_layout.0, self.server_data.raw_layout.1
-                ));
-
-                if ui.button("Auto-detect components").clicked() {
-                    self.show_yes_no_modal(
-                        "layout-override-confirmation-auto-detect-components",
-                        "Override layout".to_string(),
-                        "This operation will override the current layout!\n\
-                            Are you sure you want to proceed?"
-                            .to_string(),
-                        |app| {
-                            app.close_modal();
-
-                            match app.detect_components() {
-                                Ok(message) => app.show_message_modal(
-                                    "auto-detected-components-ok",
-                                    "Success".to_string(),
-                                    message,
-                                ),
-                                Err(error) => app.show_message_modal(
-                                    "auto-detected-components-error",
-                                    "Error".to_string(),
-                                    error,
-                                ),
-                            }
-                        },
-                        |app| {
-                            app.close_modal();
-                        },
-                        false,
-                    );
-                }
-            });
-
-            // Upload X BitMap
-            egui::Window::new("Upload X BitMap")
-                .vscroll(true)
-                .show(ctx, |ui| {
-                    ui.text_edit_multiline(&mut self.xbm_string);
-
-                    if ui.button("Save to memory").clicked() {
-                        if self.server_data.is_device_paired {
-                            self.show_yes_no_modal(
-                                "memory-override-confirmation",
-                                "Override memory".to_string(),
-                                "This operation will override the current memory!\n\
-                                Are you sure you want to continue?"
-                                    .to_string(),
-                                |_app| {
-                                    // `m` = `Memory`, `1` = true
-                                    request_send_serial("m1").ok();
-                                },
-                                |_app| {},
-                                true,
-                            );
-                        } else {
-                            self.show_not_paired_error();
-                        }
-                    }
-
-                    if ui.button("Upload and Test").clicked() {
-                        if self.server_data.is_device_paired {
-                            let xbm_string = self.xbm_string.clone();
-
-                            match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
-                                Ok(bytes) => {
-                                    // `ui` = `Upload *HOME* Image`
-                                    let message = format!("ui{}", &bytes);
-
-                                    request_send_serial(message.as_str()).ok();
-
-                                    self.show_message_modal(
-                                        "xbm-upload-ok",
-                                        "Ok".to_string(),
-                                        "New X BitMap image \
-                                            was uploaded to the device."
-                                            .to_string(),
-                                    );
-                                }
-                                Err(error) => {
-                                    self.show_message_modal(
-                                        "xbm-upload-error",
-                                        "Error".to_string(),
-                                        error,
-                                    );
-                                }
-                            }
-                        } else {
-                            self.show_not_paired_error();
-                        }
-                    }
-
-                    if ui.button("Remove X BitMap").clicked() {
-                        if self.server_data.is_device_paired {
-                            self.show_yes_no_modal(
-                                "xbm-remove-confirmation",
-                                "Reset \"Home Image\"".to_string(),
-                                "You're about to remove and reset current \"Home Image\" \
-                                on your device!\nAre you sure you want to continue?"
-                                    .to_string(),
-                                |_app| {
-                                    // `ui` = `Upload *HOME* Image`, and since there's no value
-                                    // the device removes current image and set its default
-                                    request_send_serial("ui").ok();
-                                },
-                                |_app| {},
-                                true,
-                            );
-                        } else {
-                            self.show_not_paired_error();
-                        }
-                    }
-                });
-
-            // Layout window
-            egui::Window::new("Layout")
-                //.movable(false)
-                .resizable(false)
-                .collapsible(false)
-                .title_bar(false)
-                .hscroll(true)
-                .vscroll(true)
-                .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
-                .default_pos(egui::Pos2::new(150.0, 150.0))
-                .frame(egui::Frame {
-                    fill: egui::Color32::RED,
-                    rounding: 4.0.into(),
-                    ..egui::Frame::default()
-                })
-                .show(ctx, |ui| {
-                    self.draw_layout(ctx, ui);
-                });
+            // Custom main window content
         });
+
+        if cfg!(debug_assertions) {
+            self.draw_debug_panel(ctx);
+        }
 
         // Redraw continuously at 60 FPS
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
@@ -429,7 +206,74 @@ impl eframe::App for Application {
 }
 
 impl Application {
-    fn handle_close_modal(&mut self, ctx: &Context) {
+    fn handle_server_data(&mut self) {
+        // Access the latest server data
+        if let Some(server_data) = SERVER_DATA.get() {
+            let new_server_data = server_data.lock().unwrap().clone();
+
+            self.server_data = new_server_data;
+        }
+
+        // Access the last error message
+        if let Some(last_error_message) = ERROR_MESSAGE.get() {
+            let error_message = last_error_message.lock().unwrap().clone();
+
+            if !error_message.is_empty() {
+                self.unavoidable_error = (true, error_message);
+            } else {
+                self.unavoidable_error = (false, String::new());
+            }
+        }
+
+        // Handle server orders
+        if !self.server_data.order.is_empty() {
+            let mut handled = false;
+
+            match self.server_data.order.as_str() {
+                "reload_config" => {
+                    handled = true;
+
+                    if let Some(config) = &mut self.config {
+                        config.load();
+                    }
+                }
+                _ => (),
+            }
+
+            if handled {
+                if let Some(server_data) = SERVER_DATA.get() {
+                    let mut new_server_data = server_data.lock().unwrap();
+
+                    self.server_data.order = String::new();
+
+                    *new_server_data = self.server_data.clone();
+                }
+
+                client_to_server_message("handled").ok();
+            }
+        }
+
+        // Update component values
+        if !self.server_data.last_updated_component.0.is_empty() {
+            let component_global_id = self.server_data.last_updated_component.0.clone();
+            let value = self.server_data.last_updated_component.1.clone();
+
+            *self
+                .components
+                .entry(component_global_id)
+                .or_insert(String::new()) = value;
+
+            if let Some(server_data) = SERVER_DATA.get() {
+                let mut new_server_data = server_data.lock().unwrap();
+
+                self.server_data.last_updated_component = (String::new(), String::new());
+
+                *new_server_data = self.server_data.clone();
+            }
+        }
+    }
+
+    fn handle_close_popup(&mut self, ctx: &Context) {
         // Confirm exit functionality
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
@@ -437,7 +281,7 @@ impl Application {
                 // Cancel closing the app if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
-                // show_close_modal
+                // show_close_popup
                 self.close_app.0 = true;
             }
         }
@@ -475,17 +319,13 @@ impl Application {
         }
     }
 
-    fn handle_error_modal(&mut self, ctx: &Context) {
-        if self.error_modal.0 {
-            let modal = egui::Modal::new(egui::Id::new("Error Modal")).show(ctx, |ui| {
+    fn handle_unavoidable_error(&mut self, ctx: &Context) {
+        if self.unavoidable_error.0 {
+            egui::Modal::new(egui::Id::new("unavoidable-error")).show(ctx, |ui| {
                 ui.set_width(250.0);
 
-                ui.heading(self.error_modal.1.clone());
+                ui.heading(self.unavoidable_error.1.clone());
             });
-
-            if modal.should_close() {
-                self.error_modal.0 = false;
-            }
         }
     }
 
@@ -621,74 +461,98 @@ impl Application {
         ui.label("Layout is empty!");
     }
 
-    fn draw_layout(&mut self, _ctx: &Context, ui: &mut Ui) {
-        match &self.config {
-            Some(config) => {
-                let layout = if let Some(layout) = &config.layout {
-                    layout
-                } else {
-                    self.draw_empty_layout(ui);
+    fn draw_layout(&mut self, ctx: &Context) {
+        let mut layout_size = (0.0, 0.0);
 
-                    return;
-                };
-
-                for component in &layout.components {
-                    let kind_id: Vec<&str> = component.0.split(':').collect();
-
-                    let kind = match kind_id.first() {
-                        Some(&"Button") => ComponentKind::Button,
-                        Some(&"LED") => ComponentKind::LED,
-                        Some(&"Potentiometer") => ComponentKind::Potentiometer,
-                        Some(&"Joystick") => ComponentKind::Joystick,
-                        Some(&"RotaryEncoder") => ComponentKind::RotaryEncoder,
-                        Some(&"Display") => ComponentKind::Display,
-                        _ => ComponentKind::None,
-                    };
-                    let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
-                    let value = match self.components.get(&component.0.to_string()) {
-                        Some(v) => String::from(v),
-                        None => String::new(),
-                    };
-                    let label = &component.1.label;
-                    let position: Pos2 = component.1.position.into();
-                    let size = Vec2::new(100.0, 30.0);
-
-                    match kind {
-                        ComponentKind::None => (),
-                        ComponentKind::Button => {
-                            let button = self.draw_button(
-                                ui,
-                                label,
-                                position,
-                                size,
-                                value.parse::<i8>().unwrap_or(0),
-                            );
-
-                            if button.clicked() {
-                                log_print!("{}: {}", label, id);
-                            };
-                        }
-                        ComponentKind::LED => (),
-                        ComponentKind::Potentiometer => {
-                            self.draw_potentiometer(
-                                ui,
-                                label,
-                                position,
-                                size,
-                                value.parse::<u8>().unwrap_or(0),
-                            );
-                        }
-                        ComponentKind::Joystick => (),
-                        ComponentKind::RotaryEncoder => (),
-                        ComponentKind::Display => (),
-                    }
-                }
-            }
-            None => {
-                // Need to wait before the config is ready
-                ui.label("Loading...");
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                layout_size = layout.size;
             }
         }
+
+        egui::Window::new("Layout")
+            //.movable(false)
+            .resizable(false)
+            .collapsible(false)
+            .title_bar(false)
+            .hscroll(true)
+            .vscroll(true)
+            .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
+            .default_pos(egui::Pos2::new(150.0, 150.0))
+            .frame(egui::Frame {
+                fill: egui::Color32::RED,
+                rounding: 4.0.into(),
+                ..egui::Frame::default()
+            })
+            .show(ctx, |ui| {
+                match &self.config {
+                    Some(config) => {
+                        let layout = if let Some(layout) = &config.layout {
+                            layout
+                        } else {
+                            self.draw_empty_layout(ui);
+
+                            return;
+                        };
+
+                        for component in &layout.components {
+                            let kind_id: Vec<&str> = component.0.split(':').collect();
+
+                            let kind = match kind_id.first() {
+                                Some(&"Button") => ComponentKind::Button,
+                                Some(&"LED") => ComponentKind::LED,
+                                Some(&"Potentiometer") => ComponentKind::Potentiometer,
+                                Some(&"Joystick") => ComponentKind::Joystick,
+                                Some(&"RotaryEncoder") => ComponentKind::RotaryEncoder,
+                                Some(&"Display") => ComponentKind::Display,
+                                _ => ComponentKind::None,
+                            };
+                            let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+                            let value = match self.components.get(&component.0.to_string()) {
+                                Some(v) => String::from(v),
+                                None => String::new(),
+                            };
+                            let label = &component.1.label;
+                            let position: Pos2 = component.1.position.into();
+                            let size = Vec2::new(100.0, 30.0);
+
+                            match kind {
+                                ComponentKind::None => (),
+                                ComponentKind::Button => {
+                                    let button = self.draw_button(
+                                        ui,
+                                        label,
+                                        position,
+                                        size,
+                                        value.parse::<i8>().unwrap_or(0),
+                                    );
+
+                                    if button.clicked() {
+                                        log_print!("{}: {}", label, id);
+                                    };
+                                }
+                                ComponentKind::LED => (),
+                                ComponentKind::Potentiometer => {
+                                    self.draw_potentiometer(
+                                        ui,
+                                        label,
+                                        position,
+                                        size,
+                                        value.parse::<u8>().unwrap_or(0),
+                                    );
+                                }
+                                ComponentKind::Joystick => (),
+                                ComponentKind::RotaryEncoder => (),
+                                ComponentKind::Display => (),
+                            }
+                        }
+                    }
+                    None => {
+                        // Need to wait before the config is ready
+                        ui.label("Loading...");
+                    }
+                }
+            });
     }
 
     fn draw_button(
@@ -890,6 +754,164 @@ impl Application {
 
         potentiometers.into_iter()
     }
+
+    fn draw_debug_panel(&self, ctx: &Context) {
+        use egui::*;
+
+        let mut port_name = String::new();
+        let mut current_profile = String::new();
+
+        if let Some(config) = &self.config {
+            port_name = config.settings.port_name.clone();
+            current_profile = config.settings.current_profile.to_string();
+        }
+
+        egui::Window::new("Debug")
+            .default_pos((0.0, 0.0))
+            .default_open(false)
+            .show(ctx, |ui| {
+                ui.heading("Hello World!");
+                ui.label("PadPad is under construction!");
+                ui.label(format!(
+                    "Server status: {}",
+                    self.server_data.is_client_connected
+                ));
+                ui.label(format!(
+                    "Device status: {}",
+                    if self.server_data.is_device_paired {
+                        "Paired"
+                    } else {
+                        "Not paired"
+                    }
+                ));
+
+                circular_progress(ui, 0.325, 50.0);
+
+                ui.label(format!("Server current order: {}", self.server_data.order));
+
+                if ui.button("New Layout").clicked() {
+                    self.show_custom_modal("create-new-layout", move |ui, app| {
+                        ui.set_width(450.0);
+
+                        ui.with_layout(
+                            Layout::from_main_dir_and_cross_align(
+                                Direction::TopDown,
+                                Align::Center,
+                            ),
+                            |ui| {
+                                ui.allocate_ui(vec2(ui.available_width() - 100.0, 250.0), |ui| {
+                                    ui.label("Create new Layout");
+
+                                    ui.horizontal(|ui| {
+                                        ui.label("Name");
+                                        ui.text_edit_singleline(&mut app.new_layout_name);
+                                    });
+
+                                    ui.add_space(8.0);
+
+                                    ui.horizontal(|ui| {
+                                        ui.label("Width");
+
+                                        ui.add(
+                                            egui::DragValue::new(&mut app.new_layout_size.0)
+                                                .speed(1.0),
+                                        );
+
+                                        ui.add_space(8.0);
+                                        ui.label("Height");
+
+                                        ui.add(
+                                            egui::DragValue::new(&mut app.new_layout_size.1)
+                                                .speed(1.0),
+                                        );
+                                    });
+
+                                    ui.add_space(8.0);
+
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Cancel").clicked() {
+                                            app.close_modal();
+                                        }
+                                        if ui.button("Create").clicked() {
+                                            if let Some(config) = &mut app.config {
+                                                if config.layout.is_none() {
+                                                    app.new_layout(
+                                                        app.new_layout_name.clone(),
+                                                        app.new_layout_size,
+                                                    );
+
+                                                    app.close_modal();
+                                                } else {
+                                                    app.show_yes_no_modal(
+                                                        "layout-override-confirmation-create",
+                                                        "Overriding current layout".to_string(),
+                                                        "You already have a layout, \
+                                                        do you want to override it?\n\
+                                                        This will remove all the added \
+                                                        components as well!"
+                                                            .to_string(),
+                                                        |app| {
+                                                            app.new_layout(
+                                                                app.new_layout_name.clone(),
+                                                                app.new_layout_size,
+                                                            );
+
+                                                            app.close_modal();
+                                                        },
+                                                        |_app| {},
+                                                        true,
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    });
+                                });
+                            },
+                        );
+                    });
+                }
+
+                ui.text_edit_singleline(&mut port_name).enabled();
+
+                ui.label(format!("Current profile: {}", current_profile));
+
+                // Raw components layout
+                ui.label(format!(
+                    "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
+                    self.server_data.raw_layout.0, self.server_data.raw_layout.1
+                ));
+
+                if ui.button("Auto-detect components").clicked() {
+                    self.show_yes_no_modal(
+                        "layout-override-confirmation-auto-detect-components",
+                        "Override layout".to_string(),
+                        "This operation will override the current layout!\n\
+                            Are you sure you want to proceed?"
+                            .to_string(),
+                        |app| {
+                            app.close_modal();
+
+                            match app.detect_components() {
+                                Ok(message) => app.show_message_modal(
+                                    "auto-detected-components-ok",
+                                    "Success".to_string(),
+                                    message,
+                                ),
+                                Err(error) => app.show_message_modal(
+                                    "auto-detected-components-error",
+                                    "Error".to_string(),
+                                    error,
+                                ),
+                            }
+                        },
+                        |app| {
+                            app.close_modal();
+                        },
+                        false,
+                    );
+                }
+            });
+    }
 }
 
 impl Default for Application {
@@ -972,7 +994,7 @@ impl Default for Application {
 
         Self {
             close_app: (false, false),
-            error_modal: (false, String::new()),
+            unavoidable_error: (false, String::new()),
             modal: Arc::new(Mutex::new(ModalManager::new())),
             config: match Config::default().read() {
                 Ok(config) => Some(config),
