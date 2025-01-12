@@ -155,8 +155,8 @@ impl eframe::App for AppWrapper {
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         use egui::*;
-        let style = get_current_style();
-        ctx.set_style(style);
+
+        ctx.set_style(get_current_style());
 
         {
             let mut app = self.app.borrow_mut();
@@ -316,7 +316,86 @@ impl eframe::App for AppWrapper {
 
                     ui.label(format!("Server current order: {}", app.server_data.order));
 
+                    if ui.button("New Layout").clicked() {
+                        app.show_custom_modal(move |ui| {
+                            ui.set_width(450.0);
+
+                            ui.with_layout(
+                                Layout::from_main_dir_and_cross_align(
+                                    Direction::TopDown,
+                                    Align::Center,
+                                ),
+                                |ui| {
+                                    ui.allocate_ui(
+                                        vec2(ui.available_width() - 100.0, 250.0),
+                                        |ui| {
+                                            ui.label("Create new Layout");
+
+                                            ui.horizontal(|ui| {
+                                                let mut name_string = String::new();
+
+                                                ui.label("Name");
+                                                ui.text_edit_singleline(&mut name_string);
+                                            });
+
+                                            ui.add_space(8.0);
+
+                                            ui.horizontal(|ui| {
+                                                let mut layout_width = 0;
+                                                let mut layout_height = 0;
+
+                                                ui.label("Width");
+
+                                                ui.add(
+                                                    egui::DragValue::new(&mut layout_width)
+                                                        .speed(1.0),
+                                                );
+
+                                                ui.add_space(8.0);
+                                                ui.label("Height");
+
+                                                ui.add(
+                                                    egui::DragValue::new(&mut layout_height)
+                                                        .speed(1.0),
+                                                );
+                                            });
+
+                                            ui.add_space(8.0);
+
+                                            ui.horizontal(|ui| {
+                                                if ui.button("Cancel").clicked() {}
+                                                if ui.button("Create").clicked() {}
+                                            });
+                                        },
+                                    );
+                                },
+                            );
+                        });
+                    }
+
                     ui.text_edit_singleline(&mut port_name).enabled();
+
+                    //ui.label("Single-line with proposed size (may be larger):");
+                    //ui.add_sized([200.0, 50.0], egui::TextEdit::singleline(&mut port_name));
+
+                    //ui.allocate_ui(vec2(150.0, ui.available_size_before_wrap().y), |ui| {
+                    //    ui.with_layout(
+                    //        Layout::from_main_dir_and_cross_align(
+                    //            Direction::TopDown,
+                    //            Align::Center,
+                    //        ),
+                    //        |ui| {
+                    //            ui.text_edit_singleline(&mut port_name).enabled();
+                    //        },
+                    //    );
+                    //});
+
+                    //ui.with_layout(
+                    //    Layout::from_main_dir_and_cross_align(Direction::TopDown, Align::Center),
+                    //    |ui| {
+                    //        ui.text_edit_singleline(&mut port_name).enabled();
+                    //    },
+                    //);
 
                     ui.label(format!("Current profile: {}", current_profile));
 
