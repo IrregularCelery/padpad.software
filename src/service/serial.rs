@@ -222,7 +222,6 @@ impl Serial {
                 let mut server_data = data.clone();
 
                 if !server_data.pending_serial_message.is_empty() {
-                    println!("Trying...");
                     self.write(server_data.pending_serial_message);
 
                     server_data.pending_serial_message = String::new();
