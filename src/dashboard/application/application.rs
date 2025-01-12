@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Response, Ui, Vec2};
+use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Rect, Response, Ui, Vec2};
 
 use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
@@ -64,7 +64,7 @@ impl eframe::App for Application {
         self.draw_layout(ctx);
 
         // TEST: Upload X BitMap
-        egui::Window::new("Upload X BitMap")
+        Window::new("Upload X BitMap")
             .default_open(false)
             .vscroll(true)
             .show(ctx, |ui| {
@@ -168,7 +168,7 @@ impl eframe::App for Application {
             ui.allocate_new_ui(
                 UiBuilder::new()
                     .max_rect(title_bar_rect)
-                    .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                    .layout(Layout::right_to_left(Align::Center)),
                 |ui| {
                     ui.add_space(8.0);
 
@@ -184,7 +184,7 @@ impl eframe::App for Application {
                         .on_hover_text("Minimize the window");
 
                     if close_button.clicked() {
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        ui.ctx().send_viewport_cmd(ViewportCommand::Close);
                     }
 
                     if minimized_button.clicked() {
@@ -477,8 +477,8 @@ impl Application {
             .title_bar(false)
             .hscroll(true)
             .vscroll(true)
-            .fixed_size(egui::Vec2::new(layout_size.0, layout_size.1))
-            .default_pos(egui::Pos2::new(150.0, 150.0))
+            .fixed_size((layout_size.0, layout_size.1))
+            .current_pos((50.0, 50.0))
             .frame(egui::Frame {
                 fill: egui::Color32::RED,
                 rounding: 4.0.into(),
@@ -564,11 +564,11 @@ impl Application {
         value: i8,
     ) -> Response {
         let window_position = ui.min_rect().min;
-        let position = egui::pos2(
+        let position = Pos2::new(
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = egui::Rect::from_min_size(position, size.into());
+        let rect = Rect::from_min_size(position, size.into());
 
         let button_color = if value > 0 {
             egui::Color32::from_rgb(100, 200, 100)
@@ -766,7 +766,7 @@ impl Application {
             current_profile = config.settings.current_profile.to_string();
         }
 
-        egui::Window::new("Debug")
+        Window::new("Debug")
             .default_pos((0.0, 0.0))
             .default_open(false)
             .show(ctx, |ui| {
@@ -813,16 +813,14 @@ impl Application {
                                         ui.label("Width");
 
                                         ui.add(
-                                            egui::DragValue::new(&mut app.new_layout_size.0)
-                                                .speed(1.0),
+                                            DragValue::new(&mut app.new_layout_size.0).speed(1.0),
                                         );
 
                                         ui.add_space(8.0);
                                         ui.label("Height");
 
                                         ui.add(
-                                            egui::DragValue::new(&mut app.new_layout_size.1)
-                                                .speed(1.0),
+                                            DragValue::new(&mut app.new_layout_size.1).speed(1.0),
                                         );
                                     });
 
