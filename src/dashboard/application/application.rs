@@ -129,7 +129,7 @@ impl eframe::App for Application {
                 rect
             };
 
-            // Adding support for dragging from the top bar of the self
+            // Adding support for dragging from the top bar of the app
             let title_bar_response = ui.interact(
                 title_bar_rect,
                 Id::new("title_bar"),
@@ -434,7 +434,7 @@ impl Application {
         if ctx.input(|i| i.viewport().close_requested()) {
             // can_close_app
             if !self.close_app.1 {
-                // Cancel closing the self if it's not allowed
+                // Cancel closing the app if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
                 // show_close_modal
