@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use eframe::{
-    egui::{Color32, Context, Id, Pos2, Response, Sense, Stroke, Ui, Vec2},
+    egui::{
+        Color32, Context, CursorIcon, Frame, Id, Layout, Margin, Pos2, Rect, Response, Rounding,
+        Sense, Shape, Stroke, Ui, Vec2,
+    },
     epaint,
 };
 
@@ -75,6 +78,47 @@ pub fn circular_progress(ui: &mut Ui, progress: f32, radius: f32) -> Response {
             Stroke::new(stroke_width, Color32::BLUE),
         ));
     }
+
+    response
+}
+
+pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32) -> Response {
+    let desired_size = Vec2::splat(size);
+    let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+
+    let response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+    let center = rect.center();
+    let radius = rect.width() / 4.0;
+
+    let background_rect = Rect::from_center_size(center, rect.size());
+
+    let circle_shape = Shape::circle_filled(center, radius, color);
+
+    let glow_effect_spread = if response.hovered() { 4.0 } else { 2.0 };
+
+    let glow_effect_spread_value = animate_value(ui.ctx(), id, glow_effect_spread, 0.15);
+
+    // Glow effect
+    for i in 1..4 {
+        ui.painter().circle(
+            center,
+            radius + i as f32 * glow_effect_spread_value,
+            Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 100 / (i * 2)),
+            Stroke::NONE,
+        );
+    }
+
+    // Background rectangle
+    ui.painter().rect(
+        background_rect,
+        Rounding::same(8.0),
+        Color32::DARK_GRAY.gamma_multiply(0.75),
+        Stroke::new(1.0, Color32::DARK_GRAY),
+    );
+
+    // Circle indicator
+    ui.painter().add(circle_shape);
 
     response
 }
