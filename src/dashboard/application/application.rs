@@ -183,7 +183,7 @@ impl eframe::App for Application {
                     let rect = ui.cursor();
                     let position = pos2(rect.min.x + panel_position_x, rect.max.y);
                     let padding = ui.style().spacing.button_padding;
-                    let size = pos2(256.0, 64.0 + (padding.y / 2.0));
+                    let size = pos2(212.0, 64.0 - (padding.y / 2.0) - 1.0);
 
                     let rect = Rect::from_min_size(
                         (position.x, position.y - size.y).into(),
@@ -203,8 +203,10 @@ impl eframe::App for Application {
                                 ui.scope(|ui| {
                                     let mut style = get_current_style();
 
-                                    style.visuals.override_text_color =
-                                        Some(Color::TEXT.gamma_multiply(panel_opacity));
+                                    style.text_styles.insert(
+                                        egui::TextStyle::Body,
+                                        egui::FontId::new(16.0, egui::FontFamily::Proportional),
+                                    );
 
                                     ui.set_style(style);
 
@@ -214,8 +216,46 @@ impl eframe::App for Application {
                                         .inner_margin(padding)
                                         .show(ui, |ui| {
                                             ui.vertical(|ui| {
-                                                ui.label("Service is running.");
-                                                ui.label("Device is connected.");
+                                                let device_status_color;
+                                                let service_status_color;
+
+                                                let device_status_text = format!(
+                                                    "Device is{} connected!",
+                                                    if self.server_data.is_device_paired {
+                                                        device_status_color = Color::GREEN
+                                                            .gamma_multiply(panel_opacity);
+
+                                                        ""
+                                                    } else {
+                                                        device_status_color = Color::RED
+                                                            .gamma_multiply(panel_opacity);
+
+                                                        " NOT"
+                                                    }
+                                                );
+                                                let service_status_text = format!(
+                                                    "Service app is{} running!",
+                                                    if self.server_data.is_client_connected {
+                                                        service_status_color = Color::GREEN
+                                                            .gamma_multiply(panel_opacity);
+
+                                                        ""
+                                                    } else {
+                                                        service_status_color = Color::RED
+                                                            .gamma_multiply(panel_opacity);
+
+                                                        " NOT"
+                                                    }
+                                                );
+
+                                                ui.label(
+                                                    RichText::new(device_status_text)
+                                                        .color(device_status_color),
+                                                );
+                                                ui.label(
+                                                    RichText::new(service_status_text)
+                                                        .color(service_status_color),
+                                                );
                                             });
                                         });
                                 });
@@ -811,7 +851,7 @@ impl Application {
 
         Window::new("Debug")
             .default_pos((0.0, 0.0))
-            .default_open(true)
+            .default_open(false)
             .vscroll(true)
             .show(ctx, |ui| {
                 ui.group(|ui| {

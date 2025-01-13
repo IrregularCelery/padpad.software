@@ -108,9 +108,9 @@ pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32
         hover_effect_gamma = 0.75;
     }
 
-    let glow_effect_spread_value = animate_value(ui.ctx(), id, glow_effect_spread, 0.15);
+    let glow_effect_spread_value = animate_value(ui.ctx(), id, glow_effect_spread, 0.25);
     let hover_effect_value =
-        animate_value(ui.ctx(), format!("{}-hover", id), hover_effect_gamma, 0.15);
+        animate_value(ui.ctx(), format!("{}-hover", id), hover_effect_gamma, 0.25);
 
     // Glow effect
     for i in 1..4 {
