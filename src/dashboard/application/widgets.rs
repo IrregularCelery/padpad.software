@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use eframe::{
     egui::{
-        Color32, Context, CursorIcon, Frame, Id, Layout, Margin, Pos2, Rect, Response, Rounding,
-        Sense, Shape, Stroke, Ui, Vec2,
+        Color32, Context, CursorIcon, Id, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, Ui,
+        Vec2,
     },
     epaint,
 };
+
+pub use super::theme::Color;
 
 #[derive(Default)]
 pub struct ModalManager {
@@ -89,15 +91,26 @@ pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32
     let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
     let center = rect.center();
-    let radius = rect.width() / 4.0;
+    let radius = rect.width() / 3.75;
 
     let background_rect = Rect::from_center_size(center, rect.size());
 
     let circle_shape = Shape::circle_filled(center, radius, color);
 
-    let glow_effect_spread = if response.hovered() { 4.0 } else { 2.0 };
+    let glow_effect_spread;
+    let hover_effect_gamma;
+
+    if response.contains_pointer() || response.has_focus() {
+        glow_effect_spread = size / 24.0;
+        hover_effect_gamma = 0.35;
+    } else {
+        glow_effect_spread = size / 32.0;
+        hover_effect_gamma = 0.75;
+    }
 
     let glow_effect_spread_value = animate_value(ui.ctx(), id, glow_effect_spread, 0.15);
+    let hover_effect_value =
+        animate_value(ui.ctx(), format!("{}-hover", id), hover_effect_gamma, 0.15);
 
     // Glow effect
     for i in 1..4 {
@@ -112,9 +125,9 @@ pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32
     // Background rectangle
     ui.painter().rect(
         background_rect,
-        Rounding::same(8.0),
-        Color32::DARK_GRAY.gamma_multiply(0.75),
-        Stroke::new(1.0, Color32::DARK_GRAY),
+        Rounding::same(size / 4.0),
+        Color::OVERLAY0.gamma_multiply(hover_effect_value),
+        Stroke::new(1.0, Color::OVERLAY0),
     );
 
     // Circle indicator
