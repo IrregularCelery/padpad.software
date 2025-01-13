@@ -36,6 +36,7 @@ pub struct Application {
     new_layout_name: String,
     new_layout_size: (f32, f32),
     xbm_string: String,
+    paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
 }
 
 impl eframe::App for Application {
@@ -62,87 +63,6 @@ impl eframe::App for Application {
 
         // Layout
         self.draw_layout(ctx);
-
-        // TEST: Upload X BitMap
-        Window::new("Upload X BitMap")
-            .default_open(false)
-            .vscroll(true)
-            .show(ctx, |ui| {
-                ui.text_edit_multiline(&mut self.xbm_string);
-
-                if ui.button("Save to memory").clicked() {
-                    if self.server_data.is_device_paired {
-                        self.show_yes_no_modal(
-                            "memory-override-confirmation",
-                            "Override memory".to_string(),
-                            "This operation will override the current memory!\n\
-                                Are you sure you want to continue?"
-                                .to_string(),
-                            |_app| {
-                                // `m` = `Memory`, `1` = true
-                                request_send_serial("m1").ok();
-                            },
-                            |_app| {},
-                            true,
-                        );
-                    } else {
-                        self.show_not_paired_error();
-                    }
-                }
-
-                if ui.button("Upload and Test").clicked() {
-                    if self.server_data.is_device_paired {
-                        let xbm_string = self.xbm_string.clone();
-
-                        match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
-                            Ok(bytes) => {
-                                // `ui` = `Upload *HOME* Image`
-                                let message = format!("ui{}", &bytes);
-
-                                request_send_serial(message.as_str()).ok();
-
-                                self.show_message_modal(
-                                    "xbm-upload-ok",
-                                    "Ok".to_string(),
-                                    "New X BitMap image \
-                                            was uploaded to the device."
-                                        .to_string(),
-                                );
-                            }
-                            Err(error) => {
-                                self.show_message_modal(
-                                    "xbm-upload-error",
-                                    "Error".to_string(),
-                                    error,
-                                );
-                            }
-                        }
-                    } else {
-                        self.show_not_paired_error();
-                    }
-                }
-
-                if ui.button("Remove X BitMap").clicked() {
-                    if self.server_data.is_device_paired {
-                        self.show_yes_no_modal(
-                            "xbm-remove-confirmation",
-                            "Reset \"Home Image\"".to_string(),
-                            "You're about to remove and reset current \"Home Image\" \
-                                on your device!\nAre you sure you want to continue?"
-                                .to_string(),
-                            |_app| {
-                                // `ui` = `Upload *HOME* Image`, and since there's no value
-                                // the device removes current image and set its default
-                                request_send_serial("ui").ok();
-                            },
-                            |_app| {},
-                            true,
-                        );
-                    } else {
-                        self.show_not_paired_error();
-                    }
-                }
-            });
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -194,6 +114,119 @@ impl eframe::App for Application {
             );
 
             // Custom main window content
+            ui.vertical_centered(|ui| {
+                ui.add_space((ui.available_height() / 2.0) - 96.0);
+
+                ui.scope(|ui| {
+                    let mut style = get_current_style();
+
+                    style.text_styles.insert(
+                        TextStyle::Button,
+                        FontId::new(64.0, FontFamily::Proportional),
+                    );
+
+                    style.visuals.widgets.inactive.rounding = 24.0.into();
+                    style.visuals.widgets.hovered.rounding = 24.0.into();
+                    style.visuals.widgets.active.rounding = 24.0.into();
+
+                    style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0;
+                    style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0;
+                    style.visuals.widgets.active.weak_bg_fill = Color::OVERLAY0;
+
+                    ui.set_style(style);
+
+                    if ui.add_sized((128.0, 128.0), Button::new("+")).clicked() {}
+                });
+            });
+
+            ui.with_layout(Layout::left_to_right(Align::Max), |ui| {
+                let paired_status_color = if self.server_data.is_device_paired {
+                    Color::GREEN
+                } else {
+                    Color::RED
+                };
+
+                let indicator = status_indicator(
+                    "device-paired-status-indicator",
+                    ui,
+                    paired_status_color,
+                    48.0,
+                );
+
+                let indicator_hovered = indicator.hovered() || indicator.contains_pointer();
+
+                let panel_position_x = animate_value(
+                    ctx,
+                    "paired-status-indicator-panel-position",
+                    self.paired_status_panel.0,
+                    0.25,
+                );
+
+                const PANEL_OPENED_X: f32 = 0.0;
+                const PANEL_CLOSED_X: f32 = -32.0;
+
+                let panel_disabled = { panel_position_x == PANEL_CLOSED_X };
+
+                let panel_opacity = animate_value(
+                    ctx,
+                    "paired-status-indicator-panel-opacity",
+                    self.paired_status_panel.1,
+                    0.2,
+                );
+
+                let panel_hovered = {
+                    let rect = ui.cursor();
+                    let position = pos2(rect.min.x + panel_position_x, rect.max.y);
+                    let padding = ui.style().spacing.button_padding;
+                    let size = pos2(256.0, 64.0 + (padding.y / 2.0));
+
+                    let rect = Rect::from_min_size(
+                        (position.x, position.y - size.y).into(),
+                        size.to_vec2(),
+                    );
+
+                    if panel_disabled {
+                        ui.disable();
+                    }
+
+                    let response = ui
+                        .allocate_new_ui(
+                            UiBuilder::new()
+                                .max_rect(rect)
+                                .layout(Layout::right_to_left(Align::Center)),
+                            |ui| {
+                                ui.scope(|ui| {
+                                    let mut style = get_current_style();
+
+                                    style.visuals.override_text_color =
+                                        Some(Color::TEXT.gamma_multiply(panel_opacity));
+
+                                    ui.set_style(style);
+
+                                    Frame::default()
+                                        .fill(Color::OVERLAY0.gamma_multiply(panel_opacity))
+                                        .rounding(ui.visuals().widgets.noninteractive.rounding)
+                                        .inner_margin(padding)
+                                        .show(ui, |ui| {
+                                            ui.vertical(|ui| {
+                                                ui.label("Service is running.");
+                                                ui.label("Device is connected.");
+                                            });
+                                        });
+                                });
+                            },
+                        )
+                        .response;
+
+                    response.hovered() || (!panel_disabled && response.contains_pointer())
+                };
+
+                if indicator_hovered || panel_hovered {
+                    self.paired_status_panel = (PANEL_OPENED_X, 1.0);
+                } else {
+                    self.paired_status_panel = (PANEL_CLOSED_X, 0.0);
+                }
+            });
         });
 
         if cfg!(debug_assertions) {
@@ -338,9 +371,11 @@ impl Application {
         let mut close_indices = Vec::new();
 
         for (index, modal) in modals.iter().enumerate() {
-            let modal_ui = egui::Modal::new(egui::Id::new(modal.id)).show(ctx, |ui| {
-                (modal.content)(ui, self);
-            });
+            let modal_ui = egui::Modal::new(egui::Id::new(modal.id))
+                .backdrop_color(egui::Color32::from_black_alpha(63))
+                .show(ctx, |ui| {
+                    (modal.content)(ui, self);
+                });
 
             if modal_ui.should_close() {
                 close_indices.push(index);
@@ -514,7 +549,7 @@ impl Application {
                             };
                             let label = &component.1.label;
                             let position: Pos2 = component.1.position.into();
-                            let size = Vec2::new(100.0, 30.0);
+                            let size = Vec2::new(100.0, 100.0);
 
                             match kind {
                                 ComponentKind::None => (),
@@ -755,7 +790,7 @@ impl Application {
         potentiometers.into_iter()
     }
 
-    fn draw_debug_panel(&self, ctx: &Context) {
+    fn draw_debug_panel(&mut self, ctx: &Context) {
         use egui::*;
 
         let mut port_name = String::new();
@@ -768,8 +803,17 @@ impl Application {
 
         Window::new("Debug")
             .default_pos((0.0, 0.0))
-            .default_open(false)
+            .default_open(true)
+            .vscroll(true)
             .show(ctx, |ui| {
+                let button = ui.button("Hover or click me");
+
+                if button.contains_pointer() || button.has_focus() {
+                    ui.label("I appear on hover or when clicked!");
+                }
+
+                ui.separator();
+
                 ui.heading("Hello World!");
                 ui.label("PadPad is under construction!");
                 ui.label(format!(
@@ -799,71 +843,103 @@ impl Application {
                                 Align::Center,
                             ),
                             |ui| {
-                                ui.allocate_ui(vec2(ui.available_width() - 100.0, 250.0), |ui| {
-                                    ui.label("Create new Layout");
+                                ui.allocate_ui(
+                                    vec2(ui.available_width() - 100.0, ui.available_height()),
+                                    |ui| {
+                                        ui.add_space(20.0);
 
-                                    ui.horizontal(|ui| {
-                                        ui.label("Name");
-                                        ui.text_edit_singleline(&mut app.new_layout_name);
-                                    });
+                                        ui.scope(|ui| {
+                                            let mut style = get_current_style();
 
-                                    ui.add_space(8.0);
+                                            style.text_styles.insert(
+                                                TextStyle::Body,
+                                                FontId::new(24.0, FontFamily::Proportional),
+                                            );
 
-                                    ui.horizontal(|ui| {
-                                        ui.label("Width");
+                                            style.visuals.override_text_color =
+                                                Some(Color32::WHITE);
+                                            style.visuals.widgets.noninteractive.bg_stroke =
+                                                Stroke::new(1.0, Color32::WHITE);
 
-                                        ui.add(
-                                            DragValue::new(&mut app.new_layout_size.0).speed(1.0),
-                                        );
+                                            ui.set_style(style);
 
-                                        ui.add_space(8.0);
-                                        ui.label("Height");
+                                            ui.label("Create new Layout");
 
-                                        ui.add(
-                                            DragValue::new(&mut app.new_layout_size.1).speed(1.0),
-                                        );
-                                    });
+                                            ui.separator();
+                                        });
 
-                                    ui.add_space(8.0);
+                                        ui.add_space(20.0);
 
-                                    ui.horizontal(|ui| {
-                                        if ui.button("Cancel").clicked() {
-                                            app.close_modal();
-                                        }
-                                        if ui.button("Create").clicked() {
-                                            if let Some(config) = &mut app.config {
-                                                if config.layout.is_none() {
-                                                    app.new_layout(
-                                                        app.new_layout_name.clone(),
-                                                        app.new_layout_size,
-                                                    );
+                                        ui.horizontal(|ui| {
+                                            ui.label("Name");
+                                            ui.add(
+                                                TextEdit::singleline(&mut app.new_layout_name)
+                                                    .margin(vec2(8.0, 8.0)),
+                                            );
+                                        });
 
-                                                    app.close_modal();
-                                                } else {
-                                                    app.show_yes_no_modal(
-                                                        "layout-override-confirmation-create",
-                                                        "Overriding current layout".to_string(),
-                                                        "You already have a layout, \
+                                        ui.add_space(20.0);
+
+                                        ui.horizontal(|ui| {
+                                            ui.label("Width");
+
+                                            ui.add(
+                                                DragValue::new(&mut app.new_layout_size.0)
+                                                    .speed(1.0),
+                                            );
+
+                                            ui.add_space(8.0);
+                                            ui.label("Height");
+
+                                            ui.add(
+                                                DragValue::new(&mut app.new_layout_size.1)
+                                                    .speed(1.0),
+                                            );
+                                        });
+
+                                        ui.add_space(20.0);
+
+                                        ui.horizontal(|ui| {
+                                            if ui.button("Cancel").clicked() {
+                                                app.close_modal();
+                                            }
+                                            if ui.button("Create").clicked() {
+                                                if let Some(config) = &mut app.config {
+                                                    if config.layout.is_none() {
+                                                        app.new_layout(
+                                                            app.new_layout_name.clone(),
+                                                            app.new_layout_size,
+                                                        );
+
+                                                        app.close_modal();
+                                                    } else {
+                                                        app.show_yes_no_modal(
+                                                            "layout-override-confirmation-create",
+                                                            "Overriding current layout".to_string(),
+                                                            "You already have a layout, \
                                                         do you want to override it?\n\
                                                         This will remove all the added \
                                                         components as well!"
-                                                            .to_string(),
-                                                        |app| {
-                                                            app.new_layout(
-                                                                app.new_layout_name.clone(),
-                                                                app.new_layout_size,
-                                                            );
+                                                                .to_string(),
+                                                            |app| {
+                                                                app.new_layout(
+                                                                    app.new_layout_name.clone(),
+                                                                    app.new_layout_size,
+                                                                );
 
-                                                            app.close_modal();
-                                                        },
-                                                        |_app| {},
-                                                        true,
-                                                    );
+                                                                app.close_modal();
+                                                            },
+                                                            |_app| {},
+                                                            true,
+                                                        );
+                                                    }
                                                 }
                                             }
-                                        }
-                                    });
-                                });
+                                        });
+
+                                        ui.add_space(20.0);
+                                    },
+                                );
                             },
                         );
                     });
@@ -907,6 +983,82 @@ impl Application {
                         },
                         false,
                     );
+                }
+
+                ui.separator();
+                ui.text_edit_multiline(&mut self.xbm_string);
+
+                if ui.button("Save to memory").clicked() {
+                    if self.server_data.is_device_paired {
+                        self.show_yes_no_modal(
+                            "memory-override-confirmation",
+                            "Override memory".to_string(),
+                            "This operation will override the current memory!\n\
+                                Are you sure you want to continue?"
+                                .to_string(),
+                            |_app| {
+                                // `m` = `Memory`, `1` = true
+                                request_send_serial("m1").ok();
+                            },
+                            |_app| {},
+                            true,
+                        );
+                    } else {
+                        self.show_not_paired_error();
+                    }
+                }
+
+                if ui.button("Upload and Test").clicked() {
+                    if self.server_data.is_device_paired {
+                        let xbm_string = self.xbm_string.clone();
+
+                        match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
+                            Ok(bytes) => {
+                                // `ui` = `Upload *HOME* Image`
+                                let message = format!("ui{}", &bytes);
+
+                                request_send_serial(message.as_str()).ok();
+
+                                self.show_message_modal(
+                                    "xbm-upload-ok",
+                                    "Ok".to_string(),
+                                    "New X BitMap image \
+                                            was uploaded to the device."
+                                        .to_string(),
+                                );
+                            }
+                            Err(error) => {
+                                self.show_message_modal(
+                                    "xbm-upload-error",
+                                    "Error".to_string(),
+                                    error,
+                                );
+                            }
+                        }
+                    } else {
+                        self.show_not_paired_error();
+                    }
+                }
+
+                if ui.button("Remove X BitMap").clicked() {
+                    if self.server_data.is_device_paired {
+                        self.show_yes_no_modal(
+                            "xbm-remove-confirmation",
+                            "Reset \"Home Image\"".to_string(),
+                            "You're about to remove and reset current \"Home Image\" \
+                                on your device!\nAre you sure you want to continue?"
+                                .to_string(),
+                            |_app| {
+                                // `ui` = `Upload *HOME* Image`, and since there's no value
+                                // the device removes current image and set its default
+                                request_send_serial("ui").ok();
+                            },
+                            |_app| {},
+                            true,
+                        );
+                    } else {
+                        self.show_not_paired_error();
+                    }
                 }
             });
     }
@@ -1009,6 +1161,7 @@ impl Default for Application {
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
             xbm_string: String::new(),
+            paired_status_panel: (0.0, 0.0),
         }
     }
 }
