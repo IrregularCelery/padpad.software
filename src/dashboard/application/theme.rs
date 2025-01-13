@@ -79,12 +79,12 @@ fn pack_widget_visual(fill: Color32) -> egui::style::WidgetVisuals {
         bg_fill: fill,
         weak_bg_fill: fill,
         bg_stroke: egui::Stroke {
-            color: Color::OVERLAY1,
-            width: 0.0,
+            color: Color::OVERLAY0,
+            width: 1.0,
         },
         fg_stroke: egui::Stroke {
             color: Color::TEXT,
-            width: 0.0,
+            width: 1.0,
         },
         rounding: 6.0.into(),
         expansion: 0.0,
