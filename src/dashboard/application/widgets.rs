@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::{
-    egui::{Color32, Pos2, Response, Sense, Stroke, Ui, Vec2},
+    egui::{Color32, Context, Id, Pos2, Response, Sense, Stroke, Ui, Vec2},
     epaint,
 };
 
@@ -77,4 +77,50 @@ pub fn circular_progress(ui: &mut Ui, progress: f32, radius: f32) -> Response {
     }
 
     response
+}
+
+// Heavily inspired by https://github.com/lucasmerlin/hello_egui/tree/main/crates/egui_animation
+// THANK YOU :D <3
+pub fn animate_value(
+    ctx: &Context,
+    id: impl std::hash::Hash + Sized,
+    value: f32,
+    duration: f32,
+) -> f32 {
+    // Cubic-In-Out
+    fn ease_fn(t: f32) -> f32 {
+        if t < 0.5 {
+            // f(t) = 4 * (t ^ 3)
+
+            4.0 * t * t * t
+        } else {
+            // f(t) = 0.5 * ((2t − 2)) ^ 3 + 1
+
+            let f = 2.0 * t - 2.0;
+
+            0.5 * f * f * f + 1.0
+        }
+    }
+
+    let id = Id::new(id).with("animate_eased");
+
+    let (source, target) = ctx.memory_mut(|mem| {
+        let state = mem.data.get_temp_mut_or_insert_with(id, || (value, value));
+
+        if state.1 != value {
+            state.0 = state.1;
+            state.1 = value;
+        }
+        (state.0, state.1)
+    });
+
+    let progress = ctx.animate_value_with_time(id, value, duration);
+
+    if target == source {
+        return target;
+    }
+
+    let progress = (progress - source) / (target - source);
+
+    ease_fn(progress) * (target - source) + source
 }
