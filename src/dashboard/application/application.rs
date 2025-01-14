@@ -114,164 +114,14 @@ impl eframe::App for Application {
             );
 
             // Custom main window content
-            ui.vertical_centered(|ui| {
-                ui.add_space((ui.available_height() / 2.0) - 96.0);
 
-                ui.scope(|ui| {
-                    let mut style = get_current_style();
-
-                    style.text_styles.insert(
-                        TextStyle::Button,
-                        FontId::new(64.0, FontFamily::Proportional),
-                    );
-
-                    style.visuals.widgets.inactive.rounding = 24.0.into();
-                    style.visuals.widgets.hovered.rounding = 24.0.into();
-                    style.visuals.widgets.active.rounding = 24.0.into();
-
-                    style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0;
-                    style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY1;
-                    style.visuals.widgets.hovered.bg_stroke.width = 2.0;
-                    style.visuals.widgets.active.weak_bg_fill = Color::OVERLAY0;
-
-                    ui.set_style(style);
-
-                    let new_layout_button = ui.add_sized((128.0, 128.0), Button::new("+"));
-
-                    if new_layout_button.clicked() {
-                        self.open_new_layout_modal();
-                    }
-                });
-            });
-
-            ui.with_layout(Layout::left_to_right(Align::Max), |ui| {
-                let paired_status_color = if self.server_data.is_device_paired {
-                    Color::GREEN
-                } else {
-                    Color::RED
-                };
-
-                let indicator = status_indicator(
-                    "device-paired-status-indicator",
-                    ui,
-                    paired_status_color,
-                    48.0,
-                );
-
-                let indicator_hovered = indicator.hovered() || indicator.contains_pointer();
-
-                let panel_position_x = animate_value(
-                    ctx,
-                    "paired-status-indicator-panel-position",
-                    self.paired_status_panel.0,
-                    0.25,
-                );
-
-                const PANEL_OPENED_X: f32 = 0.0;
-                const PANEL_CLOSED_X: f32 = -32.0;
-
-                let panel_disabled = { panel_position_x == PANEL_CLOSED_X };
-
-                let panel_opacity = animate_value(
-                    ctx,
-                    "paired-status-indicator-panel-opacity",
-                    self.paired_status_panel.1,
-                    0.2,
-                );
-
-                let panel_hovered = {
-                    let rect = ui.cursor();
-                    let position = pos2(rect.min.x + panel_position_x, rect.max.y);
-                    let padding = ui.style().spacing.button_padding;
-                    let size = pos2(212.0, 64.0 - (padding.y / 2.0) - 1.0);
-
-                    let rect = Rect::from_min_size(
-                        (position.x, position.y - size.y).into(),
-                        size.to_vec2(),
-                    );
-
-                    if panel_disabled {
-                        ui.disable();
-                    }
-
-                    let response = ui
-                        .allocate_new_ui(
-                            UiBuilder::new()
-                                .max_rect(rect)
-                                .layout(Layout::right_to_left(Align::Center)),
-                            |ui| {
-                                ui.scope(|ui| {
-                                    let mut style = get_current_style();
-
-                                    style.text_styles.insert(
-                                        egui::TextStyle::Body,
-                                        egui::FontId::new(16.0, egui::FontFamily::Proportional),
-                                    );
-
-                                    ui.set_style(style);
-
-                                    Frame::default()
-                                        .fill(Color::OVERLAY0.gamma_multiply(panel_opacity))
-                                        .rounding(ui.visuals().widgets.noninteractive.rounding)
-                                        .inner_margin(padding)
-                                        .show(ui, |ui| {
-                                            ui.vertical(|ui| {
-                                                let device_status_color;
-                                                let service_status_color;
-
-                                                let device_status_text = format!(
-                                                    "Device is{} connected!",
-                                                    if self.server_data.is_device_paired {
-                                                        device_status_color = Color::GREEN
-                                                            .gamma_multiply(panel_opacity);
-
-                                                        ""
-                                                    } else {
-                                                        device_status_color = Color::RED
-                                                            .gamma_multiply(panel_opacity);
-
-                                                        " NOT"
-                                                    }
-                                                );
-                                                let service_status_text = format!(
-                                                    "Service app is{} running!",
-                                                    if self.server_data.is_client_connected {
-                                                        service_status_color = Color::GREEN
-                                                            .gamma_multiply(panel_opacity);
-
-                                                        ""
-                                                    } else {
-                                                        service_status_color = Color::RED
-                                                            .gamma_multiply(panel_opacity);
-
-                                                        " NOT"
-                                                    }
-                                                );
-
-                                                ui.label(
-                                                    RichText::new(device_status_text)
-                                                        .color(device_status_color),
-                                                );
-                                                ui.label(
-                                                    RichText::new(service_status_text)
-                                                        .color(service_status_color),
-                                                );
-                                            });
-                                        });
-                                });
-                            },
-                        )
-                        .response;
-
-                    response.hovered() || (!panel_disabled && response.contains_pointer())
-                };
-
-                if indicator_hovered || panel_hovered {
-                    self.paired_status_panel = (PANEL_OPENED_X, 1.0);
-                } else {
-                    self.paired_status_panel = (PANEL_CLOSED_X, 0.0);
+            if let Some(config) = &self.config {
+                if config.layout.is_none() {
+                    self.draw_new_layout_button(ui);
                 }
-            });
+            }
+
+            self.draw_status_indicator(ui);
         });
 
         if cfg!(debug_assertions) {
@@ -528,10 +378,16 @@ impl Application {
 
     fn new_layout(&mut self, name: String, size: (f32, f32)) {
         if let Some(config) = &mut self.config {
+            let components = if let Some(layout) = &config.layout {
+                layout.components.clone()
+            } else {
+                Default::default()
+            };
+
             let layout = Layout {
                 name,
                 size,
-                ..Default::default()
+                components,
             };
 
             update_config_and_server(config, |c| {
@@ -540,18 +396,52 @@ impl Application {
         }
     }
 
-    fn draw_empty_layout(&mut self, ui: &mut Ui) {
-        ui.label("Layout is empty!");
+    fn draw_new_layout_button(&mut self, ui: &mut Ui) {
+        ui.vertical_centered(|ui| {
+            ui.add_space((ui.available_height() / 2.0) - 96.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Button,
+                    egui::FontId::new(64.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.widgets.inactive.rounding = 24.0.into();
+                style.visuals.widgets.hovered.rounding = 24.0.into();
+                style.visuals.widgets.active.rounding = 24.0.into();
+
+                style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0;
+                style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY1;
+                style.visuals.widgets.hovered.bg_stroke.width = 2.0;
+                style.visuals.widgets.active.weak_bg_fill = Color::OVERLAY0;
+
+                ui.set_style(style);
+
+                let new_layout_button = ui.add_sized((128.0, 128.0), Button::new("+"));
+
+                if new_layout_button.clicked() {
+                    self.open_create_update_layout_modal();
+                }
+            });
+        });
     }
 
     fn draw_layout(&mut self, ctx: &Context) {
-        let mut layout_size = (0.0, 0.0);
+        let mut layout: Option<&Layout> = None;
 
         if let Some(config) = &self.config {
-            if let Some(layout) = &config.layout {
-                layout_size = layout.size;
+            if let Some(l) = &config.layout {
+                layout = Some(l);
             }
         }
+
+        let layout = if let Some(layout) = layout {
+            layout
+        } else {
+            return;
+        };
 
         egui::Window::new("Layout")
             //.movable(false)
@@ -560,82 +450,203 @@ impl Application {
             .title_bar(false)
             .hscroll(true)
             .vscroll(true)
-            .fixed_size((layout_size.0, layout_size.1))
+            .fixed_size((layout.size.0, layout.size.1))
             .current_pos((50.0, 50.0))
             .frame(egui::Frame {
-                fill: egui::Color32::RED,
+                fill: Color::RED,
                 rounding: 4.0.into(),
                 ..egui::Frame::default()
             })
             .show(ctx, |ui| {
-                match &self.config {
-                    Some(config) => {
-                        let layout = if let Some(layout) = &config.layout {
-                            layout
-                        } else {
-                            self.draw_empty_layout(ui);
+                if layout.components.is_empty() {
+                    ui.label("You haven't add any components yet!");
 
-                            return;
-                        };
+                    return;
+                }
 
-                        for component in &layout.components {
-                            let kind_id: Vec<&str> = component.0.split(':').collect();
+                for component in &layout.components {
+                    let kind_id: Vec<&str> = component.0.split(':').collect();
 
-                            let kind = match kind_id.first() {
-                                Some(&"Button") => ComponentKind::Button,
-                                Some(&"LED") => ComponentKind::LED,
-                                Some(&"Potentiometer") => ComponentKind::Potentiometer,
-                                Some(&"Joystick") => ComponentKind::Joystick,
-                                Some(&"RotaryEncoder") => ComponentKind::RotaryEncoder,
-                                Some(&"Display") => ComponentKind::Display,
-                                _ => ComponentKind::None,
+                    let kind = match kind_id.first() {
+                        Some(&"Button") => ComponentKind::Button,
+                        Some(&"LED") => ComponentKind::LED,
+                        Some(&"Potentiometer") => ComponentKind::Potentiometer,
+                        Some(&"Joystick") => ComponentKind::Joystick,
+                        Some(&"RotaryEncoder") => ComponentKind::RotaryEncoder,
+                        Some(&"Display") => ComponentKind::Display,
+                        _ => ComponentKind::None,
+                    };
+                    let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+                    let value = match self.components.get(&component.0.to_string()) {
+                        Some(v) => String::from(v),
+                        None => String::new(),
+                    };
+                    let label = &component.1.label;
+                    let position: Pos2 = component.1.position.into();
+                    let size = Vec2::new(100.0, 100.0);
+
+                    match kind {
+                        ComponentKind::None => (),
+                        ComponentKind::Button => {
+                            let button = self.draw_button(
+                                ui,
+                                label,
+                                position,
+                                size,
+                                value.parse::<i8>().unwrap_or(0),
+                            );
+
+                            if button.clicked() {
+                                log_print!("{}: {}", label, id);
                             };
-                            let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
-                            let value = match self.components.get(&component.0.to_string()) {
-                                Some(v) => String::from(v),
-                                None => String::new(),
-                            };
-                            let label = &component.1.label;
-                            let position: Pos2 = component.1.position.into();
-                            let size = Vec2::new(100.0, 100.0);
-
-                            match kind {
-                                ComponentKind::None => (),
-                                ComponentKind::Button => {
-                                    let button = self.draw_button(
-                                        ui,
-                                        label,
-                                        position,
-                                        size,
-                                        value.parse::<i8>().unwrap_or(0),
-                                    );
-
-                                    if button.clicked() {
-                                        log_print!("{}: {}", label, id);
-                                    };
-                                }
-                                ComponentKind::LED => (),
-                                ComponentKind::Potentiometer => {
-                                    self.draw_potentiometer(
-                                        ui,
-                                        label,
-                                        position,
-                                        size,
-                                        value.parse::<u8>().unwrap_or(0),
-                                    );
-                                }
-                                ComponentKind::Joystick => (),
-                                ComponentKind::RotaryEncoder => (),
-                                ComponentKind::Display => (),
-                            }
                         }
-                    }
-                    None => {
-                        // Need to wait before the config is ready
-                        ui.label("Loading...");
+                        ComponentKind::LED => (),
+                        ComponentKind::Potentiometer => {
+                            self.draw_potentiometer(
+                                ui,
+                                label,
+                                position,
+                                size,
+                                value.parse::<u8>().unwrap_or(0),
+                            );
+                        }
+                        ComponentKind::Joystick => (),
+                        ComponentKind::RotaryEncoder => (),
+                        ComponentKind::Display => (),
                     }
                 }
             });
+    }
+
+    fn draw_status_indicator(&mut self, ui: &mut Ui) {
+        use egui::*;
+
+        ui.with_layout(Layout::left_to_right(Align::Max), |ui| {
+            let paired_status_color = if self.server_data.is_device_paired {
+                Color::GREEN
+            } else {
+                Color::RED
+            };
+
+            let indicator = status_indicator(
+                "device-paired-status-indicator",
+                ui,
+                paired_status_color,
+                48.0,
+            );
+
+            let indicator_hovered = indicator.hovered() || indicator.contains_pointer();
+
+            let panel_position_x = animate_value(
+                ui.ctx(),
+                "paired-status-indicator-panel-position",
+                self.paired_status_panel.0,
+                0.25,
+            );
+
+            const PANEL_OPENED_X: f32 = 0.0;
+            const PANEL_CLOSED_X: f32 = -32.0;
+
+            let panel_disabled = { panel_position_x == PANEL_CLOSED_X };
+
+            let panel_opacity = animate_value(
+                ui.ctx(),
+                "paired-status-indicator-panel-opacity",
+                self.paired_status_panel.1,
+                0.2,
+            );
+
+            let panel_hovered = {
+                let rect = ui.cursor();
+                let position = pos2(rect.min.x + panel_position_x, rect.max.y);
+                let padding = ui.style().spacing.button_padding;
+                let size = pos2(212.0, 64.0 - (padding.y / 2.0) - 1.0);
+
+                let rect =
+                    Rect::from_min_size((position.x, position.y - size.y).into(), size.to_vec2());
+
+                if panel_disabled {
+                    ui.disable();
+                }
+
+                let response = ui
+                    .allocate_new_ui(
+                        UiBuilder::new()
+                            .max_rect(rect)
+                            .layout(Layout::right_to_left(Align::Center)),
+                        |ui| {
+                            ui.scope(|ui| {
+                                let mut style = get_current_style();
+
+                                style.text_styles.insert(
+                                    egui::TextStyle::Body,
+                                    egui::FontId::new(16.0, egui::FontFamily::Proportional),
+                                );
+
+                                ui.set_style(style);
+
+                                Frame::default()
+                                    .fill(Color::OVERLAY0.gamma_multiply(panel_opacity))
+                                    .rounding(ui.visuals().widgets.noninteractive.rounding)
+                                    .inner_margin(padding)
+                                    .show(ui, |ui| {
+                                        ui.vertical(|ui| {
+                                            let device_status_color;
+                                            let service_status_color;
+
+                                            let device_status_text = format!(
+                                                "Device is{} connected!",
+                                                if self.server_data.is_device_paired {
+                                                    device_status_color =
+                                                        Color::GREEN.gamma_multiply(panel_opacity);
+
+                                                    ""
+                                                } else {
+                                                    device_status_color =
+                                                        Color::RED.gamma_multiply(panel_opacity);
+
+                                                    " NOT"
+                                                }
+                                            );
+                                            let service_status_text = format!(
+                                                "Service app is{} running!",
+                                                if self.server_data.is_client_connected {
+                                                    service_status_color =
+                                                        Color::GREEN.gamma_multiply(panel_opacity);
+
+                                                    ""
+                                                } else {
+                                                    service_status_color =
+                                                        Color::RED.gamma_multiply(panel_opacity);
+
+                                                    " NOT"
+                                                }
+                                            );
+
+                                            ui.label(
+                                                RichText::new(device_status_text)
+                                                    .color(device_status_color),
+                                            );
+                                            ui.label(
+                                                RichText::new(service_status_text)
+                                                    .color(service_status_color),
+                                            );
+                                        });
+                                    });
+                            });
+                        },
+                    )
+                    .response;
+
+                response.hovered() || (!panel_disabled && response.contains_pointer())
+            };
+
+            if indicator_hovered || panel_hovered {
+                self.paired_status_panel = (PANEL_OPENED_X, 1.0);
+            } else {
+                self.paired_status_panel = (PANEL_CLOSED_X, 0.0);
+            }
+        });
     }
 
     fn draw_button(
@@ -774,9 +785,7 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        // TODO: REMOVE THESE TEST VALUES!
-        let buttons_string = String::from("1|97|98|2|99|100|3|101|102|4|103|104|5|105|106");
-        //let buttons_string = self.server_data.raw_layout.0.clone();
+        let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -946,7 +955,7 @@ impl Application {
                 ui.label(format!("Server current order: {}", self.server_data.order));
 
                 if ui.button("New Layout").clicked() {
-                    self.open_new_layout_modal();
+                    self.open_create_update_layout_modal();
                 }
 
                 ui.text_edit_singleline(&mut port_name).enabled();
@@ -1071,10 +1080,21 @@ impl Application {
 
     // Application modals
 
-    fn open_new_layout_modal(&self) {
+    fn open_create_update_layout_modal(&mut self) {
         use egui::*;
 
-        self.show_custom_modal("create-new-layout", move |ui, app| {
+        let mut updating = false;
+
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                updating = true;
+
+                self.new_layout_name = layout.name.clone();
+                self.new_layout_size = layout.size;
+            }
+        }
+
+        self.show_custom_modal("create-update-layout", move |ui, app| {
             ui.set_width(450.0);
 
             ui.with_layout(
@@ -1097,7 +1117,11 @@ impl Application {
 
                                 ui.set_style(style);
 
-                                ui.label("Create new Layout");
+                                if !updating {
+                                    ui.label("Create new Layout");
+                                } else {
+                                    ui.label("Editing Layout");
+                                }
 
                                 ui.separator();
                             });
@@ -1128,10 +1152,13 @@ impl Application {
                             ui.add_space(20.0);
 
                             ui.horizontal(|ui| {
+                                let create_update_button_name =
+                                    if !updating { "Create" } else { "Update" };
+
                                 if ui.button("Cancel").clicked() {
                                     app.close_modal();
                                 }
-                                if ui.button("Create").clicked() {
+                                if ui.button(create_update_button_name).clicked() {
                                     if let Some(config) = &mut app.config {
                                         if config.layout.is_none() {
                                             app.new_layout(
@@ -1146,8 +1173,7 @@ impl Application {
                                                 "Overriding current layout".to_string(),
                                                 "You already have a layout, \
                                                         do you want to override it?\n\
-                                                        This will remove all the added \
-                                                        components as well!"
+                                                        You still keep your added components."
                                                     .to_string(),
                                                 |app| {
                                                     app.new_layout(

@@ -64,7 +64,7 @@ pub struct Interaction {
     pub modkey: InteractionKind,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Component {
     pub label: String,
     pub position: (f32 /* x */, f32 /* y */),
