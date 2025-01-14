@@ -379,14 +379,25 @@ impl Application {
             ui.add_space(32.0);
 
             ui.horizontal(|ui| {
-                if ui.button("Yes").clicked() {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 32.0], Button::new("Yes"))
+                    .clicked()
+                {
                     on_confirm(app);
 
                     if auto_close {
                         app.close_modal();
                     }
                 }
-                if ui.button("No").clicked() {
+                if ui
+                    .add_sized([button_width, 32.0], Button::new("No"))
+                    .clicked()
+                {
                     on_deny(app);
 
                     if auto_close {
