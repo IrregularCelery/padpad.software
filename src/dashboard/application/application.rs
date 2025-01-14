@@ -308,7 +308,27 @@ impl Application {
         self.show_custom_modal(id, move |ui, app| {
             ui.set_width(300.0);
 
-            ui.heading(title.clone());
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label(title.clone());
+                });
+
+                ui.separator();
+            });
+
             ui.label(message.clone());
 
             ui.add_space(32.0);
@@ -333,7 +353,27 @@ impl Application {
         self.show_custom_modal(id, move |ui, app| {
             ui.set_width(350.0);
 
-            ui.heading(title.clone());
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label(title.clone());
+                });
+
+                ui.separator();
+            });
+
             ui.label(question.clone());
 
             ui.add_space(32.0);
@@ -376,7 +416,7 @@ impl Application {
         );
     }
 
-    fn new_layout(&mut self, name: String, size: (f32, f32)) {
+    fn create_update_layout(&mut self, name: String, size: (f32, f32)) {
         if let Some(config) = &mut self.config {
             let components = if let Some(layout) = &config.layout {
                 layout.components.clone()
@@ -860,7 +900,7 @@ impl Application {
 
         Window::new("Debug")
             .default_pos((0.0, 0.0))
-            .default_open(false)
+            .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
                 ui.group(|ui| {
@@ -888,6 +928,8 @@ impl Application {
                             Color::BLUE,
                             Color::PURPLE,
                             Color::PINK,
+                            Color::BLACK,
+                            Color::WHITE,
                         ];
 
                         for color in colors {
@@ -1161,7 +1203,7 @@ impl Application {
                                 if ui.button(create_update_button_name).clicked() {
                                     if let Some(config) = &mut app.config {
                                         if config.layout.is_none() {
-                                            app.new_layout(
+                                            app.create_update_layout(
                                                 app.new_layout_name.clone(),
                                                 app.new_layout_size,
                                             );
@@ -1176,7 +1218,7 @@ impl Application {
                                                         You still keep your added components."
                                                     .to_string(),
                                                 |app| {
-                                                    app.new_layout(
+                                                    app.create_update_layout(
                                                         app.new_layout_name.clone(),
                                                         app.new_layout_size,
                                                     );

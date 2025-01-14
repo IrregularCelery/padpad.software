@@ -17,6 +17,8 @@ impl Color {
     pub const BLUE: Color32 = Color32::from_rgb(77, 116, 255);
     pub const PURPLE: Color32 = Color32::from_rgb(133, 77, 255);
     pub const PINK: Color32 = Color32::from_rgb(255, 77, 208);
+    pub const BLACK: Color32 = Color32::from_rgb(0, 0, 0);
+    pub const WHITE: Color32 = Color32::from_rgb(255, 255, 255);
 }
 
 pub fn get_current_style() -> egui::Style {
