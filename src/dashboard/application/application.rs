@@ -141,6 +141,25 @@ impl eframe::App for Application {
 }
 
 impl Application {
+    fn resize_and_center_window(&self, ctx: &Context, size: Vec2) {
+        let monitor_size = ctx.input(|i: &egui::InputState| i.viewport().monitor_size);
+
+        let position = {
+            let mut x = 0.0;
+            let mut y = 0.0;
+
+            if let Some(resolution) = monitor_size {
+                x = (resolution.x - size.x) / 2.0;
+                y = (resolution.y - size.y) / 2.0;
+            }
+
+            egui::pos2(x, y)
+        };
+
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(position));
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+    }
+
     fn handle_server_data(&mut self) {
         // Access the latest server data
         if let Some(server_data) = SERVER_DATA.get() {
@@ -1062,6 +1081,10 @@ impl Application {
                         ui.allocate_space(egui::vec2(0.0, current_y + rect_size.y));
                     });
                 });
+
+                if ui.button("Change size and position").clicked() {
+                    self.resize_and_center_window(ctx, (1600.0, 900.0).into());
+                }
 
                 ui.group(|ui| {
                     ui.label("Application modals");
