@@ -20,6 +20,7 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
 
 // Dashboard
 pub const DASHBOARD_DEVICE_INTERNAL_PROFILE: &str = "Internal";
+pub const DASHBOARD_PROFILE_MAX_CHARACTERS: usize = 10;
 
 // Validation
 //pub const FORBIDDEN_CHARACTERS: [&str; 3] = [
