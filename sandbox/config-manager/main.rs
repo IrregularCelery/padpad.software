@@ -127,6 +127,8 @@ fn write_config(config: &Config) -> Result<File, Box<dyn Error>> {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(true) // NOTE FOR FUTURE GENERATION!!!: ALWAYS ADD .truncate() to files that
+        // needs to be overriden!!! :D :D :D
         .open(&path)?;
 
     let toml_str = toml::to_string_pretty(config)?;
