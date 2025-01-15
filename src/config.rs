@@ -42,7 +42,7 @@ pub struct Settings {
     pub baud_rate: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
     pub name: String,
     pub interactions: HashMap<
@@ -120,14 +120,7 @@ impl Default for Config {
                 baud_rate: DEFAULT_BAUD_RATE,
             },
             // TODO: Remove these testing vectors!
-            profiles: vec![
-                Profile::new_profile("Profile 1".to_string(), true),
-                Profile::new_profile("Profile 2".to_string(), true),
-                Profile::new_profile("Profile 3".to_string(), true),
-                Profile::new_profile("Profile 4".to_string(), true),
-                Profile::new_profile("Profile 5".to_string(), false),
-                Profile::new_profile("Profile 6".to_string(), true),
-            ],
+            profiles: vec![],
             layout: None,
         }
     }
@@ -141,6 +134,15 @@ impl Default for Layout {
             // TODO: Make this dynamic by getting the current screen size and subtract the
             // rest of the ui, to calculate the maximum layout size
             size: (1030.0, 580.0),
+        }
+    }
+}
+
+impl Default for Interaction {
+    fn default() -> Self {
+        Self {
+            normal: InteractionKind::None(),
+            modkey: InteractionKind::None(),
         }
     }
 }
@@ -228,6 +230,7 @@ impl Config {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&path)?;
 
         let toml_str = toml::to_string_pretty(&self)?;
@@ -236,86 +239,20 @@ impl Config {
 
         Ok(file)
     }
+
+    pub fn does_profile_exist(&self, profile_name: &String) -> bool {
+        for profile in &self.profiles {
+            if profile.name == *profile_name {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl Profile {
-    // TEST: Only for testing purposes! This method will get heavily changed!
-    fn new_profile(profile_name: String, no_interactions: bool) -> Self {
-        Self {
-            name: profile_name,
-            interactions: {
-                let mut interactions: HashMap<String, Interaction> = Default::default();
-
-                if !no_interactions {
-                    // NOTE: The way this should happen (after the dashboard app is ready),
-                    // is to auto-generate NONE interactions for all components every time
-                    // you create a profile. so, user can set their interactions.
-                    interactions.insert(
-                        "Button:1".to_string(),
-                        Interaction {
-                            normal: InteractionKind::File(
-                                "/home/mohsen/media/Music/ava".to_string(),
-                            ),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:2".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::File(
-                                "/home/mohsen/media/Wallpapers/wallpaper.jpg".to_string(),
-                            ),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Potentiometer:2".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:3".to_string(),
-                        Interaction {
-                            normal: InteractionKind::Command(
-                                "notify-send \"hello!\"".to_string(),
-                                "sh".to_string(),
-                            ),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Button:4".to_string(),
-                        Interaction {
-                            normal: InteractionKind::Shortcut(
-                                vec![enigo::Key::Control, enigo::Key::Unicode('p')],
-                                String::new(),
-                            ),
-                            modkey: InteractionKind::Shortcut(
-                                vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
-                                String::new(),
-                            ),
-                        },
-                    );
-
-                    interactions.insert(
-                        "Potentiometer:1".to_string(),
-                        Interaction {
-                            normal: InteractionKind::None(),
-                            modkey: InteractionKind::None(),
-                        },
-                    );
-                }
-
-                interactions
-            },
-        }
-    }
+    pub fn add_interaction(_interaction: InteractionKind, _profile_id: u8) {}
 }
 
 impl Component {
