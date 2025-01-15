@@ -18,6 +18,9 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
                                                  // you can have higher interval (in ms) (16 ≈ 60FPS)
                                                  // if client isn't connected, interval is 1000ms
 
+// Dashboard
+pub const DASHBOARD_DEVICE_INTERNAL_PROFILE: &str = "Internal";
+
 // Validation
 //pub const FORBIDDEN_CHARACTERS: [&str; 3] = [
 //    SERIAL_MESSAGE_SEP,
