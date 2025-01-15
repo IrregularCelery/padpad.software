@@ -7,7 +7,9 @@ use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Rect, Response, Ui,
 
 use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
-    config::{update_config_and_server, Component, ComponentKind, Config, Layout},
+    config::{
+        update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
+    },
     constants::{HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
@@ -35,6 +37,8 @@ pub struct Application {
     // TEMP VARIABLES
     new_layout_name: String,
     new_layout_size: (f32, f32),
+    new_profile_name: String,
+    profile_exists: bool,
     xbm_string: String,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
 }
@@ -249,11 +253,20 @@ impl Application {
 
     fn handle_unavoidable_error(&mut self, ctx: &Context) {
         if self.unavoidable_error.0 {
-            egui::Modal::new(egui::Id::new("unavoidable-error")).show(ctx, |ui| {
-                ui.set_width(250.0);
+            egui::Modal::new(egui::Id::new("unavoidable-error"))
+                .frame(
+                    egui::Frame::popup(&get_current_style())
+                        .inner_margin(egui::Margin::same(24.0))
+                        .stroke(egui::Stroke::new(1.0, Color::WHITE)),
+                )
+                .backdrop_color(Color::BLACK.gamma_multiply(0.95))
+                .show(ctx, |ui| {
+                    ui.set_width(350.0);
 
-                ui.heading(self.unavoidable_error.1.clone());
-            });
+                    ui.vertical_centered(|ui| {
+                        ui.label(self.unavoidable_error.1.clone());
+                    });
+                });
         }
     }
 
@@ -268,7 +281,8 @@ impl Application {
         for (index, modal) in modals.iter().enumerate() {
             let modal_ui = egui::Modal::new(egui::Id::new(modal.id))
                 .frame(
-                    egui::Frame::popup(&get_current_style()).inner_margin(egui::Margin::same(24.0)),
+                    egui::Frame::popup(&get_current_style())
+                        .inner_margin(egui::Margin::symmetric(48.0, 24.0)),
                 )
                 .backdrop_color(egui::Color32::from_black_alpha(64))
                 .show(ctx, |ui| {
@@ -306,6 +320,63 @@ impl Application {
 
     fn show_message_modal(&self, id: &'static str, title: String, message: String) {
         self.show_custom_modal(id, move |ui, app| {
+            ui.set_width(320.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label(title.clone());
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            ui.label(message.clone());
+
+            ui.add_space(ui.spacing().item_spacing.x * 2.5);
+
+            ui.vertical_centered(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], Button::new("Ok"))
+                    .clicked()
+                {
+                    app.close_modal();
+                }
+            });
+        });
+    }
+
+    /// If you want to show another modal from callbacks, you need to set the `auto_close` to false
+    /// and close the modal manually, because `auto_close` closes the very latest modal
+    fn show_yes_no_modal(
+        &self,
+        id: &'static str,
+        title: String,
+        question: String,
+        on_confirm: impl Fn(&mut Application) + Send + Sync + 'static,
+        on_deny: impl Fn(&mut Application) + Send + Sync + 'static,
+        auto_close: bool,
+    ) {
+        self.show_custom_modal(id, move |ui, app| {
             ui.set_width(300.0);
 
             ui.scope(|ui| {
@@ -327,65 +398,22 @@ impl Application {
                 });
 
                 ui.separator();
-            });
 
-            ui.label(message.clone());
-
-            ui.add_space(32.0);
-
-            if ui.button("Ok").clicked() {
-                app.close_modal();
-            }
-        });
-    }
-
-    /// If you want to show another modal from callbacks, you need to set the `auto_close` to false
-    /// and close the modal manually, because `auto_close` closes the very latest modal
-    fn show_yes_no_modal(
-        &self,
-        id: &'static str,
-        title: String,
-        question: String,
-        on_confirm: impl Fn(&mut Application) + Send + Sync + 'static,
-        on_deny: impl Fn(&mut Application) + Send + Sync + 'static,
-        auto_close: bool,
-    ) {
-        self.show_custom_modal(id, move |ui, app| {
-            ui.set_width(350.0);
-
-            ui.scope(|ui| {
-                let mut style = get_current_style();
-
-                style.text_styles.insert(
-                    egui::TextStyle::Body,
-                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
-                );
-
-                style.visuals.override_text_color = Some(Color::WHITE);
-                style.visuals.widgets.noninteractive.bg_stroke =
-                    egui::Stroke::new(1.0, Color::WHITE);
-
-                ui.set_style(style);
-
-                ui.vertical_centered(|ui| {
-                    ui.label(title.clone());
-                });
-
-                ui.separator();
+                ui.add_space(ui.spacing().item_spacing.x);
             });
 
             ui.label(question.clone());
 
-            ui.add_space(32.0);
+            ui.add_space(ui.spacing().item_spacing.x * 2.5);
 
-            ui.horizontal(|ui| {
+            ui.horizontal_top(|ui| {
                 let spacing = ui.spacing().item_spacing.x;
 
                 let total_width = ui.available_width();
                 let button_width = (total_width - spacing) / 2.0;
 
                 if ui
-                    .add_sized([button_width, 32.0], Button::new("Yes"))
+                    .add_sized([button_width, 0.0], Button::new("Yes"))
                     .clicked()
                 {
                     on_confirm(app);
@@ -395,7 +423,7 @@ impl Application {
                     }
                 }
                 if ui
-                    .add_sized([button_width, 32.0], Button::new("No"))
+                    .add_sized([button_width, 0.0], Button::new("No"))
                     .clicked()
                 {
                     on_deny(app);
@@ -567,6 +595,41 @@ impl Application {
                     }
                 }
             });
+    }
+
+    fn create_update_profile(&mut self, name: String) -> bool {
+        if let Some(config) = &mut self.config {
+            if config.does_profile_exist(&name) {
+                return false;
+            }
+
+            let components = if let Some(layout) = &config.layout {
+                layout.components.clone()
+            } else {
+                Default::default()
+            };
+
+            let new_profile = Profile {
+                name,
+                interactions: {
+                    let mut interactions: HashMap<String, Interaction> = Default::default();
+
+                    for (component_key, _component) in components.iter() {
+                        interactions.insert(component_key.clone(), Interaction::default());
+                    }
+
+                    interactions
+                },
+            };
+
+            update_config_and_server(config, |c| {
+                c.profiles.push(new_profile);
+            });
+
+            return true;
+        }
+
+        return false;
     }
 
     fn draw_status_indicator(&mut self, ui: &mut Ui) {
@@ -902,10 +965,12 @@ impl Application {
         use egui::*;
 
         let mut port_name = String::new();
+        let mut profiles = Default::default();
         let mut current_profile = String::new();
 
         if let Some(config) = &self.config {
             port_name = config.settings.port_name.clone();
+            profiles = config.profiles.clone();
             current_profile = config.settings.current_profile.to_string();
         }
 
@@ -980,6 +1045,28 @@ impl Application {
                     });
                 });
 
+                ui.group(|ui| {
+                    ui.label("Application modals");
+
+                    if ui.button("Create/Update Layout").clicked() {
+                        self.open_create_update_layout_modal();
+                    }
+
+                    if ui.button("Auto-detect components").clicked() {
+                        self.open_auto_detect_components_modal();
+                    }
+
+                    if ui.button("Create/Update Profile").clicked() {
+                        self.open_create_update_profile_modal(false);
+                    }
+                });
+
+                ui.group(|ui| {
+                    for profile in profiles {
+                        ui.label(profile.name.clone());
+                    }
+                });
+
                 let button = ui.button("Hover or click me");
 
                 if button.contains_pointer() || button.has_focus() {
@@ -1007,10 +1094,6 @@ impl Application {
 
                 ui.label(format!("Server current order: {}", self.server_data.order));
 
-                if ui.button("New Layout").clicked() {
-                    self.open_create_update_layout_modal();
-                }
-
                 ui.text_edit_singleline(&mut port_name).enabled();
 
                 ui.label(format!("Current profile: {}", current_profile));
@@ -1020,36 +1103,6 @@ impl Application {
                     "Raw layout:\n- Buttons\n{}\n- Potentiometers\n{}",
                     self.server_data.raw_layout.0, self.server_data.raw_layout.1
                 ));
-
-                if ui.button("Auto-detect components").clicked() {
-                    self.show_yes_no_modal(
-                        "layout-override-confirmation-auto-detect-components",
-                        "Override layout".to_string(),
-                        "This operation will override the current layout!\n\
-                            Are you sure you want to proceed?"
-                            .to_string(),
-                        |app| {
-                            app.close_modal();
-
-                            match app.detect_components() {
-                                Ok(message) => app.show_message_modal(
-                                    "auto-detected-components-ok",
-                                    "Success".to_string(),
-                                    message,
-                                ),
-                                Err(error) => app.show_message_modal(
-                                    "auto-detected-components-error",
-                                    "Error".to_string(),
-                                    error,
-                                ),
-                            }
-                        },
-                        |app| {
-                            app.close_modal();
-                        },
-                        false,
-                    );
-                }
 
                 ui.separator();
                 ui.group(|ui| {
@@ -1136,11 +1189,11 @@ impl Application {
     fn open_create_update_layout_modal(&mut self) {
         use egui::*;
 
-        let mut updating = false;
+        let mut is_updating = false;
 
         if let Some(config) = &self.config {
             if let Some(layout) = &config.layout {
-                updating = true;
+                is_updating = true;
 
                 self.new_layout_name = layout.name.clone();
                 self.new_layout_size = layout.size;
@@ -1148,106 +1201,318 @@ impl Application {
         }
 
         self.show_custom_modal("create-update-layout", move |ui, app| {
-            ui.set_width(450.0);
+            ui.set_width(350.0);
 
             ui.with_layout(
                 Layout::from_main_dir_and_cross_align(Direction::TopDown, Align::Center),
                 |ui| {
-                    ui.allocate_ui(
-                        vec2(ui.available_width() - 100.0, ui.available_height()),
-                        |ui| {
-                            ui.scope(|ui| {
-                                let mut style = get_current_style();
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
 
-                                style.text_styles.insert(
-                                    TextStyle::Body,
-                                    FontId::new(24.0, FontFamily::Proportional),
-                                );
+                        style
+                            .text_styles
+                            .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
 
-                                style.visuals.override_text_color = Some(Color32::WHITE);
-                                style.visuals.widgets.noninteractive.bg_stroke =
-                                    Stroke::new(1.0, Color32::WHITE);
+                        style.visuals.override_text_color = Some(Color::WHITE);
+                        style.visuals.widgets.noninteractive.bg_stroke =
+                            Stroke::new(1.0, Color::WHITE);
 
-                                ui.set_style(style);
+                        ui.set_style(style);
 
-                                if !updating {
-                                    ui.label("Create new Layout");
-                                } else {
-                                    ui.label("Editing Layout");
-                                }
+                        if !is_updating {
+                            ui.label("Create new Layout");
+                        } else {
+                            ui.label("Editing Layout");
+                        }
 
-                                ui.separator();
-                            });
+                        ui.separator();
+                    });
 
-                            ui.add_space(20.0);
+                    ui.add_space(20.0);
 
-                            ui.horizontal(|ui| {
-                                ui.label("Name");
-                                ui.add(
-                                    TextEdit::singleline(&mut app.new_layout_name)
-                                        .margin(vec2(8.0, 8.0)),
-                                );
-                            });
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.add_space(ui.style().spacing.item_spacing.x / 2.0);
+                            ui.label("Name");
+                        });
 
-                            ui.add_space(20.0);
+                        ui.add_sized(
+                            ui.available_size(),
+                            TextEdit::singleline(&mut app.new_layout_name).margin(vec2(8.0, 8.0)),
+                        );
+                    });
 
-                            ui.horizontal(|ui| {
-                                ui.label("Width");
+                    ui.add_space(16.0);
 
-                                ui.add(DragValue::new(&mut app.new_layout_size.0).speed(1.0));
+                    ui.horizontal_top(|ui| {
+                        let spacing = ui.spacing().item_spacing.x;
 
-                                ui.add_space(8.0);
-                                ui.label("Height");
+                        let total_width = ui.available_width();
+                        let input_width = (total_width - spacing) / 2.0;
 
-                                ui.add(DragValue::new(&mut app.new_layout_size.1).speed(1.0));
-                            });
+                        ui.allocate_ui_with_layout(
+                            (input_width, 0.0).into(),
+                            Layout::top_down(Align::Center),
+                            |ui| {
+                                ui.horizontal_centered(|ui| {
+                                    ui.vertical(|ui| {
+                                        ui.add_space(spacing / 2.0);
+                                        ui.label("Width");
+                                    });
 
-                            ui.add_space(20.0);
+                                    ui.add_sized(
+                                        ui.available_size(),
+                                        DragValue::new(&mut app.new_layout_size.0).speed(1.0),
+                                    );
+                                });
+                            },
+                        );
 
-                            ui.horizontal(|ui| {
-                                let create_update_button_name =
-                                    if !updating { "Create" } else { "Update" };
+                        ui.allocate_ui_with_layout(
+                            (input_width, 0.0).into(),
+                            Layout::top_down(Align::Center),
+                            |ui| {
+                                ui.horizontal_centered(|ui| {
+                                    ui.vertical(|ui| {
+                                        ui.add_space(spacing / 2.0);
+                                        ui.label("Height");
+                                    });
 
-                                if ui.button("Cancel").clicked() {
+                                    ui.add_sized(
+                                        ui.available_size(),
+                                        DragValue::new(&mut app.new_layout_size.1).speed(1.0),
+                                    );
+                                });
+                            },
+                        );
+                    });
+
+                    ui.add_space(16.0);
+
+                    ui.horizontal_top(|ui| {
+                        let create_update_button_name =
+                            if !is_updating { "Create" } else { "Update" };
+
+                        let spacing = ui.spacing().item_spacing.x;
+
+                        let total_width = ui.available_width();
+                        let button_width = (total_width - spacing) / 2.0;
+
+                        if ui
+                            .add_sized([button_width, 0.0], Button::new("Cancel"))
+                            .clicked()
+                        {
+                            app.close_modal();
+                        }
+
+                        if ui
+                            .add_sized([button_width, 0.0], Button::new(create_update_button_name))
+                            .clicked()
+                        {
+                            if let Some(config) = &mut app.config {
+                                if config.layout.is_none() {
+                                    app.create_update_layout(
+                                        app.new_layout_name.clone(),
+                                        app.new_layout_size,
+                                    );
+
                                     app.close_modal();
-                                }
-                                if ui.button(create_update_button_name).clicked() {
-                                    if let Some(config) = &mut app.config {
-                                        if config.layout.is_none() {
+                                } else {
+                                    app.show_yes_no_modal(
+                                        "layout-override-confirmation-create",
+                                        "Overriding current layout".to_string(),
+                                        "You already have a layout, \
+                                                        do you want to override it?\n\
+                                                        You still keep your added components."
+                                            .to_string(),
+                                        |app| {
                                             app.create_update_layout(
                                                 app.new_layout_name.clone(),
                                                 app.new_layout_size,
                                             );
 
                                             app.close_modal();
-                                        } else {
-                                            app.show_yes_no_modal(
-                                                "layout-override-confirmation-create",
-                                                "Overriding current layout".to_string(),
-                                                "You already have a layout, \
-                                                        do you want to override it?\n\
-                                                        You still keep your added components."
-                                                    .to_string(),
-                                                |app| {
-                                                    app.create_update_layout(
-                                                        app.new_layout_name.clone(),
-                                                        app.new_layout_size,
-                                                    );
-
-                                                    app.close_modal();
-                                                },
-                                                |_app| {},
-                                                true,
-                                            );
-                                        }
-                                    }
+                                        },
+                                        |_app| {},
+                                        true,
+                                    );
                                 }
-                            });
-                        },
-                    );
+                            }
+                        }
+                    });
                 },
             );
         });
+    }
+
+    fn open_create_update_profile_modal(&mut self, is_device_internal: bool) {
+        use egui::*;
+
+        if let Some(config) = &self.config {
+            self.profile_exists = config.does_profile_exist(&self.new_profile_name);
+        }
+
+        let is_updating = false;
+
+        self.show_custom_modal("create-update-profile", move |ui, app| {
+            ui.set_width(350.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style
+                    .text_styles
+                    .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                if !is_updating {
+                    ui.label("Create new Profile");
+                } else {
+                    ui.label("Editing Profile");
+                }
+
+                ui.separator();
+            });
+
+            ui.add_space(20.0);
+
+            ui.vertical_centered(|ui| {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.add_space(ui.style().spacing.item_spacing.x / 2.0);
+                        ui.label("Name");
+                    });
+
+                    let name_response = ui.add_sized(
+                        ui.available_size(),
+                        TextEdit::singleline(&mut app.new_profile_name).margin(vec2(8.0, 8.0)),
+                    );
+
+                    if name_response.lost_focus() {
+                        if let Some(config) = &app.config {
+                            app.profile_exists = config.does_profile_exist(&app.new_profile_name);
+                        }
+                    }
+                });
+
+                if app.profile_exists {
+                    ui.label(
+                        RichText::new("A profile with this name already exists!").color(Color::RED),
+                    );
+                }
+            });
+
+            ui.add_space(20.0);
+
+            ui.horizontal_top(|ui| {
+                let create_update_button_name = if !is_updating { "Create" } else { "Update" };
+
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], Button::new("Cancel"))
+                    .clicked()
+                {
+                    app.close_modal();
+                }
+
+                ui.scope(|ui| {
+                    if app.profile_exists {
+                        ui.disable();
+                    }
+
+                    if ui
+                        .add_sized([button_width, 0.0], Button::new(create_update_button_name))
+                        .clicked()
+                    {
+                        if app.create_update_profile(app.new_profile_name.clone()) {
+                            app.close_modal();
+
+                            app.show_message_modal(
+                                "create-profile-success",
+                                "Success".to_string(),
+                                format!(
+                                    "Profile \"{}\" created successfully.",
+                                    app.new_profile_name
+                                ),
+                            );
+                        } else {
+                            app.show_message_modal(
+                                "create-profile-already-exist",
+                                "Error".to_string(),
+                                format!(
+                                    "A profile with the name `{}` already exists!",
+                                    app.new_profile_name
+                                ),
+                            );
+                        }
+
+                        //app.close_modal();
+                        if !app.profile_exists {
+                        } else {
+                            //app.show_yes_no_modal(
+                            //    "layout-override-confirmation-create",
+                            //    "Overriding current layout".to_string(),
+                            //    "You already have a layout, \
+                            //                            do you want to override it?\n\
+                            //                            You still keep your added components."
+                            //        .to_string(),
+                            //    |app| {
+                            //        app.create_update_profile(app.new_profile_name.clone());
+                            //
+                            //        app.close_modal();
+                            //    },
+                            //    |_app| {},
+                            //    true,
+                            //);
+                        }
+                    }
+                });
+            });
+
+            if is_device_internal {
+                ui.label("You are editing device's internal profile!");
+
+                return;
+            }
+        });
+    }
+
+    fn open_auto_detect_components_modal(&self) {
+        self.show_yes_no_modal(
+            "layout-override-confirmation-auto-detect-components",
+            "Override layout".to_string(),
+            "This operation will override the current layout!\n\
+                            Are you sure you want to proceed?"
+                .to_string(),
+            |app| {
+                app.close_modal();
+
+                match app.detect_components() {
+                    Ok(message) => app.show_message_modal(
+                        "auto-detected-components-ok",
+                        "Success".to_string(),
+                        message,
+                    ),
+                    Err(error) => app.show_message_modal(
+                        "auto-detected-components-error",
+                        "Error".to_string(),
+                        error,
+                    ),
+                }
+            },
+            |app| {
+                app.close_modal();
+            },
+            false,
+        );
     }
 }
 
@@ -1347,6 +1612,8 @@ impl Default for Application {
             // TEMP VARIABLES
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
+            new_profile_name: "New Profile".to_string(),
+            profile_exists: false,
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
         }
