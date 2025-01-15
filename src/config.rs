@@ -114,12 +114,11 @@ impl Default for Config {
                 )
             },
             settings: Settings {
-                current_profile: 2,
+                current_profile: 0,
                 device_name: DEFAULT_DEVICE_NAME.to_string(),
                 port_name: String::new(),
                 baud_rate: DEFAULT_BAUD_RATE,
             },
-            // TODO: Remove these testing vectors!
             profiles: vec![],
             layout: None,
         }
