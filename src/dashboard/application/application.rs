@@ -10,7 +10,10 @@ use padpad_software::{
     config::{
         update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
     },
-    constants::{HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP, SERVER_DATA_UPDATE_INTERVAL},
+    constants::{
+        DASHBOARD_PROFILE_MAX_CHARACTERS, HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP,
+        SERVER_DATA_UPDATE_INTERVAL,
+    },
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
     utility::extract_hex_bytes_and_serialize,
@@ -597,6 +600,7 @@ impl Application {
             });
     }
 
+    // TODO: Make is so, on the first time user creates a profile, internal profile is also created
     fn create_update_profile(&mut self, name: String) -> bool {
         if let Some(config) = &mut self.config {
             if config.does_profile_exist(&name) {
@@ -834,12 +838,15 @@ impl Application {
             ..Default::default()
         };
 
+        let mut interactions: HashMap<String, Interaction> = Default::default();
+
         let mut index = 0;
 
         // Buttons
         for (button_id, _button_normal, _button_mod) in self.get_buttons() {
             index += 1;
 
+            let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
             let button_name = format!("{} {}", ComponentKind::Button, button_id);
 
             let layout_button = Component::new_button(
@@ -849,12 +856,15 @@ impl Application {
             );
 
             layout.components.insert(layout_button.0, layout_button.1);
+
+            interactions.insert(component_global_id, Interaction::default());
         }
 
         // Potentiometers
         for (potentiometer_id, _potentiometer_value) in self.get_potentiometers() {
             index += 1;
 
+            let component_global_id = format!("{}:{}", ComponentKind::Button, potentiometer_id);
             let potentiometer_name = format!("{} {}", ComponentKind::Button, potentiometer_id);
 
             let layout_potentiometer = Component::new_potentiometer(
@@ -866,6 +876,8 @@ impl Application {
             layout
                 .components
                 .insert(layout_potentiometer.0, layout_potentiometer.1);
+
+            interactions.insert(component_global_id, Interaction::default());
         }
 
         if index < 1 {
@@ -877,6 +889,10 @@ impl Application {
         if let Some(config) = &mut self.config {
             update_config_and_server(config, |c| {
                 c.layout = Some(layout);
+
+                for profile in c.profiles.iter_mut() {
+                    profile.interactions = interactions.clone();
+                }
             });
 
             return Ok("Detected componenets were added to your layout.".to_string());
@@ -899,7 +915,9 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        let buttons_string = self.server_data.raw_layout.0.clone();
+        // TODO: REMOVE THESE TEST VALUES
+        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
+        //let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -1232,7 +1250,7 @@ impl Application {
 
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.add_space(ui.style().spacing.item_spacing.x / 2.0);
+                            ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
                             ui.label("Name");
                         });
 
@@ -1248,7 +1266,7 @@ impl Application {
                         let spacing = ui.spacing().item_spacing.x;
 
                         let total_width = ui.available_width();
-                        let input_width = (total_width - spacing) / 2.0;
+                        let input_width = (total_width - (spacing * 4.0)) / 2.0;
 
                         ui.allocate_ui_with_layout(
                             (input_width, 0.0).into(),
@@ -1256,7 +1274,7 @@ impl Application {
                             |ui| {
                                 ui.horizontal_centered(|ui| {
                                     ui.vertical(|ui| {
-                                        ui.add_space(spacing / 2.0);
+                                        ui.add_space(spacing / 2.0 + 1.0);
                                         ui.label("Width");
                                     });
 
@@ -1268,13 +1286,15 @@ impl Application {
                             },
                         );
 
+                        ui.add_space(16.0);
+
                         ui.allocate_ui_with_layout(
-                            (input_width, 0.0).into(),
+                            (input_width + spacing, 0.0).into(),
                             Layout::top_down(Align::Center),
                             |ui| {
                                 ui.horizontal_centered(|ui| {
                                     ui.vertical(|ui| {
-                                        ui.add_space(spacing / 2.0);
+                                        ui.add_space(spacing / 2.0 + 1.0);
                                         ui.label("Height");
                                     });
 
@@ -1383,14 +1403,24 @@ impl Application {
             ui.vertical_centered(|ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.add_space(ui.style().spacing.item_spacing.x / 2.0);
+                        ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
                         ui.label("Name");
                     });
+
+                    if app.new_profile_name.len() > DASHBOARD_PROFILE_MAX_CHARACTERS {
+                        app.new_profile_name
+                            .truncate(DASHBOARD_PROFILE_MAX_CHARACTERS);
+                    }
 
                     let name_response = ui.add_sized(
                         ui.available_size(),
                         TextEdit::singleline(&mut app.new_profile_name).margin(vec2(8.0, 8.0)),
                     );
+
+                    if app.new_profile_name.len() > DASHBOARD_PROFILE_MAX_CHARACTERS {
+                        app.new_profile_name
+                            .truncate(DASHBOARD_PROFILE_MAX_CHARACTERS);
+                    }
 
                     if name_response.lost_focus() {
                         if let Some(config) = &app.config {
@@ -1612,7 +1642,7 @@ impl Default for Application {
             // TEMP VARIABLES
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
-            new_profile_name: "New Profile".to_string(),
+            new_profile_name: "My Profile".to_string(),
             profile_exists: false,
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
