@@ -545,17 +545,26 @@ impl Application {
         };
 
         egui::Window::new("Layout")
-            //.movable(false)
+            .movable(false)
             .resizable(false)
             .collapsible(false)
             .title_bar(false)
             .hscroll(true)
             .vscroll(true)
             .fixed_size((layout.size.0, layout.size.1))
-            .current_pos((50.0, 50.0))
+            .current_pos((
+                (ctx.screen_rect().max.x - layout.size.0) / 2.0,
+                (ctx.screen_rect().max.y - layout.size.1) / 2.0,
+            ))
             .frame(egui::Frame {
-                fill: Color::RED,
-                rounding: 4.0.into(),
+                fill: Color::OVERLAY0,
+                rounding: 8.0.into(),
+                shadow: egui::Shadow {
+                    offset: egui::vec2(0.0, 4.0),
+                    blur: 8.0,
+                    spread: 2.0,
+                    color: Color::OVERLAY1.gamma_multiply(0.5),
+                },
                 ..egui::Frame::default()
             })
             .show(ctx, |ui| {
@@ -682,7 +691,7 @@ impl Application {
             );
 
             const PANEL_OPENED_X: f32 = 0.0;
-            const PANEL_CLOSED_X: f32 = -32.0;
+            const PANEL_CLOSED_X: f32 = -16.0;
 
             let panel_disabled = { panel_position_x == PANEL_CLOSED_X };
 
