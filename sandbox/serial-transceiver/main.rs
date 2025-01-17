@@ -45,7 +45,6 @@ impl Message {
     }
 }
 
-// TODO: Move this somewhere else!
 fn log(args: &std::fmt::Arguments) {
     println!("{}", args);
 }

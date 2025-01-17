@@ -910,7 +910,7 @@ impl Application {
 
         if index < 1 {
             return Err("Couldn't find any componenets!\n\
-                Make sure your device is connected properly."
+                Make sure your device is connected."
                 .to_string());
         }
 
