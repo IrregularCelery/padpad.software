@@ -44,6 +44,10 @@ pub struct Application {
     profile_exists: bool,
     xbm_string: String,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
+
+    // Constants
+    component_button_size: (f32 /* width */, f32 /* height */),
+    component_potentiometer_size: (f32 /* width */, f32 /* height */),
 }
 
 impl eframe::App for Application {
@@ -593,7 +597,6 @@ impl Application {
                     };
                     let label = &component.1.label;
                     let position: Pos2 = component.1.position.into();
-                    let size = Vec2::new(100.0, 100.0);
 
                     match kind {
                         ComponentKind::None => (),
@@ -602,7 +605,7 @@ impl Application {
                                 ui,
                                 label,
                                 position,
-                                size,
+                                Vec2::from(self.component_button_size),
                                 value.parse::<i8>().unwrap_or(0),
                             );
 
@@ -616,7 +619,7 @@ impl Application {
                                 ui,
                                 label,
                                 position,
-                                size,
+                                Vec2::from(self.component_potentiometer_size),
                                 value.parse::<u8>().unwrap_or(0),
                             );
                         }
@@ -628,7 +631,6 @@ impl Application {
             });
     }
 
-    // TODO: Make is so, on the first time user creates a layout, internal profile is also created
     fn create_update_profile(&mut self, name: String) -> bool {
         if let Some(config) = &mut self.config {
             if config.does_profile_exist(&name) {
@@ -877,7 +879,6 @@ impl Application {
         ui.put(rect, ProgressBar::new(value).show_percentage());
     }
 
-    // TODO: Add corrent spacing for auto-generated components
     fn detect_components(&mut self) -> Result<String, String> {
         let config = match &self.config {
             Some(config) => config,
@@ -905,26 +906,54 @@ impl Application {
 
         let mut index = 0;
 
+        let component_size = self.component_button_size;
+        let max_per_column = (layout.size.1 / component_size.1).trunc();
+        let spacing =
+            (layout.size.1 % component_size.1) / (max_per_column + 1.0/* bottom spacing */);
+
+        let mut current_x = spacing;
+        let mut current_y = spacing;
+
         // Buttons
         for (button_id, _button_normal, _button_mod) in self.get_buttons() {
+            if current_y + (component_size.1 * 2.0) > layout.size.1 {
+                current_x += component_size.0 + spacing;
+                current_y = spacing;
+            } else {
+                if index > 0 {
+                    current_y += component_size.1 + spacing;
+                }
+            }
+
             index += 1;
 
             let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
             let button_name = format!("{} {}", ComponentKind::Button, button_id);
 
-            let layout_button = Component::new_button(
-                button_id,
-                button_name,
-                (index as f32 * 30.0, index as f32 * 30.0),
-            );
+            let layout_button =
+                Component::new_button(button_id, button_name, (current_x, current_y));
 
             layout.components.insert(layout_button.0, layout_button.1);
 
             interactions.insert(component_global_id, Interaction::default());
         }
 
+        let component_size = self.component_potentiometer_size;
+        let max_per_column = (layout.size.1 / component_size.1).trunc();
+        let spacing =
+            (layout.size.1 % component_size.1) / (max_per_column + 1.0/* bottom spacing */);
+
         // Potentiometers
         for (potentiometer_id, _potentiometer_value) in self.get_potentiometers() {
+            if current_y + (component_size.1 * 2.0) > layout.size.1 {
+                current_x += component_size.0 + spacing;
+                current_y = spacing;
+            } else {
+                if index > 0 {
+                    current_y += component_size.1 + spacing;
+                }
+            }
+
             index += 1;
 
             let component_global_id = format!("{}:{}", ComponentKind::Button, potentiometer_id);
@@ -933,7 +962,7 @@ impl Application {
             let layout_potentiometer = Component::new_potentiometer(
                 potentiometer_id,
                 potentiometer_name,
-                (index as f32 * 30.0, index as f32 * 30.0),
+                (current_x, current_y),
             );
 
             layout
@@ -1014,7 +1043,9 @@ impl Application {
     // 1,2,3... = potentiometer id (Started from 1)
     // 25 => value of the potentiometer
     fn get_potentiometers(&self) -> impl Iterator<Item = (u8 /* id */, u8 /* value */)> {
-        let potentiometers_string = &self.server_data.raw_layout.1;
+        // TODO: REMOVE THESE TEST VALUES
+        let potentiometers_string = "1|25|2|45|3|12|4|99|5|75";
+        //let potentiometers_string = &self.server_data.raw_layout.1;
 
         let mut potentiometers: Vec<(u8, u8)> = vec![];
 
@@ -1778,6 +1809,10 @@ impl Default for Application {
             profile_exists: false,
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
+
+            // Constants
+            component_button_size: (100.0, 100.0),
+            component_potentiometer_size: (100.0, 100.0),
         }
     }
 }
