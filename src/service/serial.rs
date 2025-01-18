@@ -222,7 +222,17 @@ impl Serial {
                 let mut server_data = data.clone();
 
                 if !server_data.pending_serial_message.is_empty() {
-                    self.write(server_data.pending_serial_message);
+                    if server_data.pending_serial_message == "refresh_device" {
+                        let mut config = CONFIG
+                            .get()
+                            .expect("Could not retrieve CONFIG data!")
+                            .lock()
+                            .unwrap();
+
+                        self.refresh_device(&mut config);
+                    } else {
+                        self.write(server_data.pending_serial_message);
+                    }
 
                     server_data.pending_serial_message = String::new();
 
@@ -306,28 +316,7 @@ impl Serial {
                         match request_key {
                             // Device is requesting startup data such as `time` and `profiles`
                             "STARTUP" => {
-                                let total_seconds =
-                                    chrono::Local::now().num_seconds_from_midnight();
-                                let date = chrono::Local::now().format("%b. %d").to_string();
-
-                                let profiles = {
-                                    let mut profiles_string = String::new();
-
-                                    for profile in &config.profiles {
-                                        profiles_string.push_str(profile.name.as_str());
-                                        profiles_string.push_str(SERIAL_MESSAGE_INNER_SEP);
-                                    }
-
-                                    profiles_string
-                                };
-
-                                self.write(format!("t{}", total_seconds)); // Time
-                                self.write(format!("d{}", date)); // Date
-                                self.write(format!("p{}", profiles)); // Profiles
-                                self.write(format!(
-                                    "P{}",
-                                    config.settings.current_profile.to_string()
-                                )); // Current profile
+                                self.refresh_device(&mut config);
                             }
                             "profile" => {
                                 let selected_profile = request_value.parse::<usize>().unwrap_or(0);
@@ -386,6 +375,35 @@ impl Serial {
 
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
+    }
+
+    /// Send current config and data to the device
+    fn refresh_device(&mut self, config: &mut crate::config::Config) {
+        let total_seconds = chrono::Local::now().num_seconds_from_midnight();
+        let date = chrono::Local::now().format("%b. %d").to_string();
+
+        let profiles = {
+            let mut profiles_string = String::new();
+
+            for (index, profile) in config.profiles.iter().enumerate() {
+                // Skip first profile which is the device's internal
+                if index < 1 {
+                    continue;
+                }
+
+                profiles_string.push_str(profile.name.as_str());
+                profiles_string.push_str(SERIAL_MESSAGE_INNER_SEP);
+            }
+
+            profiles_string
+        };
+
+        self.write(format!("t{}", total_seconds)); // Time
+        self.write(format!("d{}", date)); // Date
+        self.write(format!("p{}", profiles)); // Profiles
+        self.write(
+            format!("P{}", config.settings.current_profile.to_string()), // Current profile
+        );
     }
 }
 

@@ -660,6 +660,8 @@ impl Application {
                 c.profiles.push(new_profile);
             });
 
+            request_send_serial("refresh_device").ok();
+
             return true;
         }
 
@@ -689,8 +691,30 @@ impl Application {
             }
 
             update_config_and_server(config, |c| {
-                c.profiles.remove(profile_index as usize);
+                let index = profile_index as usize;
+                let current_profile_name = c.profiles[c.settings.current_profile].name.clone();
+
+                // If user is deleting the currently selected profile, reset to `internal`
+                if c.settings.current_profile == index {
+                    c.settings.current_profile = 0;
+                }
+
+                c.profiles.remove(index);
+
+                // On deleting a profile we check if the order changed
+                // For example if the current profile is `2` and user
+                // tries to delete profile `1`, now profile `2` is `1`
+                // and needs to be set properly to its new position
+                for (index, profile) in c.profiles.iter().enumerate() {
+                    if profile.name == current_profile_name {
+                        c.settings.current_profile = index;
+
+                        break;
+                    }
+                }
             });
+
+            request_send_serial("refresh_device").ok();
 
             return Ok(format!(
                 "Profile {} was successfully removed.",
@@ -986,6 +1010,8 @@ impl Application {
                     profile.interactions = interactions.clone();
                 }
             });
+
+            request_send_serial("refresh_device").ok();
 
             return Ok("Detected componenets were added to your layout.".to_string());
         }
@@ -1583,26 +1609,6 @@ impl Application {
                                     app.new_profile_name
                                 ),
                             );
-                        }
-
-                        //app.close_modal();
-                        if !app.profile_exists {
-                        } else {
-                            //app.show_yes_no_modal(
-                            //    "layout-override-confirmation-create",
-                            //    "Overriding current layout".to_string(),
-                            //    "You already have a layout, \
-                            //                            do you want to override it?\n\
-                            //                            You still keep your added components."
-                            //        .to_string(),
-                            //    |app| {
-                            //        app.create_update_profile(app.new_profile_name.clone());
-                            //
-                            //        app.close_modal();
-                            //    },
-                            //    |_app| {},
-                            //    true,
-                            //);
                         }
                     }
                 });
