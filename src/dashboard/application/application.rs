@@ -767,7 +767,7 @@ impl Application {
                 let rect = ui.cursor();
                 let position = pos2(rect.min.x + panel_position_x, rect.max.y);
                 let padding = ui.style().spacing.button_padding;
-                let size = pos2(212.0, 64.0 - (padding.y / 2.0) - 1.0);
+                let size = pos2(212.0, 64.0 - (padding.y / 2.0) - 1.0); // I know! I hate myself too
 
                 let rect =
                     Rect::from_min_size((position.x, position.y - size.y).into(), size.to_vec2());
@@ -954,8 +954,11 @@ impl Application {
             let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
             let button_name = format!("{} {}", ComponentKind::Button, button_id);
 
-            let layout_button =
-                Component::new_button(button_id, button_name, (current_x, current_y));
+            let layout_button = Component::new_button(
+                button_id,
+                button_name,
+                (current_x.round(), current_y.round()),
+            );
 
             layout.components.insert(layout_button.0, layout_button.1);
 
@@ -986,7 +989,7 @@ impl Application {
             let layout_potentiometer = Component::new_potentiometer(
                 potentiometer_id,
                 potentiometer_name,
-                (current_x, current_y),
+                (current_x.round(), current_y.round()),
             );
 
             layout
