@@ -48,7 +48,7 @@ pub fn get_current_style() -> egui::Style {
         menu_rounding: 8.0.into(),
         window_stroke: egui::Stroke {
             color: Color::OVERLAY1,
-            ..Default::default()
+            width: 1.0,
         },
         window_shadow: egui::Shadow::NONE,
         popup_shadow: egui::Shadow::NONE,

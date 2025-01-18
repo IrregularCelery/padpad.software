@@ -21,7 +21,7 @@ use padpad_software::{
 
 static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
 static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global vairable to keep the
-                                                                      // last error message
+                                                                      // last unavoidable error message
 
 pub struct Application {
     close_app: (
@@ -399,7 +399,7 @@ impl Application {
         auto_close: bool,
     ) {
         self.show_custom_modal(id, move |ui, app| {
-            ui.set_width(300.0);
+            ui.set_width(310.0);
 
             ui.scope(|ui| {
                 let mut style = get_current_style();
@@ -628,7 +628,7 @@ impl Application {
             });
     }
 
-    // TODO: Make is so, on the first time user creates a profile, internal profile is also created
+    // TODO: Make is so, on the first time user creates a layout, internal profile is also created
     fn create_update_profile(&mut self, name: String) -> bool {
         if let Some(config) = &mut self.config {
             if config.does_profile_exist(&name) {
@@ -662,6 +662,41 @@ impl Application {
         }
 
         return false;
+    }
+
+    fn delete_profile(&mut self, profile_name: &String) -> Result<String, String> {
+        if let Some(config) = &mut self.config {
+            let mut profile_index = -1;
+
+            for (index, profile) in config.profiles.iter().enumerate() {
+                if profile.name == *profile_name {
+                    profile_index = index as i8;
+
+                    break;
+                }
+            }
+
+            if profile_index < 0 {
+                return Err(format!("Could not find \"{}\" profile!", profile_name));
+            }
+
+            if profile_index == 0 {
+                return Err(
+                    "This profile is essential for your device and cannot be deleted.".to_string(),
+                );
+            }
+
+            update_config_and_server(config, |c| {
+                c.profiles.remove(profile_index as usize);
+            });
+
+            return Ok(format!(
+                "Profile {} was successfully removed.",
+                profile_name
+            ));
+        }
+
+        Err("There was an unknown error!\nPlease try again.".to_string())
     }
 
     fn draw_status_indicator(&mut self, ui: &mut Ui) {
@@ -944,8 +979,8 @@ impl Application {
         ),
     > {
         // TODO: REMOVE THESE TEST VALUES
-        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
-        //let buttons_string = self.server_data.raw_layout.0.clone();
+        //let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
+        let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -1113,7 +1148,10 @@ impl Application {
 
                 ui.group(|ui| {
                     for profile in profiles {
-                        ui.label(profile.name.clone());
+                        let name = profile.name;
+
+                        ui.label(name.clone())
+                            .context_menu(|ui| self.open_profile_context_menu(ui, name));
                     }
                 });
 
@@ -1575,6 +1613,68 @@ impl Application {
             },
             false,
         );
+    }
+
+    // Context menus
+
+    fn open_profile_context_menu(&self, ui: &mut Ui, profile_name: String) {
+        ui.set_max_width(128.0);
+
+        ui.scope(|ui| {
+            let mut style = get_current_style();
+
+            style.spacing.menu_spacing = -8.0;
+            style.spacing.button_padding = (4.0, 2.0).into();
+            style.spacing.item_spacing = (4.0, 4.0).into();
+
+            ui.set_style(style.clone());
+
+            ui.label(profile_name.clone());
+
+            ui.separator();
+
+            ui.menu_button("Edit profile", |ui| {
+                ui.set_style(style);
+
+                if ui.button("Update profile").clicked() {
+                    //println!("Updating profile {}", profile_name);
+                }
+
+                if ui.button("Delete profile").clicked() {
+                    self.show_yes_no_modal(
+                        "profile-delete-confirmation",
+                        "Deleting Profile".to_string(),
+                        format!(
+                            "You're about to delete \"{}\"\n\
+                            Are you sure you want to continue?",
+                            profile_name
+                        ),
+                        move |app| {
+                            app.close_modal();
+
+                            match app.delete_profile(&profile_name) {
+                                Ok(message) => {
+                                    app.show_message_modal(
+                                        "profile-delete-confirmation-result",
+                                        "Success".to_string(),
+                                        message,
+                                    );
+                                }
+                                Err(error) => app.show_message_modal(
+                                    "profile-delete-confirmation-result",
+                                    "Error".to_string(),
+                                    error,
+                                ),
+                            }
+                        },
+                        |app| {
+                            app.close_modal();
+                        },
+                        false,
+                    );
+                }
+            });
+        });
     }
 }
 

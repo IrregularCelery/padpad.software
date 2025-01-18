@@ -11,7 +11,10 @@ use std::{
 use toml;
 
 use crate::{
-    constants::{APP_NAME, CONFIG_FILE_NAME, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME},
+    constants::{
+        APP_NAME, CONFIG_FILE_NAME, DASHBOARD_DEVICE_INTERNAL_PROFILE, DEFAULT_BAUD_RATE,
+        DEFAULT_DEVICE_NAME,
+    },
     log_error, log_info,
     service::interaction::InteractionKind,
     tcp::{client_to_server_message, get_server_data},
@@ -119,7 +122,13 @@ impl Default for Config {
                 port_name: String::new(),
                 baud_rate: DEFAULT_BAUD_RATE,
             },
-            profiles: vec![],
+            profiles: vec![
+                // Device's internal profile
+                Profile {
+                    name: DASHBOARD_DEVICE_INTERNAL_PROFILE.to_string(),
+                    interactions: Default::default(),
+                },
+            ],
             layout: None,
         }
     }
