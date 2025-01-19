@@ -888,7 +888,7 @@ impl Application {
     fn draw_potentiometer(
         &self,
         ui: &mut Ui,
-        _label: &String,
+        label: &String,
         relative_position: Pos2, /* relative to window position */
         size: Vec2,
         value: u8,
@@ -902,7 +902,14 @@ impl Application {
 
         let value = value as f32;
 
-        ui.put(rect, Potentiometer::new(value, (size.x, size.y)));
+        ui.put(
+            rect,
+            Potentiometer::new(
+                format!("potentiometer-{:?}-value", egui::Id::new(label)),
+                value,
+                (size.x, size.y),
+            ),
+        );
     }
 
     fn detect_components(&mut self) -> Result<String, String> {
@@ -1157,6 +1164,7 @@ impl Application {
 
                 ui.add(DragValue::new(&mut self.test_potentiometer_value));
                 ui.add(Potentiometer::new(
+                    format!("{:?}", Id::new("test-potentiometer")),
                     self.test_potentiometer_value,
                     (100.0, 100.0),
                 ));

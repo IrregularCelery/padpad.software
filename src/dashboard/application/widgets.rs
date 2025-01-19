@@ -169,20 +169,23 @@ impl Widget for GLCD {
 }
 
 pub struct Potentiometer {
+    id: String,
     /// Value must be between 0-100
     value: f32,
     size: (f32, f32),
 }
 
 impl Potentiometer {
-    pub fn new(value: f32, size: (f32, f32)) -> Self {
+    pub fn new(id: String, value: f32, size: (f32, f32)) -> Self {
         Self {
+            id,
             value: value.clamp(0.0, 100.0),
             size,
         }
     }
 }
 
+// TODO: Update colors
 impl Widget for Potentiometer {
     fn ui(self, ui: &mut Ui) -> Response {
         use std::f32::consts::PI;
@@ -193,6 +196,10 @@ impl Widget for Potentiometer {
         if !ui.is_rect_visible(rect) {
             return response;
         }
+
+        let value = ui
+            .ctx()
+            .animate_value_with_time(self.id.into(), self.value, 0.25);
 
         let painter = ui.painter();
 
@@ -236,7 +243,7 @@ impl Widget for Potentiometer {
         }
 
         // Draw the filled portion based on value
-        let value_angle = start_angle + (self.value / 100.0) * range;
+        let value_angle = start_angle + (value / 100.0) * range;
         let filled_points = (0..=32)
             .map(|i| {
                 let t = i as f32 / 32.0;
@@ -280,7 +287,7 @@ impl Widget for Potentiometer {
         painter.text(
             center,
             Align2::CENTER_CENTER,
-            format!("{:.0}", self.value),
+            format!("{:.0}", value),
             FontId::proportional(24.0),
             Color::WHITE,
         );
@@ -364,7 +371,7 @@ pub fn animate_value(
         }
     }
 
-    let id = Id::new(id).with("animate_eased");
+    let id = Id::new(id).with("animate-eased");
 
     let (source, target) = ctx.memory_mut(|mem| {
         let state = mem.data.get_temp_mut_or_insert_with(id, || (value, value));
