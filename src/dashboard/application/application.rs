@@ -1287,8 +1287,6 @@ impl Application {
                     }
                 ));
 
-                circular_progress(ui, 0.325, 50.0);
-
                 ui.label(format!("Server current order: {}", self.server_data.order));
 
                 ui.text_edit_singleline(&mut port_name).enabled();
