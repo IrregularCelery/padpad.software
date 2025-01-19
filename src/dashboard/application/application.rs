@@ -251,30 +251,66 @@ impl Application {
 
         // Confirm exit modal
         if self.close_app.0 {
-            let modal = egui::Modal::new(egui::Id::new("Close Modal")).show(ctx, |ui| {
-                ui.set_width(200.0);
-                ui.heading("Are you sure you want to close the application?");
+            let modal = egui::Modal::new(egui::Id::new("Close Modal"))
+                .frame(
+                    egui::Frame::popup(&get_current_style()).inner_margin(egui::Margin::same(24.0)),
+                )
+                .backdrop_color(Color::BLACK.gamma_multiply(0.5))
+                .show(ctx, |ui| {
+                    ui.set_width(265.0);
 
-                ui.add_space(32.0);
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
 
-                egui::Sides::new().show(
-                    ui,
-                    |_ui| {},
-                    |ui| {
-                        if ui.button("Close").clicked()
+                        style.text_styles.insert(
+                            egui::TextStyle::Body,
+                            egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                        );
+
+                        style.visuals.override_text_color = Some(Color::WHITE);
+                        style.visuals.widgets.noninteractive.bg_stroke =
+                            egui::Stroke::new(1.0, Color::WHITE);
+
+                        ui.set_style(style);
+
+                        ui.vertical_centered(|ui| {
+                            ui.label("Close Application");
+                        });
+
+                        ui.separator();
+
+                        ui.add_space(ui.spacing().item_spacing.x);
+                    });
+
+                    ui.label("Are you sure you want to close the application?");
+
+                    ui.add_space(ui.spacing().item_spacing.x * 2.5);
+
+                    ui.horizontal_top(|ui| {
+                        let spacing = ui.spacing().item_spacing.x;
+
+                        let total_width = ui.available_width();
+                        let button_width = (total_width - spacing) / 2.0;
+
+                        if ui
+                            .add_sized([button_width, 0.0], Button::new("Cancel"))
+                            .clicked()
+                        {
+                            self.close_app.0 = false;
+                        }
+
+                        if ui
+                            .add_sized([button_width, 0.0], Button::new("Close"))
+                            .clicked()
                             || ui.input(|i| i.key_pressed(egui::Key::Enter))
                         {
                             self.close_app.0 = false;
                             self.close_app.1 = true;
+
                             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         }
-
-                        if ui.button("Cancel").clicked() {
-                            self.close_app.0 = false;
-                        }
-                    },
-                );
-            });
+                    });
+                });
 
             if modal.should_close() {
                 self.close_app.0 = false;
@@ -1561,7 +1597,7 @@ impl Application {
         let is_updating = false;
 
         self.show_custom_modal("create-update-profile", move |ui, app| {
-            ui.set_width(350.0);
+            ui.set_width(250.0);
 
             ui.scope(|ui| {
                 let mut style = get_current_style();
