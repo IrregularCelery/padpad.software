@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use eframe::egui::{self, Button, Context, Pos2, ProgressBar, Rect, Response, Ui, Vec2};
+use eframe::egui::{self, Button, Context, Pos2, Rect, Response, Ui, Vec2};
 
 use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
@@ -44,6 +44,9 @@ pub struct Application {
     profile_exists: bool,
     xbm_string: String,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
+
+    // TODO: Remove this
+    test_potentiometer_value: f32,
 
     // Constants
     component_button_size: (f32 /* width */, f32 /* height */),
@@ -897,10 +900,9 @@ impl Application {
         );
         let rect = egui::Rect::from_min_size(position, size.into());
 
-        // value is mapped between 0-99, therefore we can device it by 100 to get 0-1 value
-        let value = (value as f32) / 100.0;
+        let value = value as f32;
 
-        ui.put(rect, ProgressBar::new(value).show_percentage());
+        ui.put(rect, Potentiometer::new(value, (size.x, size.y)));
     }
 
     fn detect_components(&mut self) -> Result<String, String> {
@@ -1037,8 +1039,8 @@ impl Application {
         ),
     > {
         // TODO: REMOVE THESE TEST VALUES
-        //let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
-        let buttons_string = self.server_data.raw_layout.0.clone();
+        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
+        //let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -1145,12 +1147,18 @@ impl Application {
 
                 ui.add(GLCD::new(
                     (128, 64),
-                    2.0,
+                    4.0,
                     Color::BLACK,
                     Color::WHITE,
                     xbm_data,
                     (42, 42),
                     ((128 - 42) / 2, (64 - 42) / 2),
+                ));
+
+                ui.add(DragValue::new(&mut self.test_potentiometer_value));
+                ui.add(Potentiometer::new(
+                    self.test_potentiometer_value,
+                    (100.0, 100.0),
                 ));
 
                 ui.group(|ui| {
@@ -1851,6 +1859,9 @@ impl Default for Application {
             profile_exists: false,
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
+
+            // TODO: Remove this
+            test_potentiometer_value: 15.0,
 
             // Constants
             component_button_size: (100.0, 100.0),

@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use eframe::{
     egui::{
-        Color32, Context, CursorIcon, Id, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, Ui,
-        Vec2, Widget,
+        Align2, Color32, Context, CursorIcon, FontId, Id, Pos2, Rect, Response, Rounding, Sense,
+        Shape, Stroke, Ui, Vec2, Widget,
     },
     epaint,
 };
@@ -18,7 +16,7 @@ pub struct ModalManager {
 #[derive(Clone)]
 pub struct Modal {
     pub id: &'static str,
-    pub content: Arc<dyn Fn(&mut Ui, &mut super::Application) + Send + Sync + 'static>,
+    pub content: std::sync::Arc<dyn Fn(&mut Ui, &mut super::Application) + Send + Sync + 'static>,
 }
 
 impl ModalManager {
@@ -127,6 +125,10 @@ impl Widget for GLCD {
         let (rect, response) =
             ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
 
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
         let painter = ui.painter();
         let start_x = rect.min.x + self.xbm_position.0 as f32 * self.pixel_size;
         let start_y = rect.min.y + self.xbm_position.1 as f32 * self.pixel_size;
@@ -161,6 +163,127 @@ impl Widget for GLCD {
                 }
             }
         }
+
+        response
+    }
+}
+
+pub struct Potentiometer {
+    /// Value must be between 0-100
+    value: f32,
+    size: (f32, f32),
+}
+
+impl Potentiometer {
+    pub fn new(value: f32, size: (f32, f32)) -> Self {
+        Self {
+            value: value.clamp(0.0, 100.0),
+            size,
+        }
+    }
+}
+
+impl Widget for Potentiometer {
+    fn ui(self, ui: &mut Ui) -> Response {
+        use std::f32::consts::PI;
+
+        let desired_size = self.size.into();
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let painter = ui.painter();
+
+        // Draw container
+        painter.rect_filled(rect, ui.style().visuals.menu_rounding, Color::OVERLAY1);
+
+        let center = rect.center();
+        let radius = (desired_size.x.min(desired_size.y) / 2.0) * 0.8;
+
+        let start_angle = 0.75 * PI;
+        let end_angle = 2.25 * PI;
+        let range = end_angle - start_angle;
+
+        let stroke_width = 16.0;
+        let circle_radius = stroke_width / 2.0;
+        let offset_y = (stroke_width / 2.0) - 2.0;
+
+        let bg_points = (0..=32)
+            .map(|i| {
+                let t = i as f32 / 32.0;
+                let angle = start_angle + t * range;
+                let x = center.x + radius * angle.cos();
+                let y = center.y + radius * angle.sin() + offset_y;
+
+                Pos2::new(x, y)
+            })
+            .collect::<Vec<_>>();
+
+        let bg_color = Color::SURFACE2;
+
+        // Draw background line
+        painter.add(Shape::line(
+            bg_points.clone(),
+            Stroke::new(stroke_width, bg_color),
+        ));
+
+        // Add line end circles for background
+        if let (Some(start), Some(end)) = (bg_points.first(), bg_points.last()) {
+            painter.circle_filled(*start, circle_radius, bg_color);
+            painter.circle_filled(*end, circle_radius, bg_color);
+        }
+
+        // Draw the filled portion based on value
+        let value_angle = start_angle + (self.value / 100.0) * range;
+        let filled_points = (0..=32)
+            .map(|i| {
+                let t = i as f32 / 32.0;
+                let angle = start_angle + t * (value_angle - start_angle);
+                let x = center.x + radius * angle.cos();
+                let y = center.y + radius * angle.sin() + offset_y;
+                Pos2::new(x, y)
+            })
+            .collect::<Vec<_>>();
+
+        let filled_color = Color::BLUE;
+
+        // Draw filled line
+        painter.add(Shape::line(
+            filled_points.clone(),
+            Stroke::new(stroke_width, filled_color),
+        ));
+
+        // Add circles for filled portion
+        if let (Some(start), Some(end)) = (filled_points.first(), filled_points.last()) {
+            painter.circle_filled(*start, circle_radius, filled_color);
+            painter.circle_filled(*end, circle_radius, filled_color);
+        }
+
+        // Draw indicator
+        let indicator_position_offset = 0.75;
+        let indicator_length = radius * (indicator_position_offset / 2.0);
+
+        // Value indicator
+        let value_start = Pos2::new(
+            center.x + radius * value_angle.cos(),
+            center.y + radius * value_angle.sin() + offset_y,
+        );
+        let value_end = Pos2::new(
+            center.x + (radius - indicator_length) * value_angle.cos(),
+            center.y + (radius - indicator_length) * value_angle.sin() + offset_y,
+        );
+        painter.line_segment([value_start, value_end], Stroke::new(2.0, Color::WHITE));
+
+        // Draw value text
+        painter.text(
+            center,
+            Align2::CENTER_CENTER,
+            format!("{:.0}", self.value),
+            FontId::proportional(24.0),
+            Color::WHITE,
+        );
 
         response
     }
