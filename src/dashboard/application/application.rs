@@ -47,10 +47,12 @@ pub struct Application {
 
     // TODO: Remove this
     test_potentiometer_value: f32,
+    test_joystick_value: (f32, f32),
 
     // Constants
     component_button_size: (f32 /* width */, f32 /* height */),
     component_potentiometer_size: (f32 /* width */, f32 /* height */),
+    component_joystick_size: (f32 /* width */, f32 /* height */),
 }
 
 impl eframe::App for Application {
@@ -1169,6 +1171,13 @@ impl Application {
                     (100.0, 100.0),
                 ));
 
+                ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
+                ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
+                ui.add(Joystick::new(
+                    self.test_joystick_value,
+                    self.component_joystick_size,
+                ));
+
                 ui.group(|ui| {
                     ui.label("Theme");
 
@@ -1868,10 +1877,12 @@ impl Default for Application {
 
             // TODO: Remove this
             test_potentiometer_value: 15.0,
+            test_joystick_value: (0.0, 0.0),
 
             // Constants
             component_button_size: (100.0, 100.0),
             component_potentiometer_size: (100.0, 100.0),
+            component_joystick_size: (200.0, 200.0),
         }
     }
 }

@@ -32,92 +32,6 @@ impl ModalManager {
     }
 }
 
-pub struct GLCD {
-    /// GLCD's resolution
-    glcd_size: (usize, usize),
-    /// Size of each drawn square for a virtual pixel
-    pixel_size: f32,
-    background_color: Color32,
-    pixel_color: Color32,
-    xbm_data: Vec<u8>,
-    xbm_size: (usize, usize),
-    /// Position of the xbm image inside the virtual GLCD
-    xbm_position: (usize, usize),
-}
-
-impl GLCD {
-    pub fn new(
-        glcd_size: (usize, usize),
-        pixel_size: f32,
-        background_color: Color32,
-        pixel_color: Color32,
-        xbm_data: Vec<u8>,
-        xbm_size: (usize, usize),
-        xbm_position: (usize, usize),
-    ) -> Self {
-        Self {
-            glcd_size,
-            pixel_size,
-            background_color,
-            pixel_color,
-            xbm_data,
-            xbm_size,
-            xbm_position,
-        }
-    }
-}
-
-impl Widget for GLCD {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let glcd_width = self.glcd_size.0 as f32 * self.pixel_size;
-        let glcd_height = self.glcd_size.1 as f32 * self.pixel_size;
-
-        let (rect, response) =
-            ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
-
-        if !ui.is_rect_visible(rect) {
-            return response;
-        }
-
-        let painter = ui.painter();
-        let start_x = rect.min.x + self.xbm_position.0 as f32 * self.pixel_size;
-        let start_y = rect.min.y + self.xbm_position.1 as f32 * self.pixel_size;
-
-        let bytes_per_row = (self.xbm_size.0 + 7) / 8;
-
-        painter.rect_filled(
-            rect,
-            ui.style().visuals.window_rounding,
-            self.background_color,
-        );
-
-        for row in 0..self.xbm_size.1 {
-            for col in 0..self.xbm_size.0 {
-                let byte_index = row * bytes_per_row + (col / 8);
-                let bit_index = col % 8;
-
-                if let Some(&byte) = self.xbm_data.get(byte_index) {
-                    if (byte >> bit_index) & 1 == 1 {
-                        let x = start_x + col as f32 * self.pixel_size;
-                        let y = start_y + row as f32 * self.pixel_size;
-
-                        painter.rect_filled(
-                            Rect::from_min_size(
-                                Pos2::new(x.floor(), y.floor()),
-                                Vec2::new(self.pixel_size.ceil(), self.pixel_size.ceil()),
-                            ),
-                            0.0,
-                            self.pixel_color,
-                        );
-                    }
-                }
-            }
-        }
-
-        response
-    }
-}
-
 pub struct Potentiometer {
     id: String,
     /// Value must be between 0-100
@@ -241,6 +155,145 @@ impl Widget for Potentiometer {
             FontId::proportional(24.0),
             Color::WHITE,
         );
+
+        response
+    }
+}
+
+pub struct Joystick {
+    value: (f32 /* x */, f32 /* y */),
+    size: (f32, f32),
+}
+
+impl Joystick {
+    pub fn new(value: (f32, f32), size: (f32, f32)) -> Self {
+        let x = value.0.clamp(-1.0, 1.0);
+        let y = value.1.clamp(-1.0, 1.0);
+
+        Self {
+            value: (x, y),
+            size,
+        }
+    }
+}
+
+impl Widget for Joystick {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let desired_size = Vec2::from(self.size);
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let center = rect.center();
+        let radius = rect.width().min(rect.height()) * 0.5;
+
+        let painter = ui.painter();
+
+        // Base shadow
+        painter.circle_filled(center, radius, Color32::from_gray(40));
+
+        // Base main part
+        painter.circle_filled(center, radius * 0.95, Color32::from_gray(60));
+
+        // Calculate handle position
+        let handle_pos = Pos2::new(
+            center.x + self.value.0 * radius * 0.3, // Increased movement range
+            center.y - self.value.1 * radius * 0.3,
+        );
+
+        // Handle shadow
+        painter.circle_filled(handle_pos, radius * 0.7, Color32::from_gray(50));
+
+        // Handle main part
+        painter.circle_filled(handle_pos, radius * 0.65, Color32::from_gray(70));
+
+        response
+    }
+}
+
+pub struct GLCD {
+    /// GLCD's resolution
+    glcd_size: (usize, usize),
+    /// Size of each drawn square for a virtual pixel
+    pixel_size: f32,
+    background_color: Color32,
+    pixel_color: Color32,
+    xbm_data: Vec<u8>,
+    xbm_size: (usize, usize),
+    /// Position of the xbm image inside the virtual GLCD
+    xbm_position: (usize, usize),
+}
+
+impl GLCD {
+    pub fn new(
+        glcd_size: (usize, usize),
+        pixel_size: f32,
+        background_color: Color32,
+        pixel_color: Color32,
+        xbm_data: Vec<u8>,
+        xbm_size: (usize, usize),
+        xbm_position: (usize, usize),
+    ) -> Self {
+        Self {
+            glcd_size,
+            pixel_size,
+            background_color,
+            pixel_color,
+            xbm_data,
+            xbm_size,
+            xbm_position,
+        }
+    }
+}
+
+impl Widget for GLCD {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let glcd_width = self.glcd_size.0 as f32 * self.pixel_size;
+        let glcd_height = self.glcd_size.1 as f32 * self.pixel_size;
+
+        let (rect, response) =
+            ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let painter = ui.painter();
+        let start_x = rect.min.x + self.xbm_position.0 as f32 * self.pixel_size;
+        let start_y = rect.min.y + self.xbm_position.1 as f32 * self.pixel_size;
+
+        let bytes_per_row = (self.xbm_size.0 + 7) / 8;
+
+        painter.rect_filled(
+            rect,
+            ui.style().visuals.window_rounding,
+            self.background_color,
+        );
+
+        for row in 0..self.xbm_size.1 {
+            for col in 0..self.xbm_size.0 {
+                let byte_index = row * bytes_per_row + (col / 8);
+                let bit_index = col % 8;
+
+                if let Some(&byte) = self.xbm_data.get(byte_index) {
+                    if (byte >> bit_index) & 1 == 1 {
+                        let x = start_x + col as f32 * self.pixel_size;
+                        let y = start_y + row as f32 * self.pixel_size;
+
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(x.floor(), y.floor()),
+                                Vec2::new(self.pixel_size.ceil(), self.pixel_size.ceil()),
+                            ),
+                            0.0,
+                            self.pixel_color,
+                        );
+                    }
+                }
+            }
+        }
 
         response
     }
