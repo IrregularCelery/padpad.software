@@ -22,7 +22,7 @@
 - [x] Add `State` label for checking if `Dashboard` and `Service` are connected (IPC via TCP)
   - [x] Maybe even one for status of Device-Service connection (Serial)
 - [x] Add a modal for `ServerData` fetching errors
-- [ ] On every update, send a request to server to update device
+- [x] On every update, send a request to server to update device
 
 ### Firmware
 

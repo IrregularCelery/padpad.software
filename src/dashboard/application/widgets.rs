@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eframe::{
     egui::{
         Color32, Context, CursorIcon, Id, Pos2, Rect, Response, Rounding, Sense, Shape, Stroke, Ui,
-        Vec2,
+        Vec2, Widget,
     },
     epaint,
 };
@@ -82,6 +82,88 @@ pub fn circular_progress(ui: &mut Ui, progress: f32, radius: f32) -> Response {
     }
 
     response
+}
+
+pub struct GLCD {
+    /// GLCD's resolution
+    glcd_size: (usize, usize),
+    /// Size of each drawn square for a virtual pixel
+    pixel_size: f32,
+    background_color: Color32,
+    pixel_color: Color32,
+    xbm_data: Vec<u8>,
+    xbm_size: (usize, usize),
+    /// Position of the xbm image inside the virtual GLCD
+    xbm_position: (usize, usize),
+}
+
+impl GLCD {
+    pub fn new(
+        glcd_size: (usize, usize),
+        pixel_size: f32,
+        background_color: Color32,
+        pixel_color: Color32,
+        xbm_data: Vec<u8>,
+        xbm_size: (usize, usize),
+        xbm_position: (usize, usize),
+    ) -> Self {
+        Self {
+            glcd_size,
+            pixel_size,
+            background_color,
+            pixel_color,
+            xbm_data,
+            xbm_size,
+            xbm_position,
+        }
+    }
+}
+
+impl Widget for GLCD {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let glcd_width = self.glcd_size.0 as f32 * self.pixel_size;
+        let glcd_height = self.glcd_size.1 as f32 * self.pixel_size;
+
+        let (rect, response) =
+            ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
+
+        let painter = ui.painter();
+        let start_x = rect.min.x + self.xbm_position.0 as f32 * self.pixel_size;
+        let start_y = rect.min.y + self.xbm_position.1 as f32 * self.pixel_size;
+
+        let bytes_per_row = (self.xbm_size.0 + 7) / 8;
+
+        painter.rect_filled(
+            rect,
+            ui.style().visuals.window_rounding,
+            self.background_color,
+        );
+
+        for row in 0..self.xbm_size.1 {
+            for col in 0..self.xbm_size.0 {
+                let byte_index = row * bytes_per_row + (col / 8);
+                let bit_index = col % 8;
+
+                if let Some(&byte) = self.xbm_data.get(byte_index) {
+                    if (byte >> bit_index) & 1 == 1 {
+                        let x = start_x + col as f32 * self.pixel_size;
+                        let y = start_y + row as f32 * self.pixel_size;
+
+                        painter.rect_filled(
+                            Rect::from_min_size(
+                                Pos2::new(x.floor(), y.floor()),
+                                Vec2::new(self.pixel_size.ceil(), self.pixel_size.ceil()),
+                            ),
+                            0.0,
+                            self.pixel_color,
+                        );
+                    }
+                }
+            }
+        }
+
+        response
+    }
 }
 
 pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32) -> Response {
