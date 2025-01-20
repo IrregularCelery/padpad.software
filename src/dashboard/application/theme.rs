@@ -10,6 +10,7 @@ impl Color {
     pub const SURFACE2: Color32 = Color32::from_rgb(25, 25, 25);
     pub const OVERLAY0: Color32 = Color32::from_rgb(36, 36, 36);
     pub const OVERLAY1: Color32 = Color32::from_rgb(40, 40, 40);
+    pub const CONTAINER: Color32 = Color32::from_rgb(50, 50, 50);
 
     pub const YELLOW: Color32 = Color32::from_rgb(255, 203, 77);
     pub const GREEN: Color32 = Color32::from_rgb(77, 255, 83);

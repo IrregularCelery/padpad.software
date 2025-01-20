@@ -52,6 +52,7 @@ pub struct Application {
 
     // Constants
     component_button_size: (f32 /* width */, f32 /* height */),
+    component_led_size: (f32 /* width */, f32 /* height */),
     component_potentiometer_size: (f32 /* width */, f32 /* height */),
     component_joystick_size: (f32 /* width */, f32 /* height */),
     component_rotary_encoder_size: (f32 /* width */, f32 /* height */),
@@ -1725,6 +1726,8 @@ impl Application {
                     self.component_joystick_size,
                 ));
 
+                ui.add(LED::new((255, 181, 0), self.component_led_size));
+
                 ui.group(|ui| {
                     ui.label("Theme");
 
@@ -2428,6 +2431,7 @@ impl Default for Application {
 
             // Constants
             component_button_size: (100.0, 100.0),
+            component_led_size: (100.0, 100.0),
             component_potentiometer_size: (100.0, 100.0),
             component_joystick_size: (100.0, 100.0),
             component_rotary_encoder_size: (100.0, 100.0),

@@ -32,6 +32,40 @@ impl ModalManager {
     }
 }
 
+pub struct LED {
+    value: (u8 /* r */, u8 /* g */, u8 /* b */),
+    size: (f32, f32),
+}
+
+impl LED {
+    pub fn new(value: (u8, u8, u8), size: (f32, f32)) -> Self {
+        Self { value, size }
+    }
+}
+
+impl Widget for LED {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let desired_size = Vec2::from(self.size);
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let painter = ui.painter();
+
+        let center = rect.center();
+
+        painter.rect_filled(
+            Rect::from_center_size(center, desired_size * 0.55),
+            ui.style().visuals.menu_rounding,
+            Color32::from_rgb(self.value.0, self.value.1, self.value.2),
+        );
+
+        response
+    }
+}
+
 pub struct Potentiometer {
     id: String,
     /// Value must be between 0-100
@@ -68,7 +102,7 @@ impl Widget for Potentiometer {
         let painter = ui.painter();
 
         // Draw container
-        painter.rect_filled(rect, ui.style().visuals.menu_rounding, Color::OVERLAY1);
+        painter.rect_filled(rect, ui.style().visuals.menu_rounding, Color::CONTAINER);
 
         let center = rect.center();
         let radius = (desired_size.x.min(desired_size.y) / 2.0) * 0.8;
