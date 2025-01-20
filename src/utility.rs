@@ -1,8 +1,8 @@
 // Function will look for the hex bytes inside a string that at least has braces "{", "}"
-// Return serialized string of all hex bytes 2 by 2
-// e.g. `input` = { 0x00, 0xFE, 0x15, ..., 0xFF } => "00FE15..FF".to_string()
-pub fn extract_hex_bytes_and_serialize(input: &str, size: usize) -> Result<String, String> {
-    let mut output = String::new();
+// Return Vec<u8> of all hex bytes
+// e.g. `input` = { 0x00, 0xFE, 0x15, ..., 0xFF } => [0, 254, 21, ..., 255]
+pub fn extract_hex_bytes(input: &str, size: usize) -> Result<Vec<u8>, String> {
+    let mut output = Vec::new();
 
     let mut inside_braces = false;
     let mut current_byte = String::new(); // Temporary variable to hold the current hex value
@@ -36,7 +36,7 @@ pub fn extract_hex_bytes_and_serialize(input: &str, size: usize) -> Result<Strin
                 // Check if we have a valid hex byte
                 match u8::from_str_radix(&current_byte[2..], 16) {
                     Ok(byte) => {
-                        output.push_str(&format!("{:02X?}", byte));
+                        output.push(byte);
                         current_byte.clear();
                     }
                     Err(_) => return Err(format!("Invalid hex byte: {}", current_byte)),
@@ -50,14 +50,31 @@ pub fn extract_hex_bytes_and_serialize(input: &str, size: usize) -> Result<Strin
     }
 
     // Validate total byte count
-    let output_size = output.len() / 2; // Each byte's serialized string is 2 characters
-
-    if output_size != size {
+    if output.len() != size {
         return Err(format!(
             "Invalid number of bytes: expected {}, found {}",
-            size, output_size
+            size,
+            output.len()
         ));
     }
 
     Ok(output)
+}
+
+pub fn hex_bytes_vec_to_string(input: &[u8]) -> String {
+    input.iter().map(|b| format!("{:02X}", b)).collect()
+}
+
+pub fn hex_bytes_string_to_vec(input: &str) -> Result<Vec<u8>, String> {
+    if input.len() % 2 != 0 {
+        return Err("Invalid hex string length".to_string());
+    }
+
+    (0..input.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&input[i..i + 2], 16)
+                .map_err(|_| format!("Invalid hex byte: {}", &input[i..i + 2]))
+        })
+        .collect()
 }
