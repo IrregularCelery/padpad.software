@@ -682,3 +682,56 @@ pub fn animate_value(
 
     ease_fn(progress) * (target - source) + source
 }
+
+// Helper functions for drawing shadows
+
+pub fn draw_rect_shadow(
+    ui: &mut Ui,
+    rect: Rect,
+    rounding: f32,
+    shadow_size: f32,
+    shadow_offset: (f32 /* x */, f32 /* y */),
+) {
+    if shadow_size <= 0.0 {
+        return;
+    }
+
+    // Draw multiple layers of shadow with decreasing opacity
+    for i in 1..=5 {
+        let shadow_rect = rect.translate(shadow_offset.into());
+        let expansion = shadow_size * (i as f32 / 5.0);
+        let shadow_rect = shadow_rect.expand(expansion);
+        let opacity = 40 - (i * 7); // Decreasing opacity for each layer
+
+        ui.painter().rect_filled(
+            shadow_rect,
+            Rounding::same(rounding + expansion),
+            Color32::from_black_alpha(opacity as u8),
+        );
+    }
+}
+
+pub fn draw_circle_shadow(
+    ui: &mut Ui,
+    center: Pos2,
+    radius: f32,
+    shadow_size: f32,
+    shadow_offset: (f32 /* x */, f32 /* y */),
+) {
+    if shadow_size <= 0.0 {
+        return;
+    }
+
+    // Draw multiple layers of shadow with decreasing opacity
+    for i in 1..=5 {
+        let shadow_center = center + shadow_offset.into();
+        let shadow_radius = radius + (shadow_size * (i as f32 / 5.0));
+        let opacity = 40 - (i * 7); // Decreasing opacity for each layer
+
+        ui.painter().circle_filled(
+            shadow_center,
+            shadow_radius,
+            Color32::from_black_alpha(opacity as u8),
+        );
+    }
+}

@@ -38,6 +38,9 @@ pub struct Application {
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
 
+    // Visuals
+    global_shadow: f32,
+
     // TEMP VARIABLES
     new_layout_name: String,
     new_layout_size: (f32, f32),
@@ -1422,6 +1425,14 @@ impl Application {
             ui.style().visuals.widgets.inactive.bg_fill
         };
 
+        draw_rect_shadow(
+            ui,
+            rect,
+            ui.style().visuals.menu_rounding.nw,
+            self.global_shadow,
+            (0.0, 0.0),
+        );
+
         let response = ui.put(rect, Button::new(label).fill(button_color));
 
         response
@@ -1443,6 +1454,14 @@ impl Application {
         );
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, scaled_size.into());
+
+        draw_circle_shadow(
+            ui,
+            rect.center(),
+            (scaled_size.0 / 2.0) * 0.55, // 55 percent
+            self.global_shadow,
+            (0.0, 0.0),
+        );
 
         ui.put(rect, LED::new(value, scaled_size));
     }
@@ -1466,6 +1485,14 @@ impl Application {
         let rect = Rect::from_min_size(position, scaled_size.into());
 
         let value = value as f32;
+
+        draw_circle_shadow(
+            ui,
+            rect.center(),
+            scaled_size.0 / 2.0,
+            self.global_shadow,
+            (0.0, 0.0),
+        );
 
         ui.put(
             rect,
@@ -1495,6 +1522,14 @@ impl Application {
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, scaled_size.into());
 
+        draw_circle_shadow(
+            ui,
+            rect.center(),
+            scaled_size.0 / 2.0,
+            self.global_shadow,
+            (0.0, 0.0),
+        );
+
         ui.put(rect, Joystick::new(value, scaled_size));
     }
 
@@ -1513,6 +1548,14 @@ impl Application {
         );
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, scaled_size.into());
+
+        draw_circle_shadow(
+            ui,
+            rect.center(),
+            scaled_size.0 / 2.0,
+            self.global_shadow,
+            (0.0, 0.0),
+        );
 
         ui.put(rect, RotaryEncoder::new(scaled_size));
     }
@@ -1537,6 +1580,14 @@ impl Application {
                 size.1 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE * scale,
             )
                 .into(),
+        );
+
+        draw_rect_shadow(
+            ui,
+            rect,
+            ui.style().visuals.window_rounding.nw,
+            self.global_shadow,
+            (0.0, 0.0),
         );
 
         ui.put(
@@ -2540,6 +2591,9 @@ impl Default for Application {
             },
             server_data: ServerData::default(),
             components: HashMap::default(),
+
+            // Visuals
+            global_shadow: 8.0,
 
             // TEMP VARIABLES
             new_layout_name: "New Layout".to_string(),
