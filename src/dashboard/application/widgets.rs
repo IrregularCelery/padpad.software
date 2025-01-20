@@ -71,6 +71,7 @@ pub struct Potentiometer {
     /// Value must be between 0-100
     value: f32,
     size: (f32, f32),
+    style: u8,
 }
 
 impl Potentiometer {
@@ -79,7 +80,14 @@ impl Potentiometer {
             id,
             value: value.clamp(0.0, 100.0),
             size,
+            style: 0,
         }
+    }
+
+    pub fn style(mut self, style: u8) -> Self {
+        self.style = style;
+
+        self
     }
 }
 
@@ -258,6 +266,8 @@ pub struct GLCD {
     xbm_size: (usize, usize),
     /// Position of the xbm image inside the virtual GLCD
     xbm_position: (usize, usize),
+    /// Size multiplier
+    scale: f32,
 }
 
 impl GLCD {
@@ -278,14 +288,21 @@ impl GLCD {
             xbm_data,
             xbm_size,
             xbm_position,
+            scale: 1.0,
         }
+    }
+
+    pub fn scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+
+        self
     }
 }
 
 impl Widget for GLCD {
     fn ui(self, ui: &mut Ui) -> Response {
-        let glcd_width = self.glcd_size.0 as f32 * self.pixel_size;
-        let glcd_height = self.glcd_size.1 as f32 * self.pixel_size;
+        let glcd_width = self.glcd_size.0 as f32 * self.pixel_size * self.scale;
+        let glcd_height = self.glcd_size.1 as f32 * self.pixel_size * self.scale;
 
         let (rect, response) =
             ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
@@ -295,8 +312,11 @@ impl Widget for GLCD {
         }
 
         let painter = ui.painter();
-        let start_x = rect.min.x + self.xbm_position.0 as f32 * self.pixel_size;
-        let start_y = rect.min.y + self.xbm_position.1 as f32 * self.pixel_size;
+
+        let pixel_size = self.pixel_size * self.scale;
+
+        let start_x = rect.min.x + self.xbm_position.0 as f32 * pixel_size;
+        let start_y = rect.min.y + self.xbm_position.1 as f32 * pixel_size;
 
         let bytes_per_row = (self.xbm_size.0 + 7) / 8;
 
@@ -313,13 +333,13 @@ impl Widget for GLCD {
 
                 if let Some(&byte) = self.xbm_data.get(byte_index) {
                     if (byte >> bit_index) & 1 == 1 {
-                        let x = start_x + col as f32 * self.pixel_size;
-                        let y = start_y + row as f32 * self.pixel_size;
+                        let x = start_x + col as f32 * pixel_size;
+                        let y = start_y + row as f32 * pixel_size;
 
                         painter.rect_filled(
                             Rect::from_min_size(
                                 Pos2::new(x.floor(), y.floor()),
-                                Vec2::new(self.pixel_size.ceil(), self.pixel_size.ceil()),
+                                Vec2::new(pixel_size.ceil(), pixel_size.ceil()),
                             ),
                             0.0,
                             self.pixel_color,

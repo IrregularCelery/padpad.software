@@ -642,6 +642,8 @@ impl Application {
                     };
                     let label = &component.1.label;
                     let position: Pos2 = component.1.position.into();
+                    let scale = component.1.scale;
+                    let style = component.1.style;
 
                     match kind {
                         ComponentKind::None => (),
@@ -651,6 +653,7 @@ impl Application {
                                 label,
                                 position,
                                 self.component_button_size.into(),
+                                scale,
                                 value.parse::<i8>().unwrap_or(0),
                             );
 
@@ -659,7 +662,7 @@ impl Application {
                             };
                         }
                         ComponentKind::LED => {
-                            self.draw_led(ui, label, position, self.component_led_size, {
+                            self.draw_led(ui, label, position, self.component_led_size, scale, {
                                 // TODO: Actually return a value!
                                 let r = 0;
                                 let g = 0;
@@ -674,11 +677,18 @@ impl Application {
                                 label,
                                 position,
                                 self.component_potentiometer_size.into(),
+                                scale,
                                 value.parse::<u8>().unwrap_or(0),
+                                style,
                             );
                         }
-                        ComponentKind::Joystick => {
-                            self.draw_joystick(ui, label, position, self.component_joystick_size, {
+                        ComponentKind::Joystick => self.draw_joystick(
+                            ui,
+                            label,
+                            position,
+                            self.component_joystick_size,
+                            scale,
+                            {
                                 match value.split_once(SERIAL_MESSAGE_INNER_SEP) {
                                     Some((value_x, value_y)) => (
                                         value_x.parse::<f32>().unwrap_or(0.0),
@@ -686,13 +696,14 @@ impl Application {
                                     ),
                                     None => (0.0, 0.0),
                                 }
-                            })
-                        }
+                            },
+                        ),
                         ComponentKind::RotaryEncoder => self.draw_rotary_encoder(
                             ui,
                             label,
                             position,
                             self.component_rotary_encoder_size.into(),
+                            scale,
                         ),
                         ComponentKind::Display => self.draw_display(
                             ui,
@@ -701,6 +712,7 @@ impl Application {
                                 self.component_display_size.0 as usize,
                                 self.component_display_size.1 as usize,
                             ),
+                            scale,
                             {
                                 match hex_bytes_string_to_vec(&label) {
                                     Ok(bytes) => bytes,
@@ -1393,6 +1405,7 @@ impl Application {
         label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
+        scale: f32,
         value: i8,
     ) -> Response {
         let window_position = ui.min_rect().min;
@@ -1400,7 +1413,7 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = Rect::from_min_size(position, size.into());
+        let rect = Rect::from_min_size(position, (size.0 * scale, size.1 * scale).into());
 
         let button_color = if value > 0 {
             egui::Color32::from_rgb(100, 200, 100)
@@ -1419,6 +1432,7 @@ impl Application {
         _label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
+        scale: f32,
         value: (u8, u8, u8),
     ) {
         let window_position = ui.min_rect().min;
@@ -1426,9 +1440,10 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = Rect::from_min_size(position, size.into());
+        let scaled_size = (size.0 * scale, size.1 * scale);
+        let rect = Rect::from_min_size(position, scaled_size.into());
 
-        ui.put(rect, LED::new(value, size));
+        ui.put(rect, LED::new(value, scaled_size));
     }
 
     fn draw_potentiometer(
@@ -1437,14 +1452,17 @@ impl Application {
         label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
+        scale: f32,
         value: u8,
+        style: u8,
     ) {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = Rect::from_min_size(position, size.into());
+        let scaled_size = (size.0 * scale, size.1 * scale);
+        let rect = Rect::from_min_size(position, scaled_size.into());
 
         let value = value as f32;
 
@@ -1453,8 +1471,9 @@ impl Application {
             Potentiometer::new(
                 format!("potentiometer-{:?}-value", egui::Id::new(label)),
                 value,
-                size,
-            ),
+                scaled_size,
+            )
+            .style(style),
         );
     }
 
@@ -1464,6 +1483,7 @@ impl Application {
         _label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
+        scale: f32,
         value: (f32, f32),
     ) {
         let window_position = ui.min_rect().min;
@@ -1471,9 +1491,10 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = Rect::from_min_size(position, size.into());
+        let scaled_size = (size.0 * scale, size.1 * scale);
+        let rect = Rect::from_min_size(position, scaled_size.into());
 
-        ui.put(rect, Joystick::new(value, size));
+        ui.put(rect, Joystick::new(value, scaled_size));
     }
 
     fn draw_rotary_encoder(
@@ -1482,13 +1503,15 @@ impl Application {
         _label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
+        scale: f32,
     ) {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = Rect::from_min_size(position, size.into());
+        let scaled_size = (size.0 * scale, size.1 * scale);
+        let rect = Rect::from_min_size(position, scaled_size.into());
 
         // TODO: Create a widget for this!
         ui.painter().rect_filled(rect, 4.0, Color::PINK);
@@ -1499,6 +1522,7 @@ impl Application {
         ui: &mut Ui,
         relative_position: Pos2, /* relative to window position */
         size: (usize, usize),
+        scale: f32,
         value: Vec<u8>,
     ) {
         let window_position = ui.min_rect().min;
@@ -1509,8 +1533,8 @@ impl Application {
         let rect = Rect::from_min_size(
             position,
             (
-                size.0 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE,
-                size.1 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                size.0 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE * scale,
+                size.1 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE * scale,
             )
                 .into(),
         );
@@ -1528,7 +1552,8 @@ impl Application {
                     (size.0 - HOME_IMAGE_WIDTH) / 2,
                     (size.1 - HOME_IMAGE_HEIGHT) / 2,
                 ), // Center icon
-            ),
+            )
+            .scale(scale),
         );
     }
 
