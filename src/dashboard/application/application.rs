@@ -12,8 +12,8 @@ use padpad_software::{
     },
     constants::{
         DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, HOME_IMAGE_BYTES_SIZE,
-        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
-        SERVER_DATA_UPDATE_INTERVAL,
+        HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, SERIAL_MESSAGE_INNER_SEP,
+        SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
@@ -1070,7 +1070,7 @@ impl Application {
                 layout.components.insert(
                     component_global_id.clone(),
                     Component {
-                        label: format!("{} {}", kind, new_id),
+                        label: HOME_IMAGE_DEFAULT_BYTES.to_string(), // Default image
                         position: {
                             let x = (layout.size.0 - self.component_button_size.0) / 2.0;
                             let y = (layout.size.1 - self.component_button_size.1) / 2.0;

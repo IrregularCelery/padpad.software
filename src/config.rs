@@ -81,6 +81,7 @@ pub enum ComponentKind {
     Potentiometer,
     Joystick,
     RotaryEncoder,
+    /// NOTE: For `Display`, icon value is stored in the component's label
     Display,
 }
 
@@ -257,10 +258,6 @@ impl Config {
 
         false
     }
-}
-
-impl Profile {
-    pub fn add_interaction(_interaction: InteractionKind, _profile_id: u8) {}
 }
 
 impl Component {
