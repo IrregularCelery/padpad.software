@@ -47,6 +47,7 @@ pub struct Application {
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
 
     // TODO: Remove this
+    test_potentiometer_style: u8,
     test_potentiometer_value: f32,
     test_joystick_value: (f32, f32),
 
@@ -1831,11 +1832,15 @@ impl Application {
                 ));
 
                 ui.add(DragValue::new(&mut self.test_potentiometer_value));
-                ui.add(Potentiometer::new(
-                    format!("{:?}", Id::new("test-potentiometer")),
-                    self.test_potentiometer_value,
-                    (100.0, 100.0),
-                ));
+                ui.add(DragValue::new(&mut self.test_potentiometer_style).speed(1));
+                ui.add(
+                    Potentiometer::new(
+                        format!("{:?}", Id::new("test-potentiometer")),
+                        self.test_potentiometer_value,
+                        (100.0, 100.0),
+                    )
+                    .style(self.test_potentiometer_style),
+                );
 
                 ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
                 ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
@@ -2544,6 +2549,7 @@ impl Default for Application {
             paired_status_panel: (0.0, 0.0),
 
             // TODO: Remove this
+            test_potentiometer_style: 0,
             test_potentiometer_value: 15.0,
             test_joystick_value: (0.0, 0.0),
 

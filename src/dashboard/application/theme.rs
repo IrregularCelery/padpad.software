@@ -5,6 +5,7 @@ pub struct Color {}
 impl Color {
     pub const BASE: Color32 = Color32::from_rgb(51, 51, 51);
     pub const TEXT: Color32 = Color32::from_rgb(200, 200, 200);
+
     pub const SURFACE0: Color32 = Color32::from_rgb(6, 6, 6);
     pub const SURFACE1: Color32 = Color32::from_rgb(15, 15, 15);
     pub const SURFACE2: Color32 = Color32::from_rgb(25, 25, 25);
@@ -20,6 +21,8 @@ impl Color {
     pub const PINK: Color32 = Color32::from_rgb(255, 77, 208);
     pub const BLACK: Color32 = Color32::from_rgb(0, 0, 0);
     pub const WHITE: Color32 = Color32::from_rgb(255, 255, 255);
+
+    pub const ACCENT: Color32 = Self::YELLOW;
 }
 
 pub fn get_current_style() -> egui::Style {

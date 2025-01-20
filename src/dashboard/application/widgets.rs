@@ -1,6 +1,11 @@
-use eframe::egui::{
-    Align2, Color32, Context, CursorIcon, FontId, Id, Pos2, Rect, Response, Rounding, Sense, Shape,
-    Stroke, Ui, Vec2, Widget,
+use std::f32::consts::PI;
+
+use eframe::{
+    egui::{
+        Align2, Color32, Context, CursorIcon, FontId, Id, Margin, Pos2, Rect, Response, Rounding,
+        Sense, Shape, Stroke, Ui, Vec2, Widget,
+    },
+    epaint::PathShape,
 };
 
 pub use super::theme::Color;
@@ -89,13 +94,264 @@ impl Potentiometer {
 
         self
     }
+
+    fn draw_style_default(&self, ui: &mut Ui, rect: Rect) {
+        let rect = rect - Margin::same(ui.style().spacing.item_spacing.x / 2.0);
+
+        let center = rect.center();
+        let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
+
+        // Define the angle range (270 degrees, leaving 90 degrees gap)
+        let start_angle = -225.0 * PI / 180.0;
+        let end_angle = 45.0 * PI / 180.0;
+        let rotation = start_angle + (end_angle - start_angle) * (self.value / 100.0);
+
+        let color = Color::ACCENT;
+
+        // Draw outer glow effect
+        for i in (0..4).rev() {
+            let alpha = 25 - (i * 5);
+
+            ui.painter().circle_stroke(
+                center,
+                radius + i as f32,
+                Stroke::new(
+                    1.0,
+                    Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha),
+                ),
+            );
+        }
+
+        // Draw background track
+        let bg_points = Self::create_arc_points(center, radius - 2.0, start_angle, end_angle, 32);
+
+        ui.painter().add(PathShape::line(
+            bg_points,
+            Stroke::new(1.5, Color32::from_gray(40)),
+        ));
+
+        // Draw progress track
+        let filled_points =
+            Self::create_arc_points(center, radius - 2.0, start_angle, rotation, 32);
+
+        ui.painter()
+            .add(PathShape::line(filled_points, Stroke::new(3.0, color)));
+
+        // Draw subtle inner ring
+        ui.painter().circle_stroke(
+            center,
+            radius - 8.0,
+            Stroke::new(1.0, Color32::from_gray(40)),
+        );
+
+        // Draw inner circle
+        ui.painter()
+            .circle_filled(center, radius - 8.0, Color32::from_gray(20));
+
+        // Draw indicator dot
+        let dot_pos = Pos2::new(
+            center.x + (rotation.cos() * (radius - 12.0)),
+            center.y + (rotation.sin() * (radius - 12.0)),
+        );
+
+        // Draw dot glow
+        for i in (0..3).rev() {
+            let alpha = 255 - (i * 60);
+
+            ui.painter().circle_filled(
+                dot_pos,
+                3.0 + i as f32,
+                Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha),
+            );
+        }
+
+        // Draw center dot
+        ui.painter().circle_filled(dot_pos, 3.0, Color32::WHITE);
+    }
+
+    fn draw_style_1(&self, ui: &mut Ui, rect: Rect) {
+        let center = rect.center();
+        let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
+
+        // Define the angle range (270 degrees, leaving 90 degrees gap)
+        let start_angle = -225.0 * PI / 180.0;
+        let end_angle = 45.0 * PI / 180.0;
+
+        // Calculate knob rotation based on value
+        let rotation = start_angle + (end_angle - start_angle) * (self.value / 100.0);
+
+        // Draw background arc
+        let bg_points = Self::create_arc_points(center, radius, start_angle, end_angle, 32);
+
+        ui.painter().add(PathShape::line(
+            bg_points,
+            Stroke::new(2.0, Color32::from_gray(60)),
+        ));
+
+        // Draw filled arc
+        let filled_points = Self::create_arc_points(center, radius, start_angle, rotation, 32);
+
+        ui.painter().add(PathShape::line(
+            filled_points,
+            Stroke::new(2.0, Color32::from_rgb(200, 200, 200)),
+        ));
+
+        // Draw knob center
+        ui.painter()
+            .circle_filled(center, radius - 4.0, Color32::from_gray(40));
+
+        // Draw indicator line
+        let indicator_length = radius - 6.0;
+        let indicator_end = Pos2::new(
+            center.x + rotation.cos() * indicator_length,
+            center.y + rotation.sin() * indicator_length,
+        );
+
+        ui.painter()
+            .line_segment([center, indicator_end], Stroke::new(2.0, Color32::WHITE));
+
+        ui.painter().circle_stroke(
+            center,
+            radius - 2.0,
+            Stroke::new(1.0, Color32::from_gray(180)),
+        );
+    }
+
+    fn draw_style_2(&self, ui: &mut Ui, rect: Rect) {
+        let center = rect.center();
+        let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
+
+        let start_angle = -225.0 * PI / 180.0;
+        let end_angle = 45.0 * PI / 180.0;
+        let rotation = start_angle + (end_angle - start_angle) * (self.value / 100.0);
+
+        let color = Color::ACCENT;
+
+        // Draw outer ring
+        for i in 0..8 {
+            let angle = (i as f32 * PI / 4.0) + (PI / 8.0);
+            let offset = 1.5;
+            let start = Pos2::new(
+                center.x + (radius + offset) * angle.cos(),
+                center.y + (radius + offset) * angle.sin(),
+            );
+            let end = Pos2::new(
+                center.x + (radius + offset) * (angle + PI).cos(),
+                center.y + (radius + offset) * (angle + PI).sin(),
+            );
+
+            ui.painter()
+                .line_segment([start, end], Stroke::new(1.0, Color32::from_gray(180)));
+        }
+
+        // Draw base circle with gradient effect
+        for i in 0..3 {
+            let r = radius - (i as f32 * 2.0);
+
+            ui.painter().circle_stroke(
+                center,
+                r,
+                Stroke::new(1.0, Color32::from_gray(140 + (i * 20))),
+            );
+        }
+
+        // Draw some marks
+        for i in 0..27 {
+            let angle = start_angle + (i as f32 * (end_angle - start_angle) / 26.0);
+            let inner_point = Pos2::new(
+                center.x + (radius - 8.0) * angle.cos(),
+                center.y + (radius - 8.0) * angle.sin(),
+            );
+            let outer_point = Pos2::new(
+                center.x + (radius - 4.0) * angle.cos(),
+                center.y + (radius - 4.0) * angle.sin(),
+            );
+
+            ui.painter().line_segment(
+                [inner_point, outer_point],
+                Stroke::new(1.0, Color32::from_gray(100)),
+            );
+        }
+
+        // Draw progress track
+        let filled_points =
+            Self::create_arc_points(center, radius - 6.0, start_angle, rotation, 64);
+
+        ui.painter()
+            .add(PathShape::line(filled_points, Stroke::new(2.5, color)));
+
+        // Draw background track
+        let bg_points = Self::create_arc_points(center, radius - 6.0, rotation, end_angle, 64);
+
+        ui.painter().add(PathShape::line(
+            bg_points,
+            Stroke::new(2.0, Color32::from_gray(60)),
+        ));
+
+        // Draw center circle
+        ui.painter()
+            .circle_filled(center, radius - 12.0, Color32::from_gray(160));
+
+        // Draw radial lines
+        for i in 0..12 {
+            let angle = i as f32 * PI / 6.0;
+            let start = Pos2::new(center.x + 4.0 * angle.cos(), center.y + 4.0 * angle.sin());
+            let end = Pos2::new(
+                center.x + (radius - 14.0) * angle.cos(),
+                center.y + (radius - 14.0) * angle.sin(),
+            );
+
+            ui.painter()
+                .line_segment([start, end], Stroke::new(1.0, Color32::from_gray(140)));
+        }
+
+        // Draw indicator line
+        let indicator_start = Pos2::new(
+            center.x + 6.0 * rotation.cos(),
+            center.y + 6.0 * rotation.sin(),
+        );
+        let indicator_end = Pos2::new(
+            center.x + (radius - 14.0) * rotation.cos(),
+            center.y + (radius - 14.0) * rotation.sin(),
+        );
+
+        ui.painter().line_segment(
+            [indicator_start, indicator_end],
+            Stroke::new(2.5, Color32::from_rgb(60, 60, 60)),
+        );
+
+        // Draw center cap
+        ui.painter()
+            .circle_filled(center, 4.0, Color32::from_gray(80));
+        ui.painter()
+            .circle_stroke(center, 4.0, Stroke::new(1.0, Color32::from_gray(180)));
+    }
+
+    fn create_arc_points(
+        center: Pos2,
+        radius: f32,
+        start_angle: f32,
+        end_angle: f32,
+        segments: usize,
+    ) -> Vec<Pos2> {
+        let mut points = Vec::with_capacity(segments + 1);
+        let angle_step = (end_angle - start_angle) / segments as f32;
+
+        for i in 0..=segments {
+            let angle = start_angle + angle_step * i as f32;
+
+            points.push(Pos2::new(
+                center.x + radius * angle.cos(),
+                center.y + radius * angle.sin(),
+            ));
+        }
+
+        points
+    }
 }
 
-// TODO: Update colors
 impl Widget for Potentiometer {
-    fn ui(self, ui: &mut Ui) -> Response {
-        use std::f32::consts::PI;
-
+    fn ui(mut self, ui: &mut Ui) -> Response {
         let desired_size = self.size.into();
         let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
@@ -103,97 +359,23 @@ impl Widget for Potentiometer {
             return response;
         }
 
-        let value = ui
+        self.value = ui
             .ctx()
-            .animate_value_with_time(self.id.into(), self.value, 0.25);
+            .animate_value_with_time(self.id.clone().into(), self.value, 0.25);
 
-        let painter = ui.painter();
+        // Draw potentiometer based on style
+        match self.style {
+            1 => self.draw_style_1(ui, rect),
+            2 => self.draw_style_2(ui, rect),
 
-        // Draw container
-        painter.rect_filled(rect, ui.style().visuals.menu_rounding, Color::CONTAINER);
-
-        let center = rect.center();
-        let radius = (desired_size.x.min(desired_size.y) / 2.0) * 0.8;
-
-        let start_angle = 0.75 * PI;
-        let end_angle = 2.25 * PI;
-        let range = end_angle - start_angle;
-
-        let stroke_width = 16.0;
-        let circle_radius = stroke_width / 2.0;
-        let offset_y = (stroke_width / 2.0) - 2.0;
-
-        let bg_points = (0..=32)
-            .map(|i| {
-                let t = i as f32 / 32.0;
-                let angle = start_angle + t * range;
-                let x = center.x + radius * angle.cos();
-                let y = center.y + radius * angle.sin() + offset_y;
-
-                Pos2::new(x, y)
-            })
-            .collect::<Vec<_>>();
-
-        let bg_color = Color::SURFACE2;
-
-        // Draw background line
-        painter.add(Shape::line(
-            bg_points.clone(),
-            Stroke::new(stroke_width, bg_color),
-        ));
-
-        // Add line end circles for background
-        if let (Some(start), Some(end)) = (bg_points.first(), bg_points.last()) {
-            painter.circle_filled(*start, circle_radius, bg_color);
-            painter.circle_filled(*end, circle_radius, bg_color);
+            _ => self.draw_style_default(ui, rect),
         }
-
-        // Draw the filled portion based on value
-        let value_angle = start_angle + (value / 100.0) * range;
-        let filled_points = (0..=32)
-            .map(|i| {
-                let t = i as f32 / 32.0;
-                let angle = start_angle + t * (value_angle - start_angle);
-                let x = center.x + radius * angle.cos();
-                let y = center.y + radius * angle.sin() + offset_y;
-                Pos2::new(x, y)
-            })
-            .collect::<Vec<_>>();
-
-        let filled_color = Color::BLUE;
-
-        // Draw filled line
-        painter.add(Shape::line(
-            filled_points.clone(),
-            Stroke::new(stroke_width, filled_color),
-        ));
-
-        // Add circles for filled portion
-        if let (Some(start), Some(end)) = (filled_points.first(), filled_points.last()) {
-            painter.circle_filled(*start, circle_radius, filled_color);
-            painter.circle_filled(*end, circle_radius, filled_color);
-        }
-
-        // Draw indicator
-        let indicator_position_offset = 0.75;
-        let indicator_length = radius * (indicator_position_offset / 2.0);
-
-        // Value indicator
-        let value_start = Pos2::new(
-            center.x + radius * value_angle.cos(),
-            center.y + radius * value_angle.sin() + offset_y,
-        );
-        let value_end = Pos2::new(
-            center.x + (radius - indicator_length) * value_angle.cos(),
-            center.y + (radius - indicator_length) * value_angle.sin() + offset_y,
-        );
-        painter.line_segment([value_start, value_end], Stroke::new(2.0, Color::WHITE));
 
         // Draw value text
-        painter.text(
-            center,
+        ui.painter().text(
+            rect.center(),
             Align2::CENTER_CENTER,
-            format!("{:.0}", value),
+            format!("{:.0}", self.value),
             FontId::proportional(24.0),
             Color::WHITE,
         );
