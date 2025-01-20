@@ -11,12 +11,13 @@ use padpad_software::{
         update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
     },
     constants::{
-        DASHBOARD_PROFILE_MAX_CHARACTERS, HOME_IMAGE_SIZE, SERIAL_MESSAGE_INNER_SEP,
+        DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, HOME_IMAGE_BYTES_SIZE,
+        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
         SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error, log_print,
     tcp::{client_to_server_message, ServerData},
-    utility::extract_hex_bytes_and_serialize,
+    utility::{extract_hex_bytes, hex_bytes_string_to_vec, hex_bytes_vec_to_string},
 };
 
 static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
@@ -53,6 +54,8 @@ pub struct Application {
     component_button_size: (f32 /* width */, f32 /* height */),
     component_potentiometer_size: (f32 /* width */, f32 /* height */),
     component_joystick_size: (f32 /* width */, f32 /* height */),
+    component_rotary_encoder_size: (f32 /* width */, f32 /* height */),
+    component_display_size: (f32 /* width */, f32 /* height */),
 }
 
 impl eframe::App for Application {
@@ -646,7 +649,7 @@ impl Application {
                                 ui,
                                 label,
                                 position,
-                                Vec2::from(self.component_button_size),
+                                self.component_button_size.into(),
                                 value.parse::<i8>().unwrap_or(0),
                             );
 
@@ -660,16 +663,430 @@ impl Application {
                                 ui,
                                 label,
                                 position,
-                                Vec2::from(self.component_potentiometer_size),
+                                self.component_potentiometer_size.into(),
                                 value.parse::<u8>().unwrap_or(0),
                             );
                         }
-                        ComponentKind::Joystick => (),
-                        ComponentKind::RotaryEncoder => (),
-                        ComponentKind::Display => (),
+                        ComponentKind::Joystick => {
+                            self.draw_joystick(ui, label, position, self.component_joystick_size, {
+                                match value.split_once(SERIAL_MESSAGE_INNER_SEP) {
+                                    Some((value_x, value_y)) => (
+                                        value_x.parse::<f32>().unwrap_or(0.0),
+                                        value_y.parse::<f32>().unwrap_or(0.0),
+                                    ),
+                                    None => (0.0, 0.0),
+                                }
+                            })
+                        }
+                        ComponentKind::RotaryEncoder => self.draw_rotary_encoder(
+                            ui,
+                            label,
+                            position,
+                            self.component_rotary_encoder_size.into(),
+                        ),
+                        ComponentKind::Display => self.draw_display(
+                            ui,
+                            position,
+                            (
+                                self.component_display_size.0 as usize,
+                                self.component_display_size.1 as usize,
+                            ),
+                            {
+                                match hex_bytes_string_to_vec(&label) {
+                                    Ok(bytes) => bytes,
+                                    Err(_) => vec![],
+                                }
+                            },
+                        ),
                     }
                 }
             });
+    }
+
+    fn save_current_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-save-elements-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for saving the elements!".to_string(),
+                );
+
+                return;
+            }
+
+            update_config_and_server(config, |_| {});
+        }
+    }
+
+    fn add_button_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::Button.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
+    }
+
+    fn add_potentiometer_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::Potentiometer.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
+    }
+
+    fn add_joystick_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::Joystick.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
+    }
+
+    fn add_rotary_encoder_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::RotaryEncoder.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
+    }
+
+    fn add_display_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::Display.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
     }
 
     fn create_update_profile(&mut self, name: String) -> bool {
@@ -950,6 +1367,80 @@ impl Application {
         );
     }
 
+    fn draw_joystick(
+        &self,
+        ui: &mut Ui,
+        _label: &String,
+        relative_position: Pos2, /* relative to window position */
+        size: (f32, f32),
+        value: (f32, f32),
+    ) {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = egui::Rect::from_min_size(position, size.into());
+
+        ui.put(rect, Joystick::new(value, size));
+    }
+
+    fn draw_rotary_encoder(
+        &self,
+        ui: &mut Ui,
+        _label: &String,
+        relative_position: Pos2, /* relative to window position */
+        size: Vec2,
+    ) {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = egui::Rect::from_min_size(position, size.into());
+
+        // TODO: Create a widget for this!
+        ui.painter().rect_filled(rect, 4.0, Color::PINK);
+    }
+
+    fn draw_display(
+        &self,
+        ui: &mut Ui,
+        relative_position: Pos2, /* relative to window position */
+        size: (usize, usize),
+        value: Vec<u8>,
+    ) {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = egui::Rect::from_min_size(
+            position,
+            (
+                size.0 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                size.1 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+            )
+                .into(),
+        );
+
+        ui.put(
+            rect,
+            GLCD::new(
+                size,
+                DASHBOARD_DISAPLY_PIXEL_SIZE,
+                Color::BLACK,
+                Color::WHITE,
+                value,
+                (HOME_IMAGE_WIDTH, HOME_IMAGE_HEIGHT),
+                (
+                    (size.0 - HOME_IMAGE_WIDTH) / 2,
+                    (size.1 - HOME_IMAGE_HEIGHT) / 2,
+                ), // Center icon
+            ),
+        );
+    }
+
     fn detect_components(&mut self) -> Result<String, String> {
         let config = match &self.config {
             Some(config) => config,
@@ -1167,6 +1658,26 @@ impl Application {
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
+                if ui.button("Add Button").clicked() {
+                    self.add_button_to_layout();
+                }
+                if ui.button("Add Potentiometer").clicked() {
+                    self.add_potentiometer_to_layout();
+                }
+                if ui.button("Add Joystick").clicked() {
+                    self.add_joystick_to_layout();
+                }
+                if ui.button("Add Rotary Encoder").clicked() {
+                    self.add_rotary_encoder_to_layout();
+                }
+                if ui.button("Add Display").clicked() {
+                    self.add_display_to_layout();
+                }
+
+                if ui.button("Save layout").clicked() {
+                    self.save_current_layout();
+                }
+
                 let xbm_data = vec![
                     0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc, 0x00,
                     0xe0, 0xff, 0x1f, 0x00, 0xfc, 0x00, 0xf8, 0xff, 0x7f, 0x00, 0xfc, 0x00, 0xfc,
@@ -1372,10 +1883,10 @@ impl Application {
                         if self.server_data.is_device_paired {
                             let xbm_string = self.xbm_string.clone();
 
-                            match extract_hex_bytes_and_serialize(&xbm_string, HOME_IMAGE_SIZE) {
+                            match extract_hex_bytes(&xbm_string, HOME_IMAGE_BYTES_SIZE) {
                                 Ok(bytes) => {
                                     // `ui` = `Upload *HOME* Image`
-                                    let message = format!("ui{}", &bytes);
+                                    let message = format!("ui{}", hex_bytes_vec_to_string(&bytes));
 
                                     request_send_serial(message.as_str()).ok();
 
@@ -1918,7 +2429,9 @@ impl Default for Application {
             // Constants
             component_button_size: (100.0, 100.0),
             component_potentiometer_size: (100.0, 100.0),
-            component_joystick_size: (200.0, 200.0),
+            component_joystick_size: (100.0, 100.0),
+            component_rotary_encoder_size: (100.0, 100.0),
+            component_display_size: (128.0, 64.0),
         }
     }
 }

@@ -19,6 +19,7 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
                                                  // if client isn't connected, interval is 1000ms
 
 // Dashboard
+pub const DASHBOARD_DISAPLY_PIXEL_SIZE: f32 = 4.0;
 pub const DASHBOARD_DEVICE_INTERNAL_PROFILE: &str = "Internal";
 pub const DASHBOARD_PROFILE_MAX_CHARACTERS: usize = 10;
 
@@ -28,8 +29,9 @@ pub const DASHBOARD_PROFILE_MAX_CHARACTERS: usize = 10;
 //    SERIAL_MESSAGE_INNER_SEP,
 //    SERIAL_MESSAGE_END,
 //];
-pub const HOME_IMAGE_SIZE: usize = 252; // ((WIDTH + (8 - 1)) / 8) * HEIGHT
-                                        // Check out `DISPLAY_HOME_IMAGE_SIZE` in padpad.firmware
+pub const HOME_IMAGE_WIDTH: usize = 42;
+pub const HOME_IMAGE_HEIGHT: usize = 42;
+pub const HOME_IMAGE_BYTES_SIZE: usize = ((HOME_IMAGE_WIDTH + (8 - 1)) / 8) * HOME_IMAGE_HEIGHT;
 
 // Debug
 pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testing dashboard
