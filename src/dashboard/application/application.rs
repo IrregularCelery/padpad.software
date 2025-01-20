@@ -658,7 +658,16 @@ impl Application {
                                 log_print!("{}: {}", label, id);
                             };
                         }
-                        ComponentKind::LED => (),
+                        ComponentKind::LED => {
+                            self.draw_led(ui, label, position, self.component_led_size, {
+                                // TODO: Actually return a value!
+                                let r = 0;
+                                let g = 0;
+                                let b = 0;
+
+                                (r, g, b)
+                            });
+                        }
                         ComponentKind::Potentiometer => {
                             self.draw_potentiometer(
                                 ui,
@@ -794,6 +803,80 @@ impl Application {
         }
     }
 
+    fn add_led_to_layout(&mut self) {
+        if let Some(config) = &mut self.config {
+            if config.layout.is_none() {
+                self.show_message_modal(
+                    "layout-add-element-no-layout",
+                    "Error".to_string(),
+                    "Could not find any layout for adding elements!".to_string(),
+                );
+
+                return;
+            }
+
+            let kind = ComponentKind::LED.to_string();
+
+            if let Some(layout) = &mut config.layout {
+                let mut highest_id = 0;
+
+                for component in layout.components.iter_mut() {
+                    match component.0.split_once(SERIAL_MESSAGE_SEP) {
+                        Some((component_kind, component_id)) => {
+                            if component_kind != kind {
+                                continue;
+                            }
+
+                            let current_id = component_id.parse::<u8>().unwrap_or(0);
+
+                            if current_id > highest_id {
+                                highest_id = current_id;
+                            }
+                        }
+                        None => continue,
+                    }
+                }
+
+                if highest_id >= u8::MAX {
+                    self.show_message_modal(
+                        "layout-add-element-too-many",
+                        "Error".to_string(),
+                        format!(
+                            "You cannot add more than {} \"{}\" to you layout!",
+                            u8::MAX,
+                            kind
+                        ),
+                    );
+
+                    return;
+                }
+
+                let new_id = highest_id + 1;
+
+                let component_global_id = format!("{}:{}", kind, new_id);
+
+                layout.components.insert(
+                    component_global_id.clone(),
+                    Component {
+                        label: format!("{} {}", kind, new_id),
+                        position: {
+                            let x = (layout.size.0 - self.component_led_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_led_size.1) / 2.0;
+
+                            (x, y)
+                        },
+                    },
+                );
+
+                for profile in config.profiles.iter_mut() {
+                    profile
+                        .interactions
+                        .insert(component_global_id.clone(), Interaction::default());
+                }
+            }
+        }
+    }
+
     fn add_potentiometer_to_layout(&mut self) {
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
@@ -851,8 +934,8 @@ impl Application {
                     Component {
                         label: format!("{} {}", kind, new_id),
                         position: {
-                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+                            let x = (layout.size.0 - self.component_potentiometer_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_potentiometer_size.1) / 2.0;
 
                             (x, y)
                         },
@@ -925,8 +1008,8 @@ impl Application {
                     Component {
                         label: format!("{} {}", kind, new_id),
                         position: {
-                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+                            let x = (layout.size.0 - self.component_joystick_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_joystick_size.1) / 2.0;
 
                             (x, y)
                         },
@@ -999,8 +1082,8 @@ impl Application {
                     Component {
                         label: format!("{} {}", kind, new_id),
                         position: {
-                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+                            let x = (layout.size.0 - self.component_rotary_encoder_size.0) / 2.0;
+                            let y = (layout.size.1 - self.component_rotary_encoder_size.1) / 2.0;
 
                             (x, y)
                         },
@@ -1073,8 +1156,12 @@ impl Application {
                     Component {
                         label: HOME_IMAGE_DEFAULT_BYTES.to_string(), // Default image
                         position: {
-                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+                            let x = (layout.size.0
+                                - (self.component_display_size.0 * DASHBOARD_DISAPLY_PIXEL_SIZE))
+                                / 2.0;
+                            let y = (layout.size.1
+                                - (self.component_display_size.1 * DASHBOARD_DISAPLY_PIXEL_SIZE))
+                                / 2.0;
 
                             (x, y)
                         },
@@ -1320,7 +1407,7 @@ impl Application {
         ui: &mut Ui,
         label: &String,
         relative_position: Pos2, /* relative to window position */
-        size: Vec2,
+        size: (f32, f32),
         value: i8,
     ) -> Response {
         let window_position = ui.min_rect().min;
@@ -1341,12 +1428,30 @@ impl Application {
         response
     }
 
+    fn draw_led(
+        &self,
+        ui: &mut Ui,
+        _label: &String,
+        relative_position: Pos2, /* relative to window position */
+        size: (f32, f32),
+        value: (u8, u8, u8),
+    ) {
+        let window_position = ui.min_rect().min;
+        let position = egui::pos2(
+            relative_position.x + window_position.x,
+            relative_position.y + window_position.y,
+        );
+        let rect = Rect::from_min_size(position, size.into());
+
+        ui.put(rect, LED::new(value, size));
+    }
+
     fn draw_potentiometer(
         &self,
         ui: &mut Ui,
         label: &String,
         relative_position: Pos2, /* relative to window position */
-        size: Vec2,
+        size: (f32, f32),
         value: u8,
     ) {
         let window_position = ui.min_rect().min;
@@ -1354,7 +1459,7 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = egui::Rect::from_min_size(position, size.into());
+        let rect = Rect::from_min_size(position, size.into());
 
         let value = value as f32;
 
@@ -1363,7 +1468,7 @@ impl Application {
             Potentiometer::new(
                 format!("potentiometer-{:?}-value", egui::Id::new(label)),
                 value,
-                (size.x, size.y),
+                size,
             ),
         );
     }
@@ -1381,7 +1486,7 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = egui::Rect::from_min_size(position, size.into());
+        let rect = Rect::from_min_size(position, size.into());
 
         ui.put(rect, Joystick::new(value, size));
     }
@@ -1391,14 +1496,14 @@ impl Application {
         ui: &mut Ui,
         _label: &String,
         relative_position: Pos2, /* relative to window position */
-        size: Vec2,
+        size: (f32, f32),
     ) {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = egui::Rect::from_min_size(position, size.into());
+        let rect = Rect::from_min_size(position, size.into());
 
         // TODO: Create a widget for this!
         ui.painter().rect_filled(rect, 4.0, Color::PINK);
@@ -1416,7 +1521,7 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
-        let rect = egui::Rect::from_min_size(
+        let rect = Rect::from_min_size(
             position,
             (
                 size.0 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE,
@@ -1661,6 +1766,9 @@ impl Application {
             .show(ctx, |ui| {
                 if ui.button("Add Button").clicked() {
                     self.add_button_to_layout();
+                }
+                if ui.button("Add LED").clicked() {
+                    self.add_led_to_layout();
                 }
                 if ui.button("Add Potentiometer").clicked() {
                     self.add_potentiometer_to_layout();
