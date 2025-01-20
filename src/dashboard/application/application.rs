@@ -665,7 +665,7 @@ impl Application {
                         ComponentKind::LED => {
                             self.draw_led(ui, label, position, self.component_led_size, scale, {
                                 // TODO: Actually return a value!
-                                let r = 0;
+                                let r = 255;
                                 let g = 0;
                                 let b = 0;
 
@@ -1514,8 +1514,7 @@ impl Application {
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, scaled_size.into());
 
-        // TODO: Create a widget for this!
-        ui.painter().rect_filled(rect, 4.0, Color::PINK);
+        ui.put(rect, RotaryEncoder::new(scaled_size));
     }
 
     fn draw_display(
@@ -1848,6 +1847,8 @@ impl Application {
                     self.test_joystick_value,
                     self.component_joystick_size,
                 ));
+
+                ui.add(RotaryEncoder::new(self.component_rotary_encoder_size));
 
                 ui.add(LED::new((255, 181, 0), self.component_led_size));
 

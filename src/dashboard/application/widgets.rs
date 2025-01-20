@@ -2,8 +2,8 @@ use std::f32::consts::PI;
 
 use eframe::{
     egui::{
-        Align2, Color32, Context, CursorIcon, FontId, Id, Margin, Pos2, Rect, Response, Rounding,
-        Sense, Shape, Stroke, Ui, Vec2, Widget,
+        Color32, Context, CursorIcon, Id, Margin, Pos2, Rect, Response, Rounding, Sense, Shape,
+        Stroke, Ui, Vec2, Widget,
     },
     epaint::PathShape,
 };
@@ -353,7 +353,7 @@ impl Potentiometer {
 impl Widget for Potentiometer {
     fn ui(mut self, ui: &mut Ui) -> Response {
         let desired_size = self.size.into();
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
 
         if !ui.is_rect_visible(rect) {
             return response;
@@ -370,15 +370,6 @@ impl Widget for Potentiometer {
 
             _ => self.draw_style_default(ui, rect),
         }
-
-        // Draw value text
-        ui.painter().text(
-            rect.center(),
-            Align2::CENTER_CENTER,
-            format!("{:.0}", self.value),
-            FontId::proportional(24.0),
-            Color::WHITE,
-        );
 
         response
     }
@@ -432,6 +423,65 @@ impl Widget for Joystick {
 
         // Handle main part
         painter.circle_filled(handle_pos, radius * 0.65, Color32::from_gray(70));
+
+        response
+    }
+}
+
+pub struct RotaryEncoder {
+    size: (f32, f32),
+}
+
+impl RotaryEncoder {
+    pub fn new(size: (f32, f32)) -> Self {
+        Self { size }
+    }
+}
+
+impl Widget for RotaryEncoder {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let desired_size = self.size.into();
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let center = rect.center();
+        let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
+
+        // Main body
+        ui.painter()
+            .circle_filled(center, radius, Color32::from_gray(40));
+
+        // Outer ring
+        ui.painter()
+            .circle_stroke(center, radius, Stroke::new(1.5, Color32::from_gray(80)));
+
+        // Grip pattern
+        for i in 0..12 {
+            let angle = i as f32 * PI / 6.0;
+            let inner_radius = radius - 12.0;
+            let outer_radius = radius - 4.0;
+
+            let start = Pos2::new(
+                center.x + inner_radius * angle.cos(),
+                center.y + inner_radius * angle.sin(),
+            );
+            let end = Pos2::new(
+                center.x + outer_radius * angle.cos(),
+                center.y + outer_radius * angle.sin(),
+            );
+
+            ui.painter()
+                .line_segment([start, end], Stroke::new(2.0, Color32::from_gray(60)));
+        }
+
+        ui.painter().circle_stroke(
+            center,
+            radius - 1.0,
+            Stroke::new(1.0, Color32::from_gray(100)),
+        );
 
         response
     }

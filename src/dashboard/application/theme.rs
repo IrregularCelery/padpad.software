@@ -2,6 +2,7 @@ use eframe::egui::{self, Color32};
 
 pub struct Color {}
 
+#[allow(dead_code)]
 impl Color {
     pub const BASE: Color32 = Color32::from_rgb(51, 51, 51);
     pub const TEXT: Color32 = Color32::from_rgb(200, 200, 200);
