@@ -779,20 +779,17 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) =
+                    Component::new_button(new_id, format!("{} {}", kind, new_id), {
+                        let x = (layout.size.0 - self.component_button_size.0) / 2.0;
+                        let y = (layout.size.1 - self.component_button_size.1) / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: format!("{} {}", kind, new_id),
-                        position: {
-                            let x = (layout.size.0 - self.component_button_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_button_size.1) / 2.0;
+                        (x, y)
+                    });
 
-                            (x, y)
-                        },
-                    },
-                );
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile
@@ -853,20 +850,17 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) =
+                    Component::new_led(new_id, format!("{} {}", kind, new_id), {
+                        let x = (layout.size.0 - self.component_led_size.0) / 2.0;
+                        let y = (layout.size.1 - self.component_led_size.1) / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: format!("{} {}", kind, new_id),
-                        position: {
-                            let x = (layout.size.0 - self.component_led_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_led_size.1) / 2.0;
+                        (x, y)
+                    });
 
-                            (x, y)
-                        },
-                    },
-                );
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile
@@ -927,20 +921,17 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) =
+                    Component::new_potentiometer(new_id, format!("{} {}", kind, new_id), {
+                        let x = (layout.size.0 - self.component_potentiometer_size.0) / 2.0;
+                        let y = (layout.size.1 - self.component_potentiometer_size.1) / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: format!("{} {}", kind, new_id),
-                        position: {
-                            let x = (layout.size.0 - self.component_potentiometer_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_potentiometer_size.1) / 2.0;
+                        (x, y)
+                    });
 
-                            (x, y)
-                        },
-                    },
-                );
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile
@@ -1001,20 +992,17 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) =
+                    Component::new_joystick(new_id, format!("{} {}", kind, new_id), {
+                        let x = (layout.size.0 - self.component_joystick_size.0) / 2.0;
+                        let y = (layout.size.1 - self.component_joystick_size.1) / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: format!("{} {}", kind, new_id),
-                        position: {
-                            let x = (layout.size.0 - self.component_joystick_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_joystick_size.1) / 2.0;
+                        (x, y)
+                    });
 
-                            (x, y)
-                        },
-                    },
-                );
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile
@@ -1075,20 +1063,17 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) =
+                    Component::new_rotary_encoder(new_id, format!("{} {}", kind, new_id), {
+                        let x = (layout.size.0 - self.component_rotary_encoder_size.0) / 2.0;
+                        let y = (layout.size.1 - self.component_rotary_encoder_size.1) / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: format!("{} {}", kind, new_id),
-                        position: {
-                            let x = (layout.size.0 - self.component_rotary_encoder_size.0) / 2.0;
-                            let y = (layout.size.1 - self.component_rotary_encoder_size.1) / 2.0;
+                        (x, y)
+                    });
 
-                            (x, y)
-                        },
-                    },
-                );
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile
@@ -1149,24 +1134,24 @@ impl Application {
 
                 let new_id = highest_id + 1;
 
-                let component_global_id = format!("{}:{}", kind, new_id);
+                let (component_global_id, component) = Component::new_display(
+                    new_id,
+                    HOME_IMAGE_DEFAULT_BYTES.to_string(), // Default image
+                    {
+                        let x = (layout.size.0
+                            - (self.component_display_size.0 * DASHBOARD_DISAPLY_PIXEL_SIZE))
+                            / 2.0;
+                        let y = (layout.size.1
+                            - (self.component_display_size.1 * DASHBOARD_DISAPLY_PIXEL_SIZE))
+                            / 2.0;
 
-                layout.components.insert(
-                    component_global_id.clone(),
-                    Component {
-                        label: HOME_IMAGE_DEFAULT_BYTES.to_string(), // Default image
-                        position: {
-                            let x = (layout.size.0
-                                - (self.component_display_size.0 * DASHBOARD_DISAPLY_PIXEL_SIZE))
-                                / 2.0;
-                            let y = (layout.size.1
-                                - (self.component_display_size.1 * DASHBOARD_DISAPLY_PIXEL_SIZE))
-                                / 2.0;
-
-                            (x, y)
-                        },
+                        (x, y)
                     },
                 );
+
+                layout
+                    .components
+                    .insert(component_global_id.clone(), component);
 
                 for profile in config.profiles.iter_mut() {
                     profile

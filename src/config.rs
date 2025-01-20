@@ -71,6 +71,8 @@ pub struct Interaction {
 pub struct Component {
     pub label: String,
     pub position: (f32 /* x */, f32 /* y */),
+    pub scale: f32,
+    pub style: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
@@ -268,7 +270,33 @@ impl Component {
     ) -> (String /* component_global_id */, Self) {
         let key = format!("{}:{}", ComponentKind::Button, id);
 
-        (key, Self { label, position })
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
+    }
+
+    pub fn new_led(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::LED, id);
+
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
     }
 
     pub fn new_potentiometer(
@@ -278,7 +306,69 @@ impl Component {
     ) -> (String /* component_global_id */, Self) {
         let key = format!("{}:{}", ComponentKind::Potentiometer, id);
 
-        (key, Self { label, position })
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
+    }
+
+    pub fn new_joystick(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::Joystick, id);
+
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
+    }
+
+    pub fn new_rotary_encoder(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::RotaryEncoder, id);
+
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
+    }
+
+    pub fn new_display(
+        id: u8,
+        label: String,
+        position: (f32 /* x */, f32 /* y */),
+    ) -> (String /* component_global_id */, Self) {
+        let key = format!("{}:{}", ComponentKind::Display, id);
+
+        (
+            key,
+            Self {
+                label,
+                position,
+                scale: 1.0,
+                style: 0,
+            },
+        )
     }
 }
 
