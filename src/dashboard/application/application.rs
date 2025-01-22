@@ -1406,11 +1406,11 @@ impl Application {
     fn draw_button(
         &self,
         ui: &mut Ui,
-        label: &String,
+        _label: &String,
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
         scale: f32,
-        value: i8,
+        _value: i8,
     ) -> Response {
         let window_position = ui.min_rect().min;
         let position = Pos2::new(
@@ -1419,12 +1419,6 @@ impl Application {
         );
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, (size.0 * scale, size.1 * scale).into());
-
-        let button_color = if value > 0 {
-            egui::Color32::from_rgb(100, 200, 100)
-        } else {
-            ui.style().visuals.widgets.inactive.bg_fill
-        };
 
         draw_rect_shadow(
             ui,
