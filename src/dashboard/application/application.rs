@@ -45,6 +45,7 @@ pub struct Application {
     new_layout_name: String,
     new_layout_size: (f32, f32),
     new_profile_name: String,
+    last_profile_name: String, // Used for updating a profile
     profile_exists: bool,
     xbm_string: String,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
@@ -87,6 +88,10 @@ impl eframe::App for Application {
 
         // Layout
         self.draw_layout(ctx);
+
+        println!("prof name: {}", self.new_profile_name);
+        println!("prof last name: {}", self.last_profile_name);
+        println!("prof exist: {}", self.profile_exists);
 
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
@@ -1180,6 +1185,26 @@ impl Application {
 
     fn create_update_profile(&mut self, name: String) -> bool {
         if let Some(config) = &mut self.config {
+            let is_updating = !self.last_profile_name.is_empty();
+
+            if is_updating {
+                update_config_and_server(config, |c| {
+                    for profile in c.profiles.iter_mut() {
+                        if profile.name != self.last_profile_name {
+                            continue;
+                        }
+
+                        profile.name = name.clone();
+
+                        break;
+                    }
+                });
+
+                request_send_serial("refresh_device").ok();
+
+                return true;
+            }
+
             if config.does_profile_exist(&name) {
                 return false;
             }
@@ -1264,7 +1289,7 @@ impl Application {
             request_send_serial("refresh_device").ok();
 
             return Ok(format!(
-                "Profile {} was successfully removed.",
+                "Profile \"{}\" was successfully removed.",
                 profile_name
             ));
         }
@@ -2011,7 +2036,7 @@ impl Application {
                         self.open_auto_detect_components_modal();
                     }
 
-                    if ui.button("Create/Update Profile").clicked() {
+                    if ui.button("Create new Profile").clicked() {
                         self.open_create_update_profile_modal(false);
                     }
                 });
@@ -2303,14 +2328,17 @@ impl Application {
         });
     }
 
-    fn open_create_update_profile_modal(&mut self, is_device_internal: bool) {
+    fn open_create_update_profile_modal(&mut self, is_updating: bool) {
         use egui::*;
 
         if let Some(config) = &self.config {
             self.profile_exists = config.does_profile_exist(&self.new_profile_name);
-        }
 
-        let is_updating = false;
+            if !is_updating {
+                // Clear the last_profile_name
+                self.last_profile_name = String::new();
+            }
+        }
 
         self.show_custom_modal("create-update-profile", move |ui, app| {
             ui.set_width(250.0);
@@ -2400,20 +2428,31 @@ impl Application {
                         .add_sized([button_width, 0.0], Button::new(create_update_button_name))
                         .clicked()
                     {
+                        if app.new_profile_name.is_empty() {
+                            app.show_message_modal(
+                                "create-update-profile-empty",
+                                "Error".to_string(),
+                                "Profile name cannot be empty!".to_string(),
+                            );
+
+                            return;
+                        }
+
                         if app.create_update_profile(app.new_profile_name.clone()) {
                             app.close_modal();
 
                             app.show_message_modal(
-                                "create-profile-success",
+                                "create-update-profile-success",
                                 "Success".to_string(),
                                 format!(
-                                    "Profile \"{}\" created successfully.",
-                                    app.new_profile_name
+                                    "Profile \"{}\" {} successfully.",
+                                    app.new_profile_name,
+                                    if !is_updating { "created" } else { "updated" }
                                 ),
                             );
                         } else {
                             app.show_message_modal(
-                                "create-profile-already-exist",
+                                "create-update-profile-already-exist",
                                 "Error".to_string(),
                                 format!(
                                     "A profile with the name `{}` already exists!",
@@ -2424,12 +2463,6 @@ impl Application {
                     }
                 });
             });
-
-            if is_device_internal {
-                ui.label("You are editing device's internal profile!");
-
-                return;
-            }
         });
     }
 
@@ -2465,7 +2498,7 @@ impl Application {
 
     // Context menus
 
-    fn open_profile_context_menu(&self, ui: &mut Ui, profile_name: String) {
+    fn open_profile_context_menu(&mut self, ui: &mut Ui, profile_name: String) {
         ui.set_max_width(128.0);
 
         ui.scope(|ui| {
@@ -2485,7 +2518,10 @@ impl Application {
                 ui.set_style(style);
 
                 if ui.button("Update profile").clicked() {
-                    //println!("Updating profile {}", profile_name);
+                    self.new_profile_name = profile_name.clone();
+                    self.last_profile_name = profile_name.clone();
+
+                    self.open_create_update_profile_modal(true);
                 }
 
                 if ui.button("Delete profile").clicked() {
@@ -2626,6 +2662,7 @@ impl Default for Application {
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
             new_profile_name: "My Profile".to_string(),
+            last_profile_name: String::new(), // Used for updating a profile
             profile_exists: false,
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
