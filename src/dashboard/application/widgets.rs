@@ -87,12 +87,6 @@ impl Widget for Button {
             );
         }
 
-        let inner_color = if response.hovered() {
-            Color32::from_gray(30)
-        } else {
-            Color32::from_gray(20)
-        };
-
         // Draw subtle inner rect
         ui.painter().rect_stroke(
             Rect::from_center_size(
@@ -102,6 +96,12 @@ impl Widget for Button {
             rounding / 4.0,
             Stroke::new(1.0, Color32::from_gray(40)),
         );
+
+        let inner_color = if response.hovered() {
+            Color32::from_gray(30)
+        } else {
+            Color32::from_gray(20)
+        };
 
         // Draw inner rect
         ui.painter().rect_filled(
@@ -177,7 +177,7 @@ impl Potentiometer {
         self
     }
 
-    fn draw_style_default(&self, ui: &mut Ui, rect: Rect) {
+    fn draw_style_default(&self, ui: &mut Ui, rect: Rect, hovered: bool) {
         let rect = rect - Margin::same(ui.style().spacing.item_spacing.x / 2.0);
 
         let center = rect.center();
@@ -226,9 +226,15 @@ impl Potentiometer {
             Stroke::new(1.0, Color32::from_gray(40)),
         );
 
+        let inner_color = if hovered {
+            Color32::from_gray(30)
+        } else {
+            Color32::from_gray(20)
+        };
+
         // Draw inner circle
         ui.painter()
-            .circle_filled(center, radius - 8.0, Color32::from_gray(20));
+            .circle_filled(center, radius - 8.0, inner_color);
 
         // Draw indicator dot
         let dot_pos = Pos2::new(
@@ -443,6 +449,8 @@ impl Widget for Potentiometer {
 
         let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
+        let hovered = response.hovered();
+
         self.value = ui
             .ctx()
             .animate_value_with_time(self.id.clone().into(), self.value, 0.25);
@@ -452,7 +460,7 @@ impl Widget for Potentiometer {
             1 => self.draw_style_1(ui, rect),
             2 => self.draw_style_2(ui, rect),
 
-            _ => self.draw_style_default(ui, rect),
+            _ => self.draw_style_default(ui, rect, hovered),
         }
 
         response
