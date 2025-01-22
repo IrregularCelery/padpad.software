@@ -59,8 +59,13 @@
 
 ### README
 
+###### Service
+
 - [ ] Add "xdg-open" is needed to README.md (open)
 - [ ] Add "xdotool" is needed to README.md (enigo)
+
+###### Dashboard
+
 - [ ] Known Issue: because the ServerData only handles one component at a time,
       if the components are updating too fast for the client to catch up,
       on the `Dashboard` app, the visuals might not update correctly,
@@ -69,6 +74,8 @@
       the way you want. This is the profile that makes the device act as a keyboard.
       though, you can change each component to do any interaction other than just
       letter press as well.
+- [ ] The `Dashboard` app is created for sole purpose of configuring device settings,
+      and it is not advised to keep it running as it will consume your resources.
 
 ### REMINDERS
 
