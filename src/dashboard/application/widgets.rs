@@ -98,7 +98,7 @@ impl Widget for Button {
         );
 
         let inner_color = if response.hovered() {
-            Color32::from_gray(30)
+            Color32::from_gray(25)
         } else {
             Color32::from_gray(20)
         };
@@ -227,7 +227,7 @@ impl Potentiometer {
         );
 
         let inner_color = if hovered {
-            Color32::from_gray(30)
+            Color32::from_gray(25)
         } else {
             Color32::from_gray(20)
         };
@@ -515,8 +515,14 @@ impl Widget for Joystick {
         // Handle shadow
         painter.circle_filled(handle_pos, radius * 0.7, Color32::from_gray(50));
 
+        let handle_color = if response.hovered() {
+            Color32::from_gray(65)
+        } else {
+            Color32::from_gray(70)
+        };
+
         // Handle main part
-        painter.circle_filled(handle_pos, radius * 0.65, Color32::from_gray(70));
+        painter.circle_filled(handle_pos, radius * 0.65, handle_color);
 
         response
     }
@@ -546,9 +552,14 @@ impl Widget for RotaryEncoder {
         let center = rect.center();
         let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
 
+        let body_color = if response.hovered() {
+            Color32::from_gray(38)
+        } else {
+            Color32::from_gray(40)
+        };
+
         // Main body
-        ui.painter()
-            .circle_filled(center, radius, Color32::from_gray(40));
+        ui.painter().circle_filled(center, radius, body_color);
 
         // Outer ring
         ui.painter()
