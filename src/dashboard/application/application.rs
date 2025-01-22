@@ -1824,28 +1824,34 @@ impl Application {
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
-                if ui.button("Add Button").clicked() {
-                    self.add_button_to_layout();
-                }
-                if ui.button("Add LED").clicked() {
-                    self.add_led_to_layout();
-                }
-                if ui.button("Add Potentiometer").clicked() {
-                    self.add_potentiometer_to_layout();
-                }
-                if ui.button("Add Joystick").clicked() {
-                    self.add_joystick_to_layout();
-                }
-                if ui.button("Add Rotary Encoder").clicked() {
-                    self.add_rotary_encoder_to_layout();
-                }
-                if ui.button("Add Display").clicked() {
-                    self.add_display_to_layout();
-                }
+                ui.group(|ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.button("Add Button").clicked() {
+                            self.add_button_to_layout();
+                        }
+                        if ui.button("Add LED").clicked() {
+                            self.add_led_to_layout();
+                        }
+                        if ui.button("Add Potentiometer").clicked() {
+                            self.add_potentiometer_to_layout();
+                        }
+                        if ui.button("Add Joystick").clicked() {
+                            self.add_joystick_to_layout();
+                        }
+                        if ui.button("Add Rotary Encoder").clicked() {
+                            self.add_rotary_encoder_to_layout();
+                        }
+                        if ui.button("Add Display").clicked() {
+                            self.add_display_to_layout();
+                        }
+                    });
 
-                if ui.button("Save layout").clicked() {
-                    self.save_current_layout();
-                }
+                    ui.separator();
+
+                    if ui.button("Save layout").clicked() {
+                        self.save_current_layout();
+                    }
+                });
 
                 let xbm_data = vec![
                     0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc, 0x00,
@@ -1872,7 +1878,7 @@ impl Application {
 
                 ui.add(GLCD::new(
                     (128, 64),
-                    4.0,
+                    3.0,
                     Color::BLACK,
                     Color::WHITE,
                     xbm_data,
@@ -1880,23 +1886,45 @@ impl Application {
                     ((128 - 42) / 2, (64 - 42) / 2),
                 ));
 
-                ui.add(DragValue::new(&mut self.test_potentiometer_value));
-                ui.add(DragValue::new(&mut self.test_potentiometer_style).speed(1));
-                ui.add(
-                    Potentiometer::new(
-                        format!("{:?}", Id::new("test-potentiometer")),
-                        self.test_potentiometer_value,
-                        (100.0, 100.0),
-                    )
-                    .style(self.test_potentiometer_style),
-                );
+                ui.add(super::widgets::Button::new(self.component_button_size));
 
-                ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
-                ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
-                ui.add(Joystick::new(
-                    self.test_joystick_value,
-                    self.component_joystick_size,
-                ));
+                ui.horizontal_wrapped(|ui| {
+                    ui.add(
+                        Potentiometer::new(
+                            format!("{:?}", Id::new("test-potentiometer")),
+                            self.test_potentiometer_value,
+                            (100.0, 100.0),
+                        )
+                        .style(self.test_potentiometer_style),
+                    );
+
+                    ui.horizontal_centered(|ui| {
+                        ui.label("Value: ");
+                        ui.add(DragValue::new(&mut self.test_potentiometer_value));
+
+                        ui.add_space(ui.style().spacing.item_spacing.x);
+
+                        ui.label("Style: ");
+                        ui.add(DragValue::new(&mut self.test_potentiometer_style).speed(1));
+                    });
+                });
+
+                ui.horizontal_wrapped(|ui| {
+                    ui.add(Joystick::new(
+                        self.test_joystick_value,
+                        self.component_joystick_size,
+                    ));
+
+                    ui.horizontal_centered(|ui| {
+                        ui.label("X: ");
+                        ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
+
+                        ui.add_space(ui.style().spacing.item_spacing.x);
+
+                        ui.label("Y: ");
+                        ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
+                    });
+                });
 
                 ui.add(RotaryEncoder::new(self.component_rotary_encoder_size));
 
