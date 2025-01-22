@@ -137,8 +137,6 @@ impl Widget for LED {
             return response;
         }
 
-        let response = response.on_hover_cursor(CursorIcon::PointingHand);
-
         let painter = ui.painter();
 
         let center = rect.center();

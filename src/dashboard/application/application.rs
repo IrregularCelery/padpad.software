@@ -1451,10 +1451,13 @@ impl Application {
         let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, scaled_size.into());
 
-        draw_circle_shadow(
+        draw_rect_shadow(
             ui,
-            rect.center(),
-            (scaled_size.0 / 2.0) * 0.55, // 55 percent
+            Rect::from_center_size(
+                rect.center(),
+                (scaled_size.0 * 0.55, scaled_size.1 * 0.55).into(),
+            ),
+            ui.style().visuals.menu_rounding.nw,
             self.global_shadow,
             (0.0, 0.0),
         );
