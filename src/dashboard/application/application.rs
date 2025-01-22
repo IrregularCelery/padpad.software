@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use eframe::egui::{self, Button, Context, Pos2, Rect, Response, Ui, Vec2};
+use eframe::egui::{self, Context, Pos2, Rect, Response, Ui, Vec2};
 
 use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
@@ -301,14 +301,14 @@ impl Application {
                         let button_width = (total_width - spacing) / 2.0;
 
                         if ui
-                            .add_sized([button_width, 0.0], Button::new("Cancel"))
+                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
                             .clicked()
                         {
                             self.close_app.0 = false;
                         }
 
                         if ui
-                            .add_sized([button_width, 0.0], Button::new("Close"))
+                            .add_sized([button_width, 0.0], egui::Button::new("Close"))
                             .clicked()
                             || ui.input(|i| i.key_pressed(egui::Key::Enter))
                         {
@@ -431,7 +431,7 @@ impl Application {
                 let button_width = (total_width - spacing) / 2.0;
 
                 if ui
-                    .add_sized([button_width, 0.0], Button::new("Ok"))
+                    .add_sized([button_width, 0.0], egui::Button::new("Ok"))
                     .clicked()
                 {
                     app.close_modal();
@@ -488,7 +488,7 @@ impl Application {
                 let button_width = (total_width - spacing) / 2.0;
 
                 if ui
-                    .add_sized([button_width, 0.0], Button::new("Yes"))
+                    .add_sized([button_width, 0.0], egui::Button::new("Yes"))
                     .clicked()
                 {
                     on_confirm(app);
@@ -498,7 +498,7 @@ impl Application {
                     }
                 }
                 if ui
-                    .add_sized([button_width, 0.0], Button::new("No"))
+                    .add_sized([button_width, 0.0], egui::Button::new("No"))
                     .clicked()
                 {
                     on_deny(app);
@@ -573,7 +573,7 @@ impl Application {
 
                 ui.set_style(style);
 
-                let new_layout_button = ui.add_sized((128.0, 128.0), Button::new("+"));
+                let new_layout_button = ui.add_sized((128.0, 128.0), egui::Button::new("+"));
 
                 if new_layout_button.clicked() {
                     self.open_create_update_layout_modal();
@@ -1417,6 +1417,7 @@ impl Application {
             relative_position.x + window_position.x,
             relative_position.y + window_position.y,
         );
+        let scaled_size = (size.0 * scale, size.1 * scale);
         let rect = Rect::from_min_size(position, (size.0 * scale, size.1 * scale).into());
 
         let button_color = if value > 0 {
@@ -1433,7 +1434,8 @@ impl Application {
             (0.0, 0.0),
         );
 
-        let response = ui.put(rect, Button::new(label).fill(button_color));
+        let response = ui.put(rect, Button::new(scaled_size));
+        //let response = ui.put(rect, egui::Button::new(label).fill(button_color));
 
         response
     }

@@ -37,6 +37,86 @@ impl ModalManager {
     }
 }
 
+pub struct Button {
+    size: (f32, f32),
+}
+
+impl Button {
+    pub fn new(size: (f32, f32)) -> Self {
+        Self { size }
+    }
+}
+
+impl Widget for Button {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let desired_size = Vec2::from(self.size);
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+        let rect = rect - Margin::same(ui.style().spacing.item_spacing.x / 2.0);
+
+        let center = rect.center();
+        let rounding = ui.style().visuals.menu_rounding;
+        let padding = ui.style().spacing.item_spacing.x / 2.0;
+
+        let color = Color::ACCENT;
+
+        // Draw outer glow effect
+        for i in (0..4).rev() {
+            let alpha = 25 - (i * 5);
+
+            ui.painter().rect_stroke(
+                Rect::from_center_size(
+                    center,
+                    (
+                        rect.width() + padding - (i * 2) as f32,
+                        rect.height() + padding - (i * 2) as f32,
+                    )
+                        .into(),
+                ),
+                rounding - (i as f32).into(),
+                Stroke::new(
+                    1.0,
+                    Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha),
+                ),
+            );
+        }
+
+        let inner_color = if response.hovered() {
+            Color32::from_gray(30)
+        } else {
+            Color32::from_gray(20)
+        };
+
+        // Draw subtle inner rect
+        ui.painter().rect_stroke(
+            Rect::from_center_size(
+                center,
+                (rect.width() - padding * 3.0, rect.height() - padding * 3.0).into(),
+            ),
+            rounding / 4.0,
+            Stroke::new(1.0, Color32::from_gray(40)),
+        );
+
+        // Draw inner rect
+        ui.painter().rect_filled(
+            Rect::from_center_size(
+                center,
+                (rect.width() - padding * 3.0, rect.height() - padding * 3.0).into(),
+            ),
+            rounding / 4.0,
+            inner_color,
+        );
+
+        response
+    }
+}
+
 pub struct LED {
     value: (u8 /* r */, u8 /* g */, u8 /* b */),
     size: (f32, f32),
@@ -56,6 +136,8 @@ impl Widget for LED {
         if !ui.is_rect_visible(rect) {
             return response;
         }
+
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
         let painter = ui.painter();
 
@@ -359,6 +441,8 @@ impl Widget for Potentiometer {
             return response;
         }
 
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+
         self.value = ui
             .ctx()
             .animate_value_with_time(self.id.clone().into(), self.value, 0.25);
@@ -400,6 +484,8 @@ impl Widget for Joystick {
         if !ui.is_rect_visible(rect) {
             return response;
         }
+
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
         let center = rect.center();
         let radius = rect.width().min(rect.height()) * 0.5;
@@ -446,6 +532,8 @@ impl Widget for RotaryEncoder {
         if !ui.is_rect_visible(rect) {
             return response;
         }
+
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
         let center = rect.center();
         let radius = (rect.width().min(rect.height()) * 0.5) - 2.0;
@@ -543,6 +631,8 @@ impl Widget for GLCD {
             return response;
         }
 
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+
         let painter = ui.painter();
 
         let pixel_size = self.pixel_size * self.scale;
@@ -588,6 +678,10 @@ impl Widget for GLCD {
 pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32) -> Response {
     let desired_size = Vec2::splat(size);
     let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
 
     let response = response.on_hover_cursor(CursorIcon::PointingHand);
 
