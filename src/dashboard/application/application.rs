@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use eframe::egui::{self, Context, Pos2, Rect, Response, Ui, Vec2};
+use eframe::egui::{self, Context, DragValue, Pos2, Rect, Response, Ui, Vec2};
 
 use super::{get_current_style, utility::request_send_serial, widgets::*};
 use padpad_software::{
@@ -15,7 +15,7 @@ use padpad_software::{
         HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, SERIAL_MESSAGE_INNER_SEP,
         SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
-    log_error, log_print,
+    log_error,
     tcp::{client_to_server_message, ServerData},
     utility::{extract_hex_bytes, hex_bytes_string_to_vec, hex_bytes_vec_to_string},
 };
@@ -37,6 +37,9 @@ pub struct Application {
     config: Option<Config>,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
+    editing_layout: bool,
+    dragged_component_offset: (f32, f32),
+    layout_grid: (bool /* enabled/disabled */, f32 /* size */),
 
     // Visuals
     global_shadow: f32,
@@ -89,10 +92,6 @@ impl eframe::App for Application {
         // Layout
         self.draw_layout(ctx);
 
-        println!("prof name: {}", self.new_profile_name);
-        println!("prof last name: {}", self.last_profile_name);
-        println!("prof exist: {}", self.profile_exists);
-
         // Custom main window
         CentralPanel::default().show(ctx, |ui| {
             let app_rect = ui.max_rect();
@@ -139,6 +138,8 @@ impl eframe::App for Application {
                     if minimized_button.clicked() {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                     }
+
+                    ui.checkbox(&mut self.editing_layout, "Enable editing layout");
                 },
             );
 
@@ -588,19 +589,17 @@ impl Application {
     }
 
     fn draw_layout(&mut self, ctx: &Context) {
-        let mut layout: Option<&Layout> = None;
+        let mut layout_size = (0.0, 0.0);
 
         if let Some(config) = &self.config {
             if let Some(l) = &config.layout {
-                layout = Some(l);
+                layout_size = l.size;
             }
         }
 
-        let layout = if let Some(layout) = layout {
-            layout
-        } else {
+        if layout_size.0 < 1.0 || layout_size.1 < 1.0 {
             return;
-        };
+        }
 
         egui::Window::new("Layout")
             .movable(false)
@@ -609,10 +608,10 @@ impl Application {
             .title_bar(false)
             .hscroll(true)
             .vscroll(true)
-            .fixed_size((layout.size.0, layout.size.1))
+            .fixed_size((layout_size.0, layout_size.1))
             .current_pos((
-                (ctx.screen_rect().max.x - layout.size.0) / 2.0,
-                (ctx.screen_rect().max.y - layout.size.1) / 2.0,
+                (ctx.screen_rect().max.x - layout_size.0) / 2.0,
+                (ctx.screen_rect().max.y - layout_size.1) / 2.0,
             ))
             .frame(egui::Frame {
                 fill: Color::OVERLAY0,
@@ -626,13 +625,26 @@ impl Application {
                 ..egui::Frame::default()
             })
             .show(ctx, |ui| {
+                let layout = if let Some(config) = &mut self.config {
+                    match &mut config.layout {
+                        Some(l) => l,
+                        None => {
+                            return;
+                        }
+                    }
+                } else {
+                    return;
+                };
+
                 if layout.components.is_empty() {
                     ui.label("You haven't add any components yet!");
 
                     return;
                 }
 
-                for component in &layout.components {
+                for component in layout.components.clone() {
+                    let mut response = None;
+
                     let kind_id: Vec<&str> = component.0.split(':').collect();
 
                     let kind = match kind_id.first() {
@@ -644,34 +656,37 @@ impl Application {
                         Some(&"Display") => ComponentKind::Display,
                         _ => ComponentKind::None,
                     };
-                    let id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+                    let _id = kind_id.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
                     let value = match self.components.get(&component.0.to_string()) {
                         Some(v) => String::from(v),
                         None => String::new(),
                     };
                     let label = &component.1.label;
                     let position: Pos2 = component.1.position.into();
+                    let mut size = (0.0, 0.0);
                     let scale = component.1.scale;
                     let style = component.1.style;
 
                     match kind {
                         ComponentKind::None => (),
                         ComponentKind::Button => {
+                            size = self.component_button_size;
+
                             let button = self.draw_button(
                                 ui,
                                 label,
                                 position,
-                                self.component_button_size.into(),
+                                size,
                                 scale,
                                 value.parse::<i8>().unwrap_or(0),
                             );
 
-                            if button.clicked() {
-                                log_print!("{}: {}", label, id);
-                            };
+                            response = Some(button);
                         }
                         ComponentKind::LED => {
-                            self.draw_led(ui, label, position, self.component_led_size, scale, {
+                            size = self.component_led_size;
+
+                            let led = self.draw_led(ui, label, position, size, scale, {
                                 // TODO: Actually return a value!
                                 let r = 255;
                                 let g = 0;
@@ -679,25 +694,28 @@ impl Application {
 
                                 (r, g, b)
                             });
+
+                            response = Some(led);
                         }
                         ComponentKind::Potentiometer => {
-                            self.draw_potentiometer(
+                            size = self.component_potentiometer_size;
+
+                            let potentiometer = self.draw_potentiometer(
                                 ui,
                                 label,
                                 position,
-                                self.component_potentiometer_size.into(),
+                                size,
                                 scale,
                                 value.parse::<u8>().unwrap_or(0),
                                 style,
                             );
+
+                            response = Some(potentiometer);
                         }
-                        ComponentKind::Joystick => self.draw_joystick(
-                            ui,
-                            label,
-                            position,
-                            self.component_joystick_size,
-                            scale,
-                            {
+                        ComponentKind::Joystick => {
+                            size = self.component_joystick_size;
+
+                            let joystick = self.draw_joystick(ui, label, position, size, scale, {
                                 match value.split_once(SERIAL_MESSAGE_INNER_SEP) {
                                     Some((value_x, value_y)) => (
                                         value_x.parse::<f32>().unwrap_or(0.0),
@@ -705,30 +723,111 @@ impl Application {
                                     ),
                                     None => (0.0, 0.0),
                                 }
-                            },
-                        ),
-                        ComponentKind::RotaryEncoder => self.draw_rotary_encoder(
-                            ui,
-                            label,
-                            position,
-                            self.component_rotary_encoder_size.into(),
-                            scale,
-                        ),
-                        ComponentKind::Display => self.draw_display(
-                            ui,
-                            position,
-                            (
-                                self.component_display_size.0 as usize,
-                                self.component_display_size.1 as usize,
-                            ),
-                            scale,
-                            {
-                                match hex_bytes_string_to_vec(&label) {
-                                    Ok(bytes) => bytes,
-                                    Err(_) => vec![],
+                            });
+
+                            response = Some(joystick);
+                        }
+                        ComponentKind::RotaryEncoder => {
+                            size = self.component_rotary_encoder_size;
+
+                            let rotary_encoder =
+                                self.draw_rotary_encoder(ui, label, position, size, scale);
+
+                            response = Some(rotary_encoder);
+                        }
+                        ComponentKind::Display => {
+                            size = (
+                                self.component_display_size.0 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                                self.component_display_size.1 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                            );
+
+                            let display = self.draw_display(
+                                ui,
+                                position,
+                                (
+                                    (size.0 / DASHBOARD_DISAPLY_PIXEL_SIZE) as usize,
+                                    (size.1 / DASHBOARD_DISAPLY_PIXEL_SIZE) as usize,
+                                ),
+                                scale,
+                                {
+                                    match hex_bytes_string_to_vec(&label) {
+                                        Ok(bytes) => bytes,
+                                        Err(_) => vec![],
+                                    }
+                                },
+                            );
+
+                            response = Some(display);
+                        }
+                    }
+
+                    if !self.editing_layout {
+                        continue;
+                    }
+
+                    let response = if let Some(r) = response {
+                        r
+                    } else {
+                        continue;
+                    };
+
+                    if response.drag_started() {
+                        let mouse_pos = if let Some(mouse) = ui.input(|i| i.pointer.latest_pos()) {
+                            mouse
+                        } else {
+                            continue;
+                        };
+
+                        self.dragged_component_offset =
+                            ((mouse_pos.x - position.x), (mouse_pos.y - position.y));
+                    }
+
+                    if !response.dragged() {
+                        continue;
+                    }
+
+                    let mouse_pos = if let Some(mouse) = ui.input(|i| i.pointer.latest_pos()) {
+                        mouse
+                    } else {
+                        continue;
+                    };
+
+                    if let Some(config) = &mut self.config {
+                        let mut new_position = (
+                            mouse_pos.x - self.dragged_component_offset.0,
+                            mouse_pos.y - self.dragged_component_offset.1,
+                        );
+
+                        // Prevent components from getting outside of the layout borders
+                        if new_position.0 < 0.0 {
+                            new_position.0 = 0.0;
+                        }
+                        if new_position.1 < 0.0 {
+                            new_position.1 = 0.0;
+                        }
+                        if new_position.0 + (size.0 * scale) > layout_size.0 {
+                            new_position.0 = layout_size.0 - (size.0 * scale);
+                        }
+                        if new_position.1 + (size.1 * scale) > layout_size.1 {
+                            new_position.1 = layout_size.1 - (size.1 * scale);
+                        }
+
+                        // Apply grid snapping
+                        if self.layout_grid.0 {
+                            let grid_size = self.layout_grid.1;
+
+                            new_position.0 = (new_position.0 / grid_size).round() * grid_size;
+                            new_position.1 = (new_position.1 / grid_size).round() * grid_size;
+                        }
+
+                        match &mut config.layout {
+                            Some(l) => {
+                                if let Some(c) = l.components.get_mut(&component.0) {
+                                    c.position = new_position;
                                 }
-                            },
-                        ),
+                            }
+                            None => continue,
+                        }
                     }
                 }
             });
@@ -1429,7 +1528,7 @@ impl Application {
     }
 
     fn draw_button(
-        &self,
+        &mut self,
         ui: &mut Ui,
         _label: &String,
         relative_position: Pos2, /* relative to window position */
@@ -1453,10 +1552,7 @@ impl Application {
             (0.0, 0.0),
         );
 
-        let response = ui.put(rect, Button::new(scaled_size));
-        //let response = ui.put(rect, egui::Button::new(label).fill(button_color));
-
-        response
+        ui.put(rect, Button::new(scaled_size))
     }
 
     fn draw_led(
@@ -1467,7 +1563,7 @@ impl Application {
         size: (f32, f32),
         scale: f32,
         value: (u8, u8, u8),
-    ) {
+    ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
@@ -1487,7 +1583,7 @@ impl Application {
             (0.0, 0.0),
         );
 
-        ui.put(rect, LED::new(value, scaled_size));
+        ui.put(rect, LED::new(value, scaled_size))
     }
 
     fn draw_potentiometer(
@@ -1499,7 +1595,7 @@ impl Application {
         scale: f32,
         value: u8,
         style: u8,
-    ) {
+    ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
@@ -1526,7 +1622,7 @@ impl Application {
                 scaled_size,
             )
             .style(style),
-        );
+        )
     }
 
     fn draw_joystick(
@@ -1537,7 +1633,7 @@ impl Application {
         size: (f32, f32),
         scale: f32,
         value: (f32, f32),
-    ) {
+    ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
@@ -1554,7 +1650,7 @@ impl Application {
             (0.0, 0.0),
         );
 
-        ui.put(rect, Joystick::new(value, scaled_size));
+        ui.put(rect, Joystick::new(value, scaled_size))
     }
 
     fn draw_rotary_encoder(
@@ -1564,7 +1660,7 @@ impl Application {
         relative_position: Pos2, /* relative to window position */
         size: (f32, f32),
         scale: f32,
-    ) {
+    ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
@@ -1581,7 +1677,7 @@ impl Application {
             (0.0, 0.0),
         );
 
-        ui.put(rect, RotaryEncoder::new(scaled_size));
+        ui.put(rect, RotaryEncoder::new(scaled_size))
     }
 
     fn draw_display(
@@ -1591,7 +1687,7 @@ impl Application {
         size: (usize, usize),
         scale: f32,
         value: Vec<u8>,
-    ) {
+    ) -> Response {
         let window_position = ui.min_rect().min;
         let position = egui::pos2(
             relative_position.x + window_position.x,
@@ -1629,7 +1725,7 @@ impl Application {
                 ), // Center icon
             )
             .scale(scale),
-        );
+        )
     }
 
     fn detect_components(&mut self) -> Result<String, String> {
@@ -1873,9 +1969,14 @@ impl Application {
 
                     ui.separator();
 
-                    if ui.button("Save layout").clicked() {
-                        self.save_current_layout();
-                    }
+                    ui.horizontal(|ui| {
+                        if ui.button("Save layout").clicked() {
+                            self.save_current_layout();
+                        }
+
+                        ui.checkbox(&mut self.layout_grid.0, "Snap to grid")
+                            .context_menu(|ui| self.open_grid_context_menu(ui));
+                    });
                 });
 
                 let xbm_data = vec![
@@ -2560,6 +2661,33 @@ impl Application {
             });
         });
     }
+
+    fn open_grid_context_menu(&mut self, ui: &mut Ui) {
+        ui.set_max_width(128.0);
+
+        let mut layout_size = (0.0, 0.0);
+
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                layout_size = layout.size;
+            }
+        };
+
+        let max_range = (layout_size.0.min(layout_size.1)) / 8.0; // To avoid snapping to outside
+                                                                  // of layout border
+        let min_range = if max_range < 2.0 { 1.0 } else { 2.0 };
+
+        ui.label("Grid settings");
+
+        ui.separator();
+
+        ui.add(
+            DragValue::new(&mut self.layout_grid.1)
+                .speed(2.0)
+                .range(min_range..=max_range)
+                .clamp_existing_to_range(true),
+        );
+    }
 }
 
 impl Default for Application {
@@ -2654,6 +2782,9 @@ impl Default for Application {
             },
             server_data: ServerData::default(),
             components: HashMap::default(),
+            editing_layout: false,
+            dragged_component_offset: (0.0, 0.0),
+            layout_grid: (true, 10.0),
 
             // Visuals
             global_shadow: 8.0,
