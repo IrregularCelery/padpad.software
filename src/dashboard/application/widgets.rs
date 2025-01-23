@@ -131,7 +131,7 @@ impl LED {
 impl Widget for LED {
     fn ui(self, ui: &mut Ui) -> Response {
         let desired_size = Vec2::from(self.size);
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
         if !ui.is_rect_visible(rect) {
             return response;
@@ -439,7 +439,7 @@ impl Potentiometer {
 impl Widget for Potentiometer {
     fn ui(mut self, ui: &mut Ui) -> Response {
         let desired_size = self.size.into();
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
         if !ui.is_rect_visible(rect) {
             return response;
@@ -485,7 +485,7 @@ impl Joystick {
 impl Widget for Joystick {
     fn ui(self, ui: &mut Ui) -> Response {
         let desired_size = Vec2::from(self.size);
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
         if !ui.is_rect_visible(rect) {
             return response;
@@ -539,7 +539,7 @@ impl RotaryEncoder {
 impl Widget for RotaryEncoder {
     fn ui(self, ui: &mut Ui) -> Response {
         let desired_size = self.size.into();
-        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
         if !ui.is_rect_visible(rect) {
             return response;
@@ -642,7 +642,7 @@ impl Widget for GLCD {
         let glcd_height = self.glcd_size.1 as f32 * self.pixel_size * self.scale;
 
         let (rect, response) =
-            ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::hover());
+            ui.allocate_exact_size(Vec2::new(glcd_width, glcd_height), Sense::click_and_drag());
 
         if !ui.is_rect_visible(rect) {
             return response;
