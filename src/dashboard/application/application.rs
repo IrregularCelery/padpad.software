@@ -1365,6 +1365,18 @@ impl Application {
         }
     }
 
+    fn delete_component(&mut self, component_global_id: String) {
+        if let Some(config) = &mut self.config {
+            if let Some(layout) = &mut config.layout {
+                layout.components.remove(&component_global_id);
+            }
+
+            for profile in &mut config.profiles {
+                profile.interactions.remove(&component_global_id);
+            }
+        }
+    }
+
     fn create_update_profile(&mut self, name: String) -> bool {
         if let Some(config) = &mut self.config {
             let is_updating = !self.last_profile_name.is_empty();
@@ -2710,14 +2722,24 @@ impl Application {
             });
 
             let mut current_profile_name = String::new();
-            let mut interactions = None;
+            let mut current_interactions = None;
+            let (kind_string, _id_string) = component_global_id
+                .split_once(SERIAL_MESSAGE_SEP)
+                .unwrap_or(("", ""));
+
+            let mut modkey_interaction = false;
+
+            // For now, only `Buttons` can have two interactions
+            if kind_string == "Button" {
+                modkey_interaction = true;
+            }
 
             if let Some(config) = &app.config {
                 let current_profile = &config.profiles[config.settings.current_profile];
 
                 current_profile_name = current_profile.name.clone();
 
-                interactions = current_profile.interactions.get(&component_global_id);
+                current_interactions = current_profile.interactions.get(&component_global_id);
             }
 
             ui.horizontal_wrapped(|ui| {
@@ -2732,7 +2754,7 @@ impl Application {
                 ui.label(egui::RichText::new(current_profile_name).color(egui::Color32::GRAY));
             });
 
-            if interactions.is_none() {
+            if current_interactions.is_none() {
                 ui.vertical_centered_justified(|ui| {
                     ui.label("Loading interactions...");
                 });
@@ -2740,7 +2762,7 @@ impl Application {
                 return;
             }
 
-            if let Some(i) = interactions {
+            if let Some(i) = current_interactions {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Normal: ");
                     ui.label(
@@ -2749,13 +2771,17 @@ impl Application {
                 });
             }
 
-            if let Some(i) = interactions {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("Modkey: ");
-                    ui.label(
-                        egui::RichText::new(format!("{:?}", i.modkey)).color(egui::Color32::GRAY),
-                    );
-                });
+            // Check if this component supports modkey interaction
+            if modkey_interaction {
+                if let Some(i) = current_interactions {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Modkey: ");
+                        ui.label(
+                            egui::RichText::new(format!("{:?}", i.modkey))
+                                .color(egui::Color32::GRAY),
+                        );
+                    });
+                }
             }
 
             if ui.button("Add test interactions").clicked() {
@@ -2776,6 +2802,11 @@ impl Application {
                         );
                     });
                 }
+            }
+
+            if ui.button("Delete this component").clicked() {
+                app.delete_component(component_global_id.clone());
+                app.close_modal();
             }
         });
     }
