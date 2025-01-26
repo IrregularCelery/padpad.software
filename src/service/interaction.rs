@@ -13,7 +13,7 @@ use crate::{
     tcp,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InteractionKind {
     None(), /* Can be used for interactions that are handled by the device, or no interactions */
     Command(String /* command */, String /* shell */),

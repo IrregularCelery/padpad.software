@@ -41,8 +41,8 @@ pub struct Application {
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
-    layout_backup_components: HashMap<String, Component>, // For storing current layout components while editing
-
+    /// For storing current components state while editing
+    components_backup: (HashMap<String, Component>, HashMap<String, Interaction>),
     // Visuals
     global_shadow: f32,
 
@@ -150,14 +150,18 @@ impl eframe::App for Application {
 
                             if let Some(config) = &self.config {
                                 if let Some(layout) = &config.layout {
-                                    self.layout_backup_components = layout.components.clone();
+                                    self.components_backup = (
+                                        layout.components.clone(),
+                                        config.profiles[config.settings.current_profile]
+                                            .interactions
+                                            .clone(),
+                                    );
                                 }
                             }
                         } else {
                             // Stopped editing layout
 
-                            if !self.layout_backup_components.is_empty() {
-                                // TODO: Check if the current layout was actually edited
+                            if self.components_changed() {
                                 self.show_yes_no_modal(
                                     "layout-edited",
                                     "Edited Layout".to_string(),
@@ -176,12 +180,25 @@ impl eframe::App for Application {
                                         )
                                     },
                                     |app| {
+                                        if let Some(config) = &mut app.config {
+                                            if let Some(layout) = &mut config.layout {
+                                                layout.components = app.components_backup.0.clone();
+                                            }
+
+                                            config.profiles[config.settings.current_profile]
+                                                .interactions = app.components_backup.1.clone();
+                                        }
+
+                                        app.components_backup = Default::default();
+
                                         app.close_modal();
                                     },
                                     false,
                                 );
 
-                                self.layout_backup_components = Default::default();
+                                self.set_can_close_modal(false);
+                            } else {
+                                self.components_backup = Default::default();
                             }
                         }
                     }
@@ -304,7 +321,7 @@ impl Application {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
                 // Check if there's unsaved layout
-                if !self.layout_backup_components.is_empty() {
+                if self.components_changed() {
                     self.show_message_modal(
                         "layout-unsaved-exit-popup",
                         "Unsaved Layout".to_string(),
@@ -427,7 +444,7 @@ impl Application {
                     (modal.content)(ui, self);
                 });
 
-            if modal_ui.should_close() {
+            if modal_ui.should_close() && modal.can_close {
                 close_indices.push(index);
             }
         }
@@ -450,8 +467,18 @@ impl Application {
             if !modal.contains_modal(id) {
                 modal.stack.push(Modal {
                     id,
+                    can_close: true,
                     content: Arc::new(content),
                 });
+            }
+        }
+    }
+
+    /// Set the `can_close` field for the last modal in stack
+    fn set_can_close_modal(&mut self, can_close: bool) {
+        if let Ok(mut modal) = self.modal.lock() {
+            if let Some(last_modal) = modal.stack.last_mut() {
+                last_modal.can_close = can_close;
             }
         }
     }
@@ -920,7 +947,7 @@ impl Application {
             update_config_and_server(config, |_| {});
 
             self.editing_layout = false;
-            self.layout_backup_components = Default::default();
+            self.components_backup = Default::default();
         } else {
             self.show_message_modal(
                 "layout-save-elements-no-config",
@@ -1375,6 +1402,28 @@ impl Application {
                 profile.interactions.remove(&component_global_id);
             }
         }
+    }
+
+    fn components_changed(&self) -> bool {
+        if self.components_backup.0.is_empty() || self.components_backup.1.is_empty() {
+            return false;
+        }
+
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                if self.components_backup.0 != layout.components {
+                    return true;
+                }
+            }
+
+            if self.components_backup.1
+                != config.profiles[config.settings.current_profile].interactions
+            {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn create_update_profile(&mut self, name: String) -> bool {
@@ -2999,7 +3048,7 @@ impl Default for Application {
             editing_layout: false,
             dragged_component_offset: (0.0, 0.0),
             layout_grid: (true, 10.0),
-            layout_backup_components: Default::default(),
+            components_backup: Default::default(),
 
             // Visuals
             global_shadow: 8.0,

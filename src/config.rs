@@ -61,13 +61,13 @@ pub struct Layout {
     pub size: (f32 /* width */, f32 /* height */),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Interaction {
     pub normal: InteractionKind,
     pub modkey: InteractionKind,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Component {
     pub label: String,
     pub position: (f32 /* x */, f32 /* y */),
@@ -75,7 +75,7 @@ pub struct Component {
     pub style: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ComponentKind {
     None,
     Button,

@@ -18,6 +18,7 @@ pub struct ModalManager {
 #[derive(Clone)]
 pub struct Modal {
     pub id: &'static str,
+    pub can_close: bool,
     pub content: std::sync::Arc<dyn Fn(&mut Ui, &mut super::Application) + Send + Sync + 'static>,
 }
 
