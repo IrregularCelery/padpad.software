@@ -2871,8 +2871,9 @@ impl Application {
 
             if ui.button("Add test interactions").clicked() {
                 if let Some(config) = &mut app.config {
-                    update_config_and_server(config, |c| {
-                        c.profiles[c.settings.current_profile].interactions.insert(
+                    config.profiles[config.settings.current_profile]
+                        .interactions
+                        .insert(
                             component_global_id.clone(),
                             Interaction {
                                 normal: InteractionKind::Command(
@@ -2885,7 +2886,6 @@ impl Application {
                                 ),
                             },
                         );
-                    });
                 }
             }
 
