@@ -40,6 +40,7 @@ pub struct Application {
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
+    layout_backup_components: HashMap<String, Component>, // For storing current layout components while editing
 
     // Visuals
     global_shadow: f32,
@@ -139,7 +140,50 @@ impl eframe::App for Application {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                     }
 
-                    ui.checkbox(&mut self.editing_layout, "Enable editing layout");
+                    let editing_layout_response =
+                        ui.checkbox(&mut self.editing_layout, "Enable editing layout");
+
+                    if editing_layout_response.clicked() {
+                        if self.editing_layout {
+                            // Started editing layout
+
+                            if let Some(config) = &self.config {
+                                if let Some(layout) = &config.layout {
+                                    self.layout_backup_components = layout.components.clone();
+                                }
+                            }
+                        } else {
+                            // Stopped editing layout
+
+                            if !self.layout_backup_components.is_empty() {
+                                // TODO: Check if the current layout was actually edited
+                                self.show_yes_no_modal(
+                                    "layout-edited",
+                                    "Edited Layout".to_string(),
+                                    "You have changed your current layout, Do you want to save it?"
+                                        .to_string(),
+                                    |app| {
+                                        app.close_modal();
+
+                                        app.save_current_layout();
+
+                                        app.show_message_modal(
+                                            "layout-saved-successfully",
+                                            "Success".to_string(),
+                                            "Your current layout was saved successfully!"
+                                                .to_string(),
+                                        )
+                                    },
+                                    |app| {
+                                        app.close_modal();
+                                    },
+                                    false,
+                                );
+
+                                self.layout_backup_components = Default::default();
+                            }
+                        }
+                    }
                 },
             );
 
@@ -257,6 +301,8 @@ impl Application {
             if !self.close_app.1 {
                 // Cancel closing the app if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+
+                // Check if there's unsaved layout
 
                 // show_close_popup
                 self.close_app.0 = true;
@@ -622,6 +668,16 @@ impl Application {
                     spread: 2.0,
                     color: Color::OVERLAY1.gamma_multiply(0.5),
                 },
+                stroke: {
+                    if self.editing_layout {
+                        egui::Stroke {
+                            width: 2.0,
+                            color: Color::RED,
+                        }
+                    } else {
+                        egui::Stroke::default()
+                    }
+                },
                 ..egui::Frame::default()
             })
             .show(ctx, |ui| {
@@ -846,6 +902,16 @@ impl Application {
             }
 
             update_config_and_server(config, |_| {});
+
+            self.editing_layout = false;
+        } else {
+            self.show_message_modal(
+                "layout-save-elements-no-config",
+                "Error".to_string(),
+                "There was a problem was saving your layout to config!".to_string(),
+            );
+
+            return;
         }
     }
 
@@ -2785,6 +2851,7 @@ impl Default for Application {
             editing_layout: false,
             dragged_component_offset: (0.0, 0.0),
             layout_grid: (true, 10.0),
+            layout_backup_components: Default::default(),
 
             // Visuals
             global_shadow: 8.0,
