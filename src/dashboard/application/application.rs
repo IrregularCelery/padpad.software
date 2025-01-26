@@ -839,7 +839,7 @@ impl Application {
                     };
 
                     // Open the interactions modal
-                    if response.double_clicked() {
+                    if response.clicked() {
                         self.open_component_interactions_modal(component.0.clone());
                     }
 
@@ -1891,8 +1891,10 @@ impl Application {
 
             index += 1;
 
-            let component_global_id = format!("{}:{}", ComponentKind::Button, potentiometer_id);
-            let potentiometer_name = format!("{} {}", ComponentKind::Button, potentiometer_id);
+            let component_global_id =
+                format!("{}:{}", ComponentKind::Potentiometer, potentiometer_id);
+            let potentiometer_name =
+                format!("{} {}", ComponentKind::Potentiometer, potentiometer_id);
 
             let layout_potentiometer = Component::new_potentiometer(
                 potentiometer_id,
