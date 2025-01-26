@@ -141,66 +141,18 @@ impl eframe::App for Application {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                     }
 
-                    let editing_layout_response =
-                        ui.checkbox(&mut self.editing_layout, "Enable editing layout");
-
-                    if editing_layout_response.clicked() {
-                        if self.editing_layout {
-                            // Started editing layout
-
-                            if let Some(config) = &self.config {
-                                if let Some(layout) = &config.layout {
-                                    self.components_backup = (
-                                        layout.components.clone(),
-                                        config.profiles[config.settings.current_profile]
-                                            .interactions
-                                            .clone(),
-                                    );
-                                }
-                            }
-                        } else {
-                            // Stopped editing layout
-
-                            if self.components_changed() {
-                                self.show_yes_no_modal(
-                                    "layout-edited",
-                                    "Edited Layout".to_string(),
-                                    "You have changed your current layout, Do you want to save it?"
-                                        .to_string(),
-                                    |app| {
-                                        app.close_modal();
-
-                                        app.save_current_layout();
-
-                                        app.show_message_modal(
-                                            "layout-saved-successfully",
-                                            "Success".to_string(),
-                                            "Your current layout was saved successfully!"
-                                                .to_string(),
-                                        )
-                                    },
-                                    |app| {
-                                        if let Some(config) = &mut app.config {
-                                            if let Some(layout) = &mut config.layout {
-                                                layout.components = app.components_backup.0.clone();
-                                            }
-
-                                            config.profiles[config.settings.current_profile]
-                                                .interactions = app.components_backup.1.clone();
-                                        }
-
-                                        app.components_backup = Default::default();
-
-                                        app.close_modal();
-                                    },
-                                    false,
-                                );
-
-                                self.set_can_close_modal(false);
+                    if ui
+                        .button(format!(
+                            "{} editing layout",
+                            if self.editing_layout {
+                                "Disable"
                             } else {
-                                self.components_backup = Default::default();
+                                "Enable"
                             }
-                        }
+                        ))
+                        .clicked()
+                    {
+                        self.toggle_layout_state();
                     }
                 },
             );
@@ -959,7 +911,71 @@ impl Application {
         }
     }
 
+    /// Toggle layout state between editing and viewing
+    fn toggle_layout_state(&mut self) {
+        self.editing_layout = !self.editing_layout;
+
+        if self.editing_layout {
+            // Started editing layout
+
+            if let Some(config) = &self.config {
+                if let Some(layout) = &config.layout {
+                    self.components_backup = (
+                        layout.components.clone(),
+                        config.profiles[config.settings.current_profile]
+                            .interactions
+                            .clone(),
+                    );
+                }
+            }
+        } else {
+            // Stopped editing layout
+
+            if self.components_changed() {
+                self.show_yes_no_modal(
+                    "layout-edited",
+                    "Edited Layout".to_string(),
+                    "You have changed your current layout, Do you want to save it?".to_string(),
+                    |app| {
+                        app.close_modal();
+
+                        app.save_current_layout();
+
+                        app.show_message_modal(
+                            "layout-saved-successfully",
+                            "Success".to_string(),
+                            "Your current layout was saved successfully!".to_string(),
+                        )
+                    },
+                    |app| {
+                        if let Some(config) = &mut app.config {
+                            if let Some(layout) = &mut config.layout {
+                                layout.components = app.components_backup.0.clone();
+                            }
+
+                            config.profiles[config.settings.current_profile].interactions =
+                                app.components_backup.1.clone();
+                        }
+
+                        app.components_backup = Default::default();
+
+                        app.close_modal();
+                    },
+                    false,
+                );
+
+                self.set_can_close_modal(false);
+            } else {
+                self.components_backup = Default::default();
+            }
+        }
+    }
+
     fn add_button_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
@@ -1031,6 +1047,10 @@ impl Application {
     }
 
     fn add_led_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
@@ -1102,6 +1122,10 @@ impl Application {
     }
 
     fn add_potentiometer_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
@@ -1173,6 +1197,10 @@ impl Application {
     }
 
     fn add_joystick_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
@@ -1244,6 +1272,10 @@ impl Application {
     }
 
     fn add_rotary_encoder_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
@@ -1315,6 +1347,10 @@ impl Application {
     }
 
     fn add_display_to_layout(&mut self) {
+        if !self.editing_layout {
+            self.toggle_layout_state();
+        }
+
         if let Some(config) = &mut self.config {
             if config.layout.is_none() {
                 self.show_message_modal(
