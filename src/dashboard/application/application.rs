@@ -303,6 +303,17 @@ impl Application {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
                 // Check if there's unsaved layout
+                if !self.layout_backup_components.is_empty() {
+                    self.show_message_modal(
+                        "layout-unsaved-exit-popup",
+                        "Unsaved Layout".to_string(),
+                        "You currently have unsaved layout.\n\
+                        Please save before closing the application."
+                            .to_string(),
+                    );
+
+                    return;
+                }
 
                 // show_close_popup
                 self.close_app.0 = true;
@@ -904,6 +915,7 @@ impl Application {
             update_config_and_server(config, |_| {});
 
             self.editing_layout = false;
+            self.layout_backup_components = Default::default();
         } else {
             self.show_message_modal(
                 "layout-save-elements-no-config",
