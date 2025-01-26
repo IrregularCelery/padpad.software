@@ -363,17 +363,16 @@ impl Application {
                         let total_width = ui.available_width();
                         let button_width = (total_width - spacing) / 2.0;
 
-                        if ui
-                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
-                            .clicked()
-                        {
+                        let cancel_button_response =
+                            ui.add_sized([button_width, 0.0], egui::Button::new("Cancel"));
+
+                        if cancel_button_response.clicked() {
                             self.close_app.0 = false;
                         }
 
                         if ui
                             .add_sized([button_width, 0.0], egui::Button::new("Close"))
                             .clicked()
-                            || ui.input(|i| i.key_pressed(egui::Key::Enter))
                         {
                             self.close_app.0 = false;
                             self.close_app.1 = true;
