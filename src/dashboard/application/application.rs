@@ -16,6 +16,7 @@ use padpad_software::{
         SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
+    service::interaction::InteractionKind,
     tcp::{client_to_server_message, ServerData},
     utility::{extract_hex_bytes, hex_bytes_string_to_vec, hex_bytes_vec_to_string},
 };
@@ -836,6 +837,11 @@ impl Application {
                     } else {
                         continue;
                     };
+
+                    // Open the interactions modal
+                    if response.double_clicked() {
+                        self.open_component_interactions_modal(component.0.clone());
+                    }
 
                     if response.drag_started() {
                         let mouse_pos = if let Some(mouse) = ui.input(|i| i.pointer.latest_pos()) {
@@ -2672,6 +2678,104 @@ impl Application {
             },
             false,
         );
+    }
+
+    fn open_component_interactions_modal(&mut self, component_global_id: String) {
+        self.show_custom_modal("component-interactions-modal", move |ui, app| {
+            ui.set_width(500.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Interactions");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            let mut current_profile_name = String::new();
+            let mut interactions = None;
+
+            if let Some(config) = &app.config {
+                let current_profile = &config.profiles[config.settings.current_profile];
+
+                current_profile_name = current_profile.name.clone();
+
+                interactions = current_profile.interactions.get(&component_global_id);
+            }
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Component: ");
+                ui.label(
+                    egui::RichText::new(component_global_id.clone()).color(egui::Color32::GRAY),
+                );
+            });
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Profile: ");
+                ui.label(egui::RichText::new(current_profile_name).color(egui::Color32::GRAY));
+            });
+
+            if interactions.is_none() {
+                ui.vertical_centered_justified(|ui| {
+                    ui.label("Loading interactions...");
+                });
+
+                return;
+            }
+
+            if let Some(i) = interactions {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Normal: ");
+                    ui.label(
+                        egui::RichText::new(format!("{:?}", i.normal)).color(egui::Color32::GRAY),
+                    );
+                });
+            }
+
+            if let Some(i) = interactions {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Modkey: ");
+                    ui.label(
+                        egui::RichText::new(format!("{:?}", i.modkey)).color(egui::Color32::GRAY),
+                    );
+                });
+            }
+
+            if ui.button("Add test interactions").clicked() {
+                if let Some(config) = &mut app.config {
+                    update_config_and_server(config, |c| {
+                        c.profiles[c.settings.current_profile].interactions.insert(
+                            component_global_id.clone(),
+                            Interaction {
+                                normal: InteractionKind::Command(
+                                    "echo \"Hello World!\"".to_string(),
+                                    "sh".to_string(),
+                                ),
+                                modkey: InteractionKind::Shortcut(
+                                    vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
+                                    String::new(),
+                                ),
+                            },
+                        );
+                    });
+                }
+            }
+        });
     }
 
     // Context menus
