@@ -174,10 +174,8 @@ pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
     //    return;
     //}
 
-    let interactions = get_component_interactions(component_global_id).unwrap_or(Interaction {
-        normal: InteractionKind::None(),
-        modkey: InteractionKind::None(),
-    });
+    let interactions =
+        get_component_interactions(component_global_id).unwrap_or(Interaction::default());
 
     let interaction = if !modkey {
         &interactions.normal
