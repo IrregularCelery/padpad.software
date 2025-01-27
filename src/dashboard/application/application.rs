@@ -2759,6 +2759,9 @@ impl Application {
             |app| {
                 app.close_modal();
 
+                app.editing_layout = false;
+                app.components_backup = Default::default();
+
                 match app.detect_components() {
                     Ok(message) => app.show_message_modal(
                         "auto-detected-components-ok",
