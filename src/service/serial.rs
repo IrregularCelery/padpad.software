@@ -65,6 +65,12 @@ impl Serial {
             }
         }
 
+        if config.settings.device_name.is_empty() {
+            log_error!("`device_name` is empty in the config file!");
+
+            return false;
+        }
+
         if port_not_found {
             log_info!(
                 "Trying to find the device by name `{}`...",

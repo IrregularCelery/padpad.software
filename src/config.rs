@@ -161,7 +161,7 @@ impl Default for Interaction {
 impl Config {
     pub fn load(&mut self) {
         *self = match self.read() {
-            Ok(config) => config,
+            Ok(mut config) => config.test_config().clone(),
             Err(err) => {
                 log_error!("Error reading config file: {}", err);
 

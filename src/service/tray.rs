@@ -1,6 +1,6 @@
 use tray_item::{IconSource, TrayItem};
 
-use crate::config::CONFIG;
+use crate::config::{update_config_and_client, CONFIG};
 
 pub fn handle_tray_thread() {
     #[cfg(target_os = "linux")]
@@ -25,6 +25,9 @@ pub fn handle_tray_thread() {
             .unwrap();
 
         config.load();
+
+        // Reload client as well
+        update_config_and_client(&mut config, |_| {});
     })
     .unwrap();
 
