@@ -13,6 +13,7 @@ use crate::{
         TCP_BUFFER_SIZE, TCP_READ_TIMEOUT, TCP_SERVER_ADDR,
     },
     log_error, log_info, log_print,
+    utility::restart,
 };
 
 pub static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
@@ -159,6 +160,11 @@ fn server_to_client_message(client_stream: &mut TcpStream, message: &str) {
         .unwrap_or((&message, ""));
 
     match key {
+        "restart" => {
+            restart();
+
+            response = Some("ok".to_string());
+        }
         "reload_config" => {
             let mut config = CONFIG
                 .get()
