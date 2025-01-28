@@ -22,7 +22,7 @@ use crate::{
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(skip)]
     file_path: String,
@@ -32,7 +32,7 @@ pub struct Config {
     pub layout: Option<Layout>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     // General
     pub current_profile: usize,
@@ -54,7 +54,7 @@ pub struct Profile {
     >,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layout {
     pub name: String,
     pub components: HashMap<String /* key format: kind:id e.g. Button:1 */, Component>,
@@ -251,6 +251,21 @@ impl Config {
         Ok(file)
     }
 
+    /// Check if something illegal has been set in the config file
+    /// E.g. `current_profile` is higher than the number of profiles
+    pub fn test_config(&mut self) -> &mut Self {
+        if self.settings.current_profile > self.profiles.len() {
+            log_error!(
+                "Invalid `current_profile` detected, defaulting to `{}` profile...",
+                DASHBOARD_DEVICE_INTERNAL_PROFILE
+            );
+
+            self.settings.current_profile = 0;
+        }
+
+        self
+    }
+
     pub fn does_profile_exist(&self, profile_name: &String) -> bool {
         for profile in &self.profiles {
             if profile.name == *profile_name {
@@ -374,8 +389,12 @@ impl Component {
 
 pub fn init() -> bool {
     match Config::default().read() {
-        Ok(config) => {
-            CONFIG.get_or_init(|| Mutex::new(config));
+        Ok(mut config) => {
+            let corrected_config = config.test_config();
+
+            update_config_and_client(corrected_config, |_| {});
+
+            CONFIG.get_or_init(|| Mutex::new(corrected_config.clone()));
         }
         Err(err) => {
             log_error!("Error reading config file: {}", err);

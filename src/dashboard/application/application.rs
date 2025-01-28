@@ -3075,7 +3075,13 @@ impl Default for Application {
             unavoidable_error: (false, String::new()),
             modal: Arc::new(Mutex::new(ModalManager::new())),
             config: match Config::default().read() {
-                Ok(config) => Some(config),
+                Ok(mut config) => {
+                    let corrected_config = config.test_config();
+
+                    update_config_and_server(corrected_config, |_| {});
+
+                    Some(corrected_config.clone())
+                }
                 Err(err) => {
                     log_error!("Error reading config file: {}", err);
 
