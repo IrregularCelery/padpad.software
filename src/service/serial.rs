@@ -43,10 +43,11 @@ impl Serial {
             .lock()
             .unwrap();
 
-        // Even though we can store the port_name on the first time the device was found and
-        // connected, in linux(and perhaps all unix-like OSs), that wouldn't work! since
-        // everytime an app is using a port, if the device was removed, that port no longer exists
-        // and would be available the next time, said device was disconnected, then reconnected.
+        // Even though we could store the port_name when the device is first detected and connected,
+        // that approach wouldn't work in linux(and perhaps all unix-like OSs).
+        // This is because when an application is using a serial port and the device is unplugged,
+        // the port isn't available anymore. As a result, when the device is reconnected, it may be
+        // assigned a different port name.
         // We could also use /dev/serial/by-id/ but... nah! maybe later :D
         if !config.settings.port_name.is_empty() {
             // If port_name isn't empty, ignore checking by the device_name
