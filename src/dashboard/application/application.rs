@@ -2144,7 +2144,7 @@ impl Application {
         let mut current_profile = String::new();
 
         if let Some(config) = &self.config {
-            if self.port_name.0.is_empty() {
+            if !self.port_name.1 {
                 self.port_name.0 = config.settings.port_name.clone();
             }
 

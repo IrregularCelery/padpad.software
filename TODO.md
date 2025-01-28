@@ -9,7 +9,7 @@
 - [x] Handle IPC between `Service` and `Dashboard`
 - [x] Add component values in the `ServerData` (Added `components` to `Application` instead)
 - [ ] Add application name to logging system
-- [ ] Add manual device connection by checking if the `device_name` is empty, forcing app
+- [x] Add manual device connection by checking if the `device_name` is empty, forcing app
       to try to connect by the `port_name`
 - [ ] Add release builds in the github page
 - [ ] Cloning the `Config` struct when calling `test_config()` is probably unnecessary
