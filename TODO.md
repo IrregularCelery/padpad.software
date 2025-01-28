@@ -11,6 +11,7 @@
 - [ ] Add application name to logging system
 - [ ] Add manual device connection by checking if the `device_name` is empty, forcing app
       to try to connect by the `port_name`
+- [ ] Add release builds in the github page
 
 ### Dashboard
 
