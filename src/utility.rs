@@ -78,3 +78,12 @@ pub fn hex_bytes_string_to_vec(input: &str) -> Result<Vec<u8>, String> {
         })
         .collect()
 }
+
+pub fn restart() {
+    let args: Vec<String> = std::env::args().collect();
+    std::process::Command::new(&args[0])
+        .args(&args[1..])
+        .spawn()
+        .expect("Failed to restart");
+    std::process::exit(0);
+}

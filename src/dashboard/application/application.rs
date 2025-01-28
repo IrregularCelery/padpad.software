@@ -18,7 +18,7 @@ use padpad_software::{
     log_error,
     service::interaction::InteractionKind,
     tcp::{client_to_server_message, ServerData},
-    utility::{extract_hex_bytes, hex_bytes_string_to_vec, hex_bytes_vec_to_string},
+    utility::{extract_hex_bytes, hex_bytes_string_to_vec, hex_bytes_vec_to_string, restart},
 };
 
 static SERVER_DATA: OnceLock<Arc<Mutex<ServerData>>> = OnceLock::new();
@@ -2127,6 +2127,10 @@ impl Application {
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
+                if ui.button("Restart application").clicked() {
+                    restart();
+                }
+
                 ui.group(|ui| {
                     ui.horizontal_wrapped(|ui| {
                         if ui.button("Add Button").clicked() {

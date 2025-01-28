@@ -1,6 +1,9 @@
 use tray_item::{IconSource, TrayItem};
 
-use crate::config::{update_config_and_client, CONFIG};
+use crate::{
+    config::{update_config_and_client, CONFIG},
+    utility::restart,
+};
 
 pub fn handle_tray_thread() {
     #[cfg(target_os = "linux")]
@@ -35,6 +38,10 @@ pub fn handle_tray_thread() {
         println!("Debug");
     })
     .unwrap();
+
+    tray.inner_mut().add_separator().unwrap();
+
+    tray.add_menu_item("Restart", || restart()).unwrap();
 
     tray.inner_mut().add_separator().unwrap();
 
