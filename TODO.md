@@ -73,6 +73,9 @@
       if the components are updating too fast for the client to catch up,
       on the `Dashboard` app, the visuals might not update correctly,
       but the functionality of the device and `Service` app remains correct.
+- [ ] Known Issue: There's a bug (probably from egui side) that a modal with a
+      text_edit inside will continiously get larger if the characters in the said
+      text_edit exceeds width of the text_edit.
 - [ ] Profile '0' is preserved for the device, you are still able to configure it
       the way you want. This is the profile that makes the device act as a keyboard.
       though, you can change each component to do any interaction other than just
