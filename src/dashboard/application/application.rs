@@ -5,7 +5,11 @@ use std::{
 
 use eframe::egui::{self, Context, DragValue, Pos2, Rect, Response, Ui, Vec2};
 
-use super::{get_current_style, utility::request_send_serial, widgets::*};
+use super::{
+    get_current_style,
+    utility::{request_restart_service, request_send_serial},
+    widgets::*,
+};
 use padpad_software::{
     config::{
         update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
@@ -82,6 +86,12 @@ impl eframe::App for Application {
 
         ctx.set_style(get_current_style());
 
+        if self.server_needs_restart {
+            request_restart_service().ok();
+
+            self.server_needs_restart = false;
+        }
+
         // Server data
         self.handle_server_data();
 
@@ -142,17 +152,6 @@ impl eframe::App for Application {
 
                     if minimized_button.clicked() {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
-                    }
-
-                    if self.server_needs_restart {
-                        if ui
-                            .button("Please restart Service app to apply new changes")
-                            .clicked()
-                        {
-                            client_to_server_message("restart").ok();
-
-                            self.server_needs_restart = false;
-                        }
                     }
 
                     if ui
@@ -1620,6 +1619,10 @@ impl Application {
                 48.0,
             );
 
+            if indicator.clicked() {
+                self.open_connection_modal();
+            }
+
             let indicator_hovered = indicator.hovered() || indicator.contains_pointer();
 
             let panel_position_x = animate_value(
@@ -2139,18 +2142,10 @@ impl Application {
     fn draw_debug_panel(&mut self, ctx: &Context) {
         use egui::*;
 
-        let mut device_name = String::new();
         let mut profiles = Default::default();
         let mut current_profile = String::new();
 
         if let Some(config) = &self.config {
-            if !self.port_name.1 {
-                self.port_name.0 = config.settings.port_name.clone();
-            }
-
-            self.port_name.1 = config.settings.device_name.is_empty();
-
-            device_name = config.settings.device_name.clone();
             profiles = config.profiles.clone();
             current_profile = config.settings.current_profile.to_string();
         }
@@ -2395,235 +2390,6 @@ impl Application {
 
                 ui.label(format!("Server current order: {}", self.server_data.order));
 
-                ui.group(|ui| {
-                    if !device_name.is_empty() && ui.button("Manual connection").clicked() {
-                        self.show_yes_no_modal(
-                            "serial-manual-connection-confirmation",
-                            "Manual Serial Connection".to_string(),
-                            "You are about to set the serial connection mode to \"manual\".\n\
-                            You can switch back to \"auto-detecting\" mode at anytime.\n\
-                            Are you sure you want to continue?"
-                                .to_string(),
-                            |app| {
-                                app.close_modal();
-
-                                // Remove `device_name`
-                                if let Some(config) = &mut app.config {
-                                    update_config_and_server(config, |c| {
-                                        c.settings.device_name = String::new();
-                                    });
-                                }
-
-                                app.server_needs_restart = true;
-
-                                app.show_message_modal(
-                                    "serial-manual-connection-success",
-                                    "Success".to_string(),
-                                    "Device name was cleared and serial connection \
-                                    was set to manual mode.\nYou need to enter the port name!"
-                                        .to_string(),
-                                );
-                            },
-                            |app| {
-                                app.close_modal();
-                            },
-                            false,
-                        );
-
-                        self.set_width_modal(375.0);
-                    }
-
-                    if device_name.is_empty() && ui.button("Automatic connection").clicked() {
-                        self.show_yes_no_modal(
-                            "serial-auto-connection-confirmation",
-                            "Automatic Serial Connection".to_string(),
-                            "You are about to set the serial \
-                            connection mode to \"auto-detecting\".\n\
-                            You can switch back to \"manual\" mode at anytime.\n\
-                            Are you sure you want to continue?"
-                                .to_string(),
-                            |app| {
-                                app.close_modal();
-
-                                // Add `device_name`
-                                app.show_custom_modal("serial-auto-set-device-name", |ui, app| {
-                                    ui.with_layout(
-                                        Layout::from_main_dir_and_cross_align(
-                                            Direction::TopDown,
-                                            Align::Center,
-                                        ),
-                                        |ui| {
-                                            ui.scope(|ui| {
-                                                let mut style = get_current_style();
-
-                                                style.text_styles.insert(
-                                                    TextStyle::Body,
-                                                    FontId::new(24.0, FontFamily::Proportional),
-                                                );
-
-                                                style.visuals.override_text_color =
-                                                    Some(Color::WHITE);
-                                                style.visuals.widgets.noninteractive.bg_stroke =
-                                                    Stroke::new(1.0, Color::WHITE);
-
-                                                ui.set_style(style);
-
-                                                ui.label("Set your device name");
-
-                                                ui.separator();
-                                            });
-
-                                            ui.add_space(20.0);
-
-                                            let mut can_save = false;
-
-                                            ui.horizontal(|ui| {
-                                                ui.vertical(|ui| {
-                                                    ui.add_space(
-                                                        ui.style().spacing.item_spacing.x / 2.0
-                                                            + 1.0,
-                                                    );
-                                                    ui.label("Name");
-                                                });
-
-                                                ui.add_sized(
-                                                    ui.available_size(),
-                                                    TextEdit::singleline(&mut app.device_name)
-                                                        .margin(vec2(8.0, 8.0)),
-                                                );
-
-                                                if app.device_name.is_empty() {
-                                                    can_save = false;
-                                                } else {
-                                                    can_save = true;
-                                                }
-                                            });
-
-                                            ui.add_space(8.0);
-
-                                            ui.vertical_centered_justified(|ui| {
-                                                ui.horizontal_wrapped(|ui| {
-                                                    ui.group(|ui| {
-                                                        ui.label(
-                                                            RichText::new(
-                                                                "By default, the app prioritizes \
-                                                                connecting using the port name. \
-                                                                However, if you enter your device \
-                                                                name and the app fails to connect \
-                                                                via the specified port, it will \
-                                                                attempt to connect using the \
-                                                                device name instead. \
-                                                                If successful, the port name will \
-                                                                be updated accordingly.",
-                                                            )
-                                                            .color(Color32::GRAY)
-                                                            .size(13.5),
-                                                        );
-                                                    });
-                                                });
-                                            });
-
-                                            ui.add_space(16.0);
-
-                                            ui.horizontal_top(|ui| {
-                                                let spacing = ui.spacing().item_spacing.x;
-
-                                                let total_width = ui.available_width();
-                                                let button_width = (total_width - spacing) / 2.0;
-
-                                                if ui
-                                                    .add_sized(
-                                                        [button_width, 0.0],
-                                                        Button::new("Cancel"),
-                                                    )
-                                                    .clicked()
-                                                {
-                                                    app.close_modal();
-                                                }
-
-                                                ui.scope(|ui| {
-                                                    if !can_save {
-                                                        ui.disable();
-                                                    }
-
-                                                    if ui
-                                                        .add_sized(
-                                                            [button_width, 0.0],
-                                                            Button::new("Save"),
-                                                        )
-                                                        .clicked()
-                                                    {
-                                                        app.close_modal();
-
-                                                        if let Some(config) = &mut app.config {
-                                                            update_config_and_server(config, |c| {
-                                                                c.settings.device_name = app
-                                                                    .device_name
-                                                                    .clone()
-                                                                    .trim()
-                                                                    .to_string();
-                                                            });
-                                                        }
-
-                                                        app.server_needs_restart = true;
-
-                                                        app.show_message_modal(
-                                                            "serial-auto-connection-success",
-                                                            "Success".to_string(),
-                                                            "Serial connection mode \
-                                                    was set to auto-detecting.\nPlease \
-                                                    restart the Service app to apply changes."
-                                                                .to_string(),
-                                                        );
-                                                    }
-                                                });
-                                            });
-                                        },
-                                    );
-                                });
-
-                                app.set_width_modal(350.0);
-                            },
-                            |app| {
-                                app.close_modal();
-                            },
-                            false,
-                        );
-
-                        self.set_width_modal(400.0);
-                    }
-
-                    ui.scope(|ui| {
-                        if !self.port_name.1 {
-                            ui.disable();
-                        }
-
-                        ui.text_edit_singleline(&mut self.port_name.0).enabled();
-
-                        if self.port_name.1 && ui.button("Save port name").clicked() {
-                            if let Some(config) = &mut self.config {
-                                update_config_and_server(config, |c| {
-                                    c.settings.port_name =
-                                        self.port_name.0.clone().trim().to_string();
-                                });
-                            }
-
-                            self.server_needs_restart = true;
-
-                            self.show_message_modal(
-                                "port-name-changed-success",
-                                "Success".to_string(),
-                                "Port name was changed successfully!\n\
-                                Please restart the Service app to apply changes."
-                                    .to_string(),
-                            );
-
-                            // Reset internal port_name variable to update the view
-                            self.port_name.0 = String::new();
-                        }
-                    });
-                });
-
                 ui.label(format!("Current profile: {}", current_profile));
 
                 // Raw components layout
@@ -2713,6 +2479,373 @@ impl Application {
     }
 
     // Application modals
+
+    fn open_connection_modal(&mut self) {
+        use egui::*;
+
+        let mut device_name = String::new();
+
+        if let Some(config) = &self.config {
+            self.port_name.0 = config.settings.port_name.clone();
+            self.port_name.1 = config.settings.device_name.is_empty();
+
+            device_name = config.settings.device_name.clone();
+        }
+
+        self.show_custom_modal("create-update-layout", move |ui, app| {
+            ui.set_width(350.0);
+
+            ui.with_layout(
+                Layout::from_main_dir_and_cross_align(Direction::TopDown, Align::Center),
+                |ui| {
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
+
+                        style
+                            .text_styles
+                            .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
+
+                        style.visuals.override_text_color = Some(Color::WHITE);
+                        style.visuals.widgets.noninteractive.bg_stroke =
+                            Stroke::new(1.0, Color::WHITE);
+
+                        ui.set_style(style);
+
+                        ui.label("Connection status");
+
+                        ui.separator();
+                    });
+
+                    ui.add_space(ui.style().spacing.item_spacing.x * 2.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Connection"));
+                        ui.add_space(ui.style().spacing.item_spacing.x * 3.25);
+                        ui.label(
+                            RichText::new(if app.server_data.is_device_paired {
+                                "Connected"
+                            } else {
+                                "Not connected"
+                            })
+                            .color(
+                                if app.server_data.is_device_paired {
+                                    Color::GREEN
+                                } else {
+                                    Color::RED
+                                },
+                            ),
+                        );
+                    });
+
+                    ui.add_space(ui.style().spacing.item_spacing.x);
+
+                    if !device_name.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Device name"));
+                            ui.add_space(ui.style().spacing.item_spacing.x * 2.0);
+                            ui.label(
+                                RichText::new(if let Some(config) = &app.config {
+                                    config.settings.device_name.clone()
+                                } else {
+                                    "Loading...".to_string()
+                                })
+                                .color(Color::BLUE),
+                            );
+                        });
+                    }
+
+                    ui.add_space(ui.style().spacing.item_spacing.x);
+
+                    ui.scope(|ui| {
+                        if !app.port_name.1 {
+                            ui.disable();
+
+                            if let Some(config) = &app.config {
+                                if app.port_name.0 != config.settings.port_name {
+                                    app.port_name.0 = config.settings.port_name.clone();
+                                }
+                            }
+                        }
+
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 2.0);
+                                ui.label("Port name");
+                            });
+
+                            ui.add_sized(
+                                ui.available_size() - vec2(65.0, 0.0),
+                                TextEdit::singleline(&mut app.port_name.0).margin(vec2(8.0, 8.0)),
+                            );
+
+                            ui.scope(|ui| {
+                                if app.port_name.0.is_empty() {
+                                    ui.disable();
+                                }
+
+                                if app.port_name.1 && ui.button("Save").clicked() {
+                                    if let Some(config) = &mut app.config {
+                                        update_config_and_server(config, |c| {
+                                            c.settings.port_name =
+                                                app.port_name.0.clone().trim().to_string();
+                                        });
+                                    }
+
+                                    app.server_needs_restart = true;
+
+                                    app.show_message_modal(
+                                        "port-name-changed-success",
+                                        "Success".to_string(),
+                                        "Port name was changed successfully!\n\
+                                    Please restart the Service app to apply changes."
+                                            .to_string(),
+                                    );
+                                }
+                            });
+                        });
+                    });
+
+                    if !device_name.is_empty() {
+                        ui.vertical_centered_justified(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.group(|ui| {
+                                    ui.label(
+                                        RichText::new(
+                                            "It's highly recommended to use \
+                                            auto-detecting mode, however, if your device \
+                                            doesn't support HID simulation, and cannot \
+                                            have an HID device name, you can establish \
+                                            connection by using manual mode, \
+                                            and entering a port name!",
+                                        )
+                                        .color(Color32::YELLOW.gamma_multiply(0.75))
+                                        .size(13.5),
+                                    );
+                                });
+                            });
+                        });
+                    }
+
+                    ui.add_space(ui.style().spacing.item_spacing.x * 2.0);
+
+                    ui.horizontal_top(|ui| {
+                        let spacing = ui.spacing().item_spacing.x;
+
+                        let total_width = ui.available_width();
+                        let button_width = (total_width - spacing) / 2.0;
+
+                        if !device_name.is_empty()
+                            && ui
+                                .add_sized([button_width, 0.0], egui::Button::new("Manual"))
+                                .clicked()
+                        {
+                            app.show_yes_no_modal(
+                                "serial-manual-connection-confirmation",
+                                "Manual Device Connection".to_string(),
+                                "You are about to set the device connection mode to \"manual\".\n\
+                                You can switch back to \"auto-detecting\" mode at anytime.\n\
+                                Are you sure you want to continue?"
+                                    .to_string(),
+                                |app| {
+                                    // Close this modal and the connection modal
+                                    app.close_modals(2);
+
+                                    // Remove `device_name`
+                                    if let Some(config) = &mut app.config {
+                                        update_config_and_server(config, |c| {
+                                            c.settings.device_name = String::new();
+                                        });
+                                    }
+
+                                    app.server_needs_restart = true;
+
+                                    // Re-open the connection modal to update data
+                                    app.open_connection_modal();
+
+                                    app.show_message_modal(
+                                        "serial-manual-connection-success",
+                                        "Success".to_string(),
+                                        "Device name was cleared and serial connection \
+                                        was set to manual mode.\nYou need to enter the port name!"
+                                            .to_string(),
+                                    );
+                                },
+                                |app| {
+                                    app.close_modal();
+                                },
+                                false,
+                            );
+
+                            app.set_width_modal(375.0);
+                        }
+
+                        if device_name.is_empty()
+                            && ui
+                                .add_sized([button_width, 0.0], egui::Button::new("Auto-detecting"))
+                                .clicked()
+                        {
+                            app.show_yes_no_modal(
+                                "serial-auto-connection-confirmation",
+                                "Automatic Device Connection".to_string(),
+                                "You are about to set the device \
+                                connection mode to \"auto-detecting\".\n\
+                                You can switch back to \"manual\" mode at anytime.\n\
+                                Are you sure you want to continue?"
+                                    .to_string(),
+                                |app| {
+                                    app.close_modal();
+
+                                    // Add `device_name`
+                                    app.open_set_device_name_modal();
+
+                                    app.set_width_modal(350.0);
+                                },
+                                |app| {
+                                    app.close_modal();
+                                },
+                                false,
+                            );
+
+                            app.set_width_modal(400.0);
+                        }
+                        if ui
+                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
+                            .clicked()
+                        {
+                            app.close_modal();
+                        }
+                    });
+                },
+            );
+        });
+    }
+
+    fn open_set_device_name_modal(&mut self) {
+        use egui::*;
+
+        self.show_custom_modal("serial-auto-set-device-name", |ui, app| {
+            ui.with_layout(
+                Layout::from_main_dir_and_cross_align(Direction::TopDown, Align::Center),
+                |ui| {
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
+
+                        style
+                            .text_styles
+                            .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
+
+                        style.visuals.override_text_color = Some(Color::WHITE);
+                        style.visuals.widgets.noninteractive.bg_stroke =
+                            Stroke::new(1.0, Color::WHITE);
+
+                        ui.set_style(style);
+
+                        ui.label("Set your device name");
+
+                        ui.separator();
+                    });
+
+                    ui.add_space(20.0);
+
+                    let mut can_save = false;
+
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
+                            ui.label("Name");
+                        });
+
+                        ui.add_sized(
+                            ui.available_size(),
+                            TextEdit::singleline(&mut app.device_name).margin(vec2(8.0, 8.0)),
+                        );
+
+                        if app.device_name.is_empty() {
+                            can_save = false;
+                        } else {
+                            can_save = true;
+                        }
+                    });
+
+                    ui.add_space(8.0);
+
+                    ui.vertical_centered_justified(|ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.group(|ui| {
+                                ui.label(
+                                    RichText::new(
+                                        "By default, the app prioritizes \
+                                        connecting using the port name. \
+                                        However, if you enter your device \
+                                        name and the app fails to connect \
+                                        via the specified port, it will \
+                                        attempt to connect using the \
+                                        device name instead. \
+                                        If successful, the port name will \
+                                        be updated accordingly.",
+                                    )
+                                    .color(Color32::GRAY)
+                                    .size(13.5),
+                                );
+                            });
+                        });
+                    });
+
+                    ui.add_space(16.0);
+
+                    ui.horizontal_top(|ui| {
+                        let spacing = ui.spacing().item_spacing.x;
+
+                        let total_width = ui.available_width();
+                        let button_width = (total_width - spacing) / 2.0;
+
+                        if ui
+                            .add_sized([button_width, 0.0], Button::new("Cancel"))
+                            .clicked()
+                        {
+                            app.close_modal();
+                        }
+
+                        ui.scope(|ui| {
+                            if !can_save {
+                                ui.disable();
+                            }
+
+                            if ui
+                                .add_sized([button_width, 0.0], Button::new("Save"))
+                                .clicked()
+                            {
+                                // Close this modal and the connection modal
+                                app.close_modals(2);
+
+                                if let Some(config) = &mut app.config {
+                                    update_config_and_server(config, |c| {
+                                        c.settings.device_name =
+                                            app.device_name.clone().trim().to_string();
+                                    });
+                                }
+
+                                app.server_needs_restart = true;
+
+                                // Re-open the connection modal to update data
+                                app.open_connection_modal();
+
+                                app.show_message_modal(
+                                    "serial-auto-connection-success",
+                                    "Success".to_string(),
+                                    "Serial connection mode \
+                                    was set to auto-detecting.\nPlease \
+                                    restart the Service app to apply \
+                                    changes."
+                                        .to_string(),
+                                );
+                            }
+                        });
+                    });
+                },
+            );
+        });
+    }
 
     fn open_create_update_layout_modal(&mut self) {
         use egui::*;
@@ -2852,8 +2985,8 @@ impl Application {
                                         "layout-override-confirmation-create",
                                         "Overriding current layout".to_string(),
                                         "You already have a layout, \
-                                                        do you want to override it?\n\
-                                                        You still keep your added components."
+                                        do you want to override it?\n\
+                                        You still keep your added components."
                                             .to_string(),
                                         |app| {
                                             app.create_update_layout(

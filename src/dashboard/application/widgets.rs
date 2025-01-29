@@ -698,7 +698,7 @@ impl Widget for GLCD {
 
 pub fn status_indicator(id: &'static str, ui: &mut Ui, color: Color32, size: f32) -> Response {
     let desired_size = Vec2::splat(size);
-    let (rect, response) = ui.allocate_exact_size(desired_size, Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
     if !ui.is_rect_visible(rect) {
         return response;

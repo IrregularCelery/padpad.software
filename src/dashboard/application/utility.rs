@@ -5,3 +5,7 @@ pub fn request_send_serial(message: &str) -> Result<String, String> {
 
     client_to_server_message(&request)
 }
+
+pub fn request_restart_service() -> Result<String, String> {
+    client_to_server_message("restart")
+}
