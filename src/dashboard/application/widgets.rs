@@ -47,6 +47,8 @@ impl Button {
     pub fn new(size: (f32, f32)) -> Self {
         Self { size }
     }
+
+    pub const STYLES_COUNT: u8 = 0;
 }
 
 impl Widget for Button {
@@ -128,6 +130,8 @@ impl LED {
     pub fn new(value: (u8, u8, u8), size: (f32, f32)) -> Self {
         Self { value, size }
     }
+
+    pub const STYLES_COUNT: u8 = 0;
 }
 
 impl Widget for LED {
@@ -438,6 +442,8 @@ impl Potentiometer {
 
         points
     }
+
+    pub const STYLES_COUNT: u8 = 3;
 }
 
 impl Widget for Potentiometer {
@@ -484,6 +490,8 @@ impl Joystick {
             size,
         }
     }
+
+    pub const STYLES_COUNT: u8 = 0;
 }
 
 impl Widget for Joystick {
@@ -538,6 +546,8 @@ impl RotaryEncoder {
     pub fn new(size: (f32, f32)) -> Self {
         Self { size }
     }
+
+    pub const STYLES_COUNT: u8 = 0;
 }
 
 impl Widget for RotaryEncoder {
@@ -638,6 +648,8 @@ impl GLCD {
 
         self
     }
+
+    pub const STYLES_COUNT: u8 = 0;
 }
 
 impl Widget for GLCD {

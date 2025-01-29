@@ -19,7 +19,7 @@ pub const SERVER_DATA_UPDATE_INTERVAL: u64 = 16; // If you don't care about the 
                                                  // if client isn't connected, interval is 1000ms
 
 // Dashboard
-pub const DASHBOARD_DISAPLY_PIXEL_SIZE: f32 = 4.0;
+pub const DASHBOARD_DISAPLY_PIXEL_SIZE: f32 = 3.25;
 pub const DASHBOARD_DEVICE_INTERNAL_PROFILE: &str = "Internal";
 pub const DASHBOARD_PROFILE_MAX_CHARACTERS: usize = 10;
 

@@ -45,6 +45,7 @@ pub struct Application {
     server_needs_restart: bool,
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
+    component_properties: (Option<Component>, Option<Interaction>), // Current editing component properties
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
@@ -845,7 +846,7 @@ impl Application {
 
                     // Open the interactions modal
                     if response.clicked() {
-                        self.open_component_interactions_modal(component.0.clone());
+                        self.open_component_properties_modal(component.0.clone());
                     }
 
                     if response.drag_started() {
@@ -3179,8 +3180,42 @@ impl Application {
         );
     }
 
-    fn open_component_interactions_modal(&mut self, component_global_id: String) {
-        self.show_custom_modal("component-interactions-modal", move |ui, app| {
+    fn open_component_properties_modal(&mut self, component_global_id: String) {
+        let update_component_properties =
+            |id: &String, properties: &mut Component, config: &mut Option<Config>| {
+                if let Some(c) = config {
+                    if let Some(layout) = &mut c.layout {
+                        if let Some(component) = layout.components.get_mut(id) {
+                            if component.label != properties.label {
+                                component.label = properties.label.clone();
+                            }
+
+                            if component.scale != properties.scale {
+                                component.scale = properties.scale;
+                            }
+
+                            if component.style != properties.style {
+                                component.style = properties.style;
+                            }
+                        }
+                    }
+                }
+            };
+
+        if let Some(config) = &self.config {
+            let current_profile = &config.profiles[config.settings.current_profile];
+
+            if let Some(layout) = &config.layout {
+                self.component_properties.0 = layout.components.get(&component_global_id).cloned();
+            }
+
+            self.component_properties.1 = current_profile
+                .interactions
+                .get(&component_global_id)
+                .cloned();
+        }
+
+        self.show_custom_modal("component-properties-modal", move |ui, app| {
             ui.set_width(500.0);
 
             ui.scope(|ui| {
@@ -3198,7 +3233,7 @@ impl Application {
                 ui.set_style(style);
 
                 ui.vertical_centered(|ui| {
-                    ui.label("Interactions");
+                    ui.label("Properties");
                 });
 
                 ui.separator();
@@ -3207,24 +3242,47 @@ impl Application {
             });
 
             let mut current_profile_name = String::new();
-            let mut current_interactions = None;
             let (kind_string, _id_string) = component_global_id
                 .split_once(SERIAL_MESSAGE_SEP)
                 .unwrap_or(("", ""));
 
-            let mut modkey_interaction = false;
+            let kind = match kind_string {
+                "Button" => ComponentKind::Button,
+                "LED" => ComponentKind::LED,
+                "Potentiometer" => ComponentKind::Potentiometer,
+                "Joystick" => ComponentKind::Joystick,
+                "RotaryEncoder" => ComponentKind::RotaryEncoder,
+                "Display" => ComponentKind::Display,
+                _ => ComponentKind::None,
+            };
 
-            // For now, only `Buttons` can have two interactions
-            if kind_string == "Button" {
-                modkey_interaction = true;
-            }
+            // For now, only `Buttons` can have modkey interaction
+            let modkey_interaction = match kind {
+                ComponentKind::None => false,
+                ComponentKind::Button => true,
+                ComponentKind::LED => false,
+                ComponentKind::Potentiometer => false,
+                ComponentKind::Joystick => false,
+                ComponentKind::RotaryEncoder => false,
+                ComponentKind::Display => false,
+            };
+
+            // Check if component have multiple styles
+            // Returns (bool, u8) -> (has_multiple_styles, styles_count)
+            let multiple_styles = match kind {
+                ComponentKind::None => (false, 0),
+                ComponentKind::Button => (false, Button::STYLES_COUNT),
+                ComponentKind::LED => (false, LED::STYLES_COUNT),
+                ComponentKind::Potentiometer => (true, Potentiometer::STYLES_COUNT),
+                ComponentKind::Joystick => (false, Joystick::STYLES_COUNT),
+                ComponentKind::RotaryEncoder => (false, RotaryEncoder::STYLES_COUNT),
+                ComponentKind::Display => (false, GLCD::STYLES_COUNT),
+            };
 
             if let Some(config) = &app.config {
                 let current_profile = &config.profiles[config.settings.current_profile];
 
                 current_profile_name = current_profile.name.clone();
-
-                current_interactions = current_profile.interactions.get(&component_global_id);
             }
 
             ui.horizontal_wrapped(|ui| {
@@ -3239,35 +3297,114 @@ impl Application {
                 ui.label(egui::RichText::new(current_profile_name).color(egui::Color32::GRAY));
             });
 
-            if current_interactions.is_none() {
+            let interactions = if let Some(i) = &app.component_properties.1 {
+                i
+            } else {
                 ui.vertical_centered_justified(|ui| {
                     ui.label("Loading interactions...");
                 });
 
                 return;
-            }
+            };
 
-            if let Some(i) = current_interactions {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Normal: ");
+                ui.label(
+                    egui::RichText::new(format!("{:?}", interactions.normal))
+                        .color(egui::Color32::GRAY),
+                );
+            });
+
+            // Check if this component supports modkey interaction
+            if modkey_interaction {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label("Normal: ");
+                    ui.label("Modkey: ");
                     ui.label(
-                        egui::RichText::new(format!("{:?}", i.normal)).color(egui::Color32::GRAY),
+                        egui::RichText::new(format!("{:?}", interactions.modkey))
+                            .color(egui::Color32::GRAY),
                     );
                 });
             }
 
-            // Check if this component supports modkey interaction
-            if modkey_interaction {
-                if let Some(i) = current_interactions {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label("Modkey: ");
-                        ui.label(
-                            egui::RichText::new(format!("{:?}", i.modkey))
-                                .color(egui::Color32::GRAY),
-                        );
-                    });
+            let properties = if let Some(p) = &mut app.component_properties.0 {
+                p
+            } else {
+                ui.vertical_centered_justified(|ui| {
+                    ui.label("Loading Properties...");
+                });
+
+                return;
+            };
+
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let input_width = (total_width - (spacing * 4.0)) / 2.0;
+
+                ui.allocate_ui_with_layout(
+                    (input_width, 0.0).into(),
+                    egui::Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        ui.horizontal_centered(|ui| {
+                            ui.vertical(|ui| {
+                                ui.add_space(spacing / 2.0 + 1.0);
+                                ui.label("Scale");
+                            });
+
+                            let scale_response = ui.add_sized(
+                                ui.available_size(),
+                                DragValue::new(&mut properties.scale)
+                                    .speed(0.1)
+                                    .range(0.1..=5.0)
+                                    .clamp_existing_to_range(true),
+                            );
+
+                            if scale_response.changed() {
+                                update_component_properties(
+                                    &component_global_id,
+                                    properties,
+                                    &mut app.config,
+                                );
+                            }
+                        });
+                    },
+                );
+
+                if multiple_styles.0 {
+                    ui.add_space(16.0);
+
+                    ui.allocate_ui_with_layout(
+                        (input_width + spacing, 0.0).into(),
+                        egui::Layout::top_down(egui::Align::Center),
+                        |ui| {
+                            ui.horizontal_centered(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.add_space(spacing / 2.0 + 1.0);
+                                    ui.label("Style");
+                                });
+
+                                let style_response = ui.add_sized(
+                                    ui.available_size(),
+                                    DragValue::new(&mut properties.style)
+                                        .speed(1)
+                                        .range(0..=multiple_styles.1 - 1)
+                                        .clamp_existing_to_range(true),
+                                );
+
+                                if style_response.changed() {
+                                    println!("{}", properties.style);
+                                    update_component_properties(
+                                        &component_global_id,
+                                        properties,
+                                        &mut app.config,
+                                    );
+                                }
+                            });
+                        },
+                    );
                 }
-            }
+            });
 
             if ui.button("Add test interactions").clicked() {
                 if let Some(config) = &mut app.config {
@@ -3490,6 +3627,7 @@ impl Default for Application {
             server_data: ServerData::default(),
             server_needs_restart: false,
             components: HashMap::default(),
+            component_properties: (None, None), // Current editing component properties
             editing_layout: false,
             dragged_component_offset: (0.0, 0.0),
             layout_grid: (true, 10.0),
