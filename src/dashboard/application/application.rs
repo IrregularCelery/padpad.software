@@ -3484,7 +3484,13 @@ impl Application {
                 });
 
             match &mut interactions.normal {
-                InteractionKind::None() => {}
+                InteractionKind::None() => {
+                    update_component_interactions(
+                        &component_global_id,
+                        interactions,
+                        &mut app.config,
+                    );
+                }
                 InteractionKind::Command(command, _shell) => {
                     ui.label("Command:");
 
