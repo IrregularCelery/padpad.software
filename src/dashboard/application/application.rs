@@ -2598,7 +2598,7 @@ impl Application {
                                         "port-name-changed-success",
                                         "Success".to_string(),
                                         "Port name was changed successfully!\n\
-                                    Please restart the Service app to apply changes."
+                                        Please restart the Service app to apply changes."
                                             .to_string(),
                                     );
                                 }
@@ -3187,7 +3187,7 @@ impl Application {
                     if let Some(layout) = &mut c.layout {
                         if let Some(component) = layout.components.get_mut(id) {
                             if component.label != properties.label {
-                                component.label = properties.label.clone();
+                                component.label = properties.label.clone().trim().to_string();
                             }
 
                             if component.scale != properties.scale {
@@ -3198,6 +3198,18 @@ impl Application {
                                 component.style = properties.style;
                             }
                         }
+                    }
+                }
+            };
+
+        let update_component_interactions =
+            |id: &String, interactions: &mut Interaction, config: &mut Option<Config>| {
+                if let Some(c) = config {
+                    let current_profile = &mut c.profiles[c.settings.current_profile];
+
+                    if let Some(i) = current_profile.interactions.get_mut(id) {
+                        i.normal = interactions.normal.clone();
+                        i.modkey = interactions.modkey.clone();
                     }
                 }
             };
@@ -3297,7 +3309,7 @@ impl Application {
                 ui.label(egui::RichText::new(current_profile_name).color(egui::Color32::GRAY));
             });
 
-            let interactions = if let Some(i) = &app.component_properties.1 {
+            let interactions = if let Some(i) = &mut app.component_properties.1 {
                 i
             } else {
                 ui.vertical_centered_justified(|ui| {
@@ -3335,6 +3347,31 @@ impl Application {
 
                 return;
             };
+
+            // Since the value for `Display` icon is stored in its label, we won't show
+            // the `label` field for the `Display` component
+            if kind != ComponentKind::Display {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
+                        ui.label("Label");
+                    });
+
+                    let label_response = ui.add_sized(
+                        ui.available_size(),
+                        egui::TextEdit::singleline(&mut properties.label)
+                            .margin(Vec2::new(8.0, 8.0)),
+                    );
+
+                    if label_response.lost_focus() {
+                        update_component_properties(
+                            &component_global_id,
+                            properties,
+                            &mut app.config,
+                        );
+                    }
+                });
+            }
 
             ui.horizontal_top(|ui| {
                 let spacing = ui.spacing().item_spacing.x;
@@ -3393,7 +3430,6 @@ impl Application {
                                 );
 
                                 if style_response.changed() {
-                                    println!("{}", properties.style);
                                     update_component_properties(
                                         &component_global_id,
                                         properties,
@@ -3407,23 +3443,18 @@ impl Application {
             });
 
             if ui.button("Add test interactions").clicked() {
-                if let Some(config) = &mut app.config {
-                    config.profiles[config.settings.current_profile]
-                        .interactions
-                        .insert(
-                            component_global_id.clone(),
-                            Interaction {
-                                normal: InteractionKind::Command(
-                                    "echo \"Hello World!\"".to_string(),
-                                    "sh".to_string(),
-                                ),
-                                modkey: InteractionKind::Shortcut(
-                                    vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
-                                    String::new(),
-                                ),
-                            },
-                        );
-                }
+                let interactions = &mut Interaction {
+                    normal: InteractionKind::Command(
+                        "echo \"Hello World!\"".to_string(),
+                        "sh".to_string(),
+                    ),
+                    modkey: InteractionKind::Shortcut(
+                        vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
+                        String::new(),
+                    ),
+                };
+
+                update_component_interactions(&component_global_id, interactions, &mut app.config);
             }
 
             if ui.button("Delete this component").clicked() {
