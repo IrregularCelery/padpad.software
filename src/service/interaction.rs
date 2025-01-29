@@ -23,6 +23,14 @@ pub enum InteractionKind {
     File(String /* full_path */),
 }
 
+impl std::fmt::Display for InteractionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let type_str = format!("{:?}", self);
+
+        write!(f, "{}", type_str.split('(').next().unwrap_or(&type_str))
+    }
+}
+
 fn run_command(command: &str, unix_shell: &str) {
     let cmd = command.trim();
 

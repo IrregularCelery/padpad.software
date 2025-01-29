@@ -3208,8 +3208,13 @@ impl Application {
                     let current_profile = &mut c.profiles[c.settings.current_profile];
 
                     if let Some(i) = current_profile.interactions.get_mut(id) {
-                        i.normal = interactions.normal.clone();
-                        i.modkey = interactions.modkey.clone();
+                        if i.normal != interactions.normal {
+                            i.normal = interactions.normal.clone();
+                        }
+
+                        if i.modkey != interactions.modkey {
+                            i.modkey = interactions.modkey.clone();
+                        }
                     }
                 }
             };
@@ -3442,19 +3447,126 @@ impl Application {
                 }
             });
 
-            if ui.button("Add test interactions").clicked() {
-                let interactions = &mut Interaction {
-                    normal: InteractionKind::Command(
-                        "echo \"Hello World!\"".to_string(),
-                        "sh".to_string(),
-                    ),
-                    modkey: InteractionKind::Shortcut(
-                        vec![enigo::Key::Alt, enigo::Key::Unicode('p')],
-                        String::new(),
-                    ),
-                };
+            egui::ComboBox::new("properties-interactions-normal", "")
+                .selected_text(format!("{}", interactions.normal))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut interactions.normal, InteractionKind::None(), "None");
 
-                update_component_interactions(&component_global_id, interactions, &mut app.config);
+                    ui.selectable_value(
+                        &mut interactions.normal,
+                        InteractionKind::Command(String::new(), "sh".to_string()),
+                        "Command",
+                    );
+
+                    ui.selectable_value(
+                        &mut interactions.normal,
+                        InteractionKind::Application(String::new()),
+                        "Application",
+                    );
+
+                    ui.selectable_value(
+                        &mut interactions.normal,
+                        InteractionKind::Website(String::new()),
+                        "Website",
+                    );
+
+                    ui.selectable_value(
+                        &mut interactions.normal,
+                        InteractionKind::Shortcut(vec![], String::new()),
+                        "Shortcut",
+                    );
+
+                    ui.selectable_value(
+                        &mut interactions.normal,
+                        InteractionKind::File(String::new()),
+                        "File",
+                    );
+                });
+
+            match &mut interactions.normal {
+                InteractionKind::None() => {}
+                InteractionKind::Command(command, _shell) => {
+                    ui.label("Command:");
+
+                    let response = ui.text_edit_singleline(command);
+
+                    if response.changed() {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
+                    }
+                }
+                InteractionKind::Application(path) => {
+                    ui.label("Application Path:");
+
+                    let response = ui.text_edit_singleline(path);
+
+                    if response.changed() {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
+                    }
+                }
+                InteractionKind::Website(url) => {
+                    ui.label("Website URL:");
+
+                    let response = ui.text_edit_singleline(url);
+
+                    if response.changed() {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
+                    }
+                }
+                InteractionKind::Shortcut(_keys, text) => {
+                    // TODO: Implement keys
+
+                    ui.label("Shortcut Text:");
+
+                    let mut response = None;
+
+                    const ROWS: usize = 5;
+                    egui::ScrollArea::vertical()
+                        .max_height((ROWS + 1) as f32 * 20.0)
+                        .show(ui, |ui| {
+                            response = Some(
+                                ui.add(
+                                    egui::TextEdit::multiline(text)
+                                        .desired_rows(ROWS)
+                                        .desired_width(f32::INFINITY),
+                                ),
+                            );
+                        });
+
+                    if let Some(r) = response {
+                        if r.changed() {
+                            update_component_interactions(
+                                &component_global_id,
+                                interactions,
+                                &mut app.config,
+                            );
+                        }
+                    }
+                }
+                InteractionKind::File(path) => {
+                    ui.label("File Path:");
+
+                    let response = ui.text_edit_singleline(path);
+
+                    if response.changed() {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
+                    }
+                }
             }
 
             if ui.button("Delete this component").clicked() {
