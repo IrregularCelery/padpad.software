@@ -26,6 +26,7 @@
 - [x] Add a modal for `ServerData` fetching errors
 - [x] On every update, send a request to server to update device
 - [ ] When updating interaction, it should consider showing correct fields based on current profile
+- [ ] Create a separate modal for native HID keyboard simulated keys (Only visible in internal profile)
 
 ### Firmware
 

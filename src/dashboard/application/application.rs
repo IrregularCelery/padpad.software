@@ -3529,9 +3529,10 @@ impl Application {
 
                     ui.label("Shortcut Text:");
 
+                    const ROWS: usize = 5;
+
                     let mut response = None;
 
-                    const ROWS: usize = 5;
                     egui::ScrollArea::vertical()
                         .max_height((ROWS + 1) as f32 * 20.0)
                         .show(ui, |ui| {
