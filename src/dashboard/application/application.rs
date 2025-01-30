@@ -16,7 +16,7 @@ use padpad_software::{
     },
     constants::{
         DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_DEVICE_NAME,
-        HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH,
+        HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS,
         SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
@@ -3935,11 +3935,11 @@ impl Default for Application {
             modal: Arc::new(Mutex::new(ModalManager::new())),
             config: match Config::default().read() {
                 Ok(mut config) => {
-                    let corrected_config = config.test_config();
+                    config.validate_config();
 
-                    update_config_and_server(corrected_config, |_| {});
+                    update_config_and_server(&mut config, |_| {});
 
-                    Some(corrected_config.clone())
+                    Some(config)
                 }
                 Err(err) => {
                     log_error!("Error reading config file: {}", err);

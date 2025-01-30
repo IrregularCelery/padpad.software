@@ -161,7 +161,11 @@ impl Default for Interaction {
 impl Config {
     pub fn load(&mut self) {
         *self = match self.read() {
-            Ok(mut config) => config.test_config().clone(),
+            Ok(mut config) => {
+                config.validate_config();
+
+                config
+            }
             Err(err) => {
                 log_error!("Error reading config file: {}", err);
 
@@ -253,7 +257,7 @@ impl Config {
 
     /// Check if something illegal has been set in the config file
     /// E.g. `current_profile` is higher than the number of profiles
-    pub fn test_config(&mut self) -> &mut Self {
+    pub fn validate_config(&mut self) {
         if self.settings.current_profile > self.profiles.len() {
             log_error!(
                 "Invalid `current_profile` detected, defaulting to `{}` profile...",
@@ -262,8 +266,6 @@ impl Config {
 
             self.settings.current_profile = 0;
         }
-
-        self
     }
 
     pub fn does_profile_exist(&self, profile_name: &String) -> bool {
@@ -390,11 +392,11 @@ impl Component {
 pub fn init() -> bool {
     match Config::default().read() {
         Ok(mut config) => {
-            let corrected_config = config.test_config();
+            config.validate_config();
 
-            update_config_and_client(corrected_config, |_| {});
+            update_config_and_client(&mut config, |_| {});
 
-            CONFIG.get_or_init(|| Mutex::new(corrected_config.clone()));
+            CONFIG.get_or_init(|| Mutex::new(config));
         }
         Err(err) => {
             log_error!("Error reading config file: {}", err);
