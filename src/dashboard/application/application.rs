@@ -55,6 +55,8 @@ pub struct Application {
     global_shadow: f32,
 
     // TEMP VARIABLES
+    properties_shortcut_key_filter: String,
+    properties_shortcut_kind: (bool, bool), // (normal, modkey) `true` -> keys, `false` -> text
     new_layout_name: String,
     new_layout_size: (f32, f32),
     new_profile_name: String,
@@ -3226,10 +3228,30 @@ impl Application {
                 self.component_properties.0 = layout.components.get(&component_global_id).cloned();
             }
 
-            self.component_properties.1 = current_profile
+            let current_interactions = current_profile
                 .interactions
                 .get(&component_global_id)
                 .cloned();
+
+            self.component_properties.1 = current_interactions.clone();
+
+            if let Some(interactions) = current_interactions {
+                match &interactions.normal {
+                    InteractionKind::Shortcut(_keys, text) => {
+                        self.properties_shortcut_kind.0 = text.is_empty();
+                    }
+                    _ => (),
+                }
+
+                match &interactions.modkey {
+                    InteractionKind::Shortcut(_keys, text) => {
+                        self.properties_shortcut_kind.1 = text.is_empty();
+                    }
+                    _ => (),
+                }
+            } else {
+                self.properties_shortcut_kind = (false, false);
+            };
         }
 
         self.show_custom_modal("component-properties-modal", move |ui, app| {
@@ -3447,6 +3469,7 @@ impl Application {
                 }
             });
 
+            // Normal interaction
             egui::ComboBox::new("properties-interactions-normal", "")
                 .selected_text(format!("{}", interactions.normal))
                 .show_ui(ui, |ui| {
@@ -3530,35 +3553,187 @@ impl Application {
                         );
                     }
                 }
-                InteractionKind::Shortcut(_keys, text) => {
-                    // TODO: Implement keys
+                InteractionKind::Shortcut(keys, text) => {
+                    let mut should_update = false;
 
-                    ui.label("Shortcut Text:");
+                    ui.horizontal_top(|ui| {
+                        let spacing = ui.spacing().item_spacing.x;
 
-                    const ROWS: usize = 5;
+                        let total_width = ui.available_width();
+                        let button_width = (total_width - spacing) / 2.0;
 
-                    let mut response = None;
+                        if ui
+                            .add_sized(
+                                [button_width, 0.0],
+                                egui::Button::new("Keys")
+                                    .fill(if app.properties_shortcut_kind.0 {
+                                        Color::ACCENT.gamma_multiply(0.5)
+                                    } else {
+                                        egui::Color32::TRANSPARENT
+                                    })
+                                    .stroke(egui::Stroke::new(
+                                        2.0,
+                                        if app.properties_shortcut_kind.0 {
+                                            Color::ACCENT.gamma_multiply(0.1)
+                                        } else {
+                                            egui::Color32::WHITE.gamma_multiply(0.25)
+                                        },
+                                    )),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "When this shortcut is triggered, it simulates \n\
+                                        pressing a set of keys in order.",
+                                    )
+                                    .color(egui::Color32::GRAY)
+                                    .size(15.0),
+                                );
+                            })
+                            .clicked()
+                        {
+                            app.properties_shortcut_kind.0 = true;
 
-                    egui::ScrollArea::vertical()
-                        .max_height((ROWS + 1) as f32 * 20.0)
-                        .show(ui, |ui| {
-                            response = Some(
-                                ui.add(
-                                    egui::TextEdit::multiline(text)
-                                        .desired_rows(ROWS)
-                                        .desired_width(f32::INFINITY),
-                                ),
-                            );
-                        });
-
-                    if let Some(r) = response {
-                        if r.changed() {
-                            update_component_interactions(
-                                &component_global_id,
-                                interactions,
-                                &mut app.config,
-                            );
+                            should_update = true;
                         }
+
+                        if ui
+                            .add_sized(
+                                [button_width, 0.0],
+                                egui::Button::new("Text")
+                                    .fill(if !app.properties_shortcut_kind.0 {
+                                        Color::ACCENT.gamma_multiply(0.5)
+                                    } else {
+                                        egui::Color32::TRANSPARENT
+                                    })
+                                    .stroke(egui::Stroke::new(
+                                        2.0,
+                                        if !app.properties_shortcut_kind.0 {
+                                            Color::ACCENT.gamma_multiply(0.1)
+                                        } else {
+                                            egui::Color32::WHITE.gamma_multiply(0.25)
+                                        },
+                                    )),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "When this shortcut is triggered, it simulates \n\
+                                        typing a text.",
+                                    )
+                                    .color(egui::Color32::GRAY)
+                                    .size(15.0),
+                                );
+                            })
+                            .clicked()
+                        {
+                            app.properties_shortcut_kind.0 = false;
+
+                            should_update = true;
+                        }
+                    });
+
+                    // Keys
+                    if app.properties_shortcut_kind.0 {
+                        // `text` must be empty in `keys` mode
+                        *text = String::new();
+
+                        ui.add(
+                            ItemList::new(
+                                keys,
+                                32.0,
+                                Color::SURFACE1,
+                                Color::WHITE,
+                                Color::YELLOW.gamma_multiply(0.5),
+                                egui::Color32::from_gray(12),
+                            )
+                            .spacing(8.0)
+                            .on_item_removed(|_item| {
+                                should_update = true;
+                            }),
+                        );
+
+                        let keys_response =
+                            egui::ComboBox::new("properties-interactions-normal-keys", "")
+                                .selected_text("Keys")
+                                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                                .show_ui(ui, |ui| {
+                                    ui.add_sized(
+                                        (200.0, 0.0),
+                                        egui::TextEdit::singleline(
+                                            &mut app.properties_shortcut_key_filter,
+                                        )
+                                        .margin(Vec2::new(8.0, 8.0))
+                                        .hint_text("Search"),
+                                    );
+
+                                    let filtered_options: Vec<_> = KEYS
+                                        .iter()
+                                        .filter(|option| {
+                                            format!("{:?}", option).to_lowercase().contains(
+                                                &app.properties_shortcut_key_filter.to_lowercase(),
+                                            )
+                                        })
+                                        .collect();
+
+                                    for key in filtered_options {
+                                        if ui
+                                            .selectable_label(false, format!("{:?}", key))
+                                            .clicked()
+                                        {
+                                            ui.memory_mut(|mem| mem.toggle_popup(ui.id()));
+
+                                            keys.push(key.clone());
+
+                                            app.properties_shortcut_key_filter.clear();
+
+                                            should_update = true;
+                                        }
+                                    }
+
+                                    // Dummy items to fill the space even if there's no item
+                                    ui.add_space((32.0 * 5.0) - 4.0);
+                                });
+
+                        if keys_response.response.clicked() {
+                            app.properties_shortcut_key_filter.clear();
+                        }
+
+                    // Text
+                    } else {
+                        ui.label("Text:");
+
+                        const ROWS: usize = 5;
+
+                        let mut response = None;
+
+                        egui::ScrollArea::vertical()
+                            .max_height((ROWS + 1) as f32 * 20.0)
+                            .show(ui, |ui| {
+                                response = Some(
+                                    ui.add(
+                                        egui::TextEdit::multiline(text)
+                                            .desired_rows(ROWS)
+                                            .desired_width(f32::INFINITY),
+                                    ),
+                                );
+                            });
+
+                        if let Some(r) = response {
+                            if r.changed() {
+                                should_update = true;
+                            }
+                        }
+                    }
+
+                    if should_update {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
                     }
                 }
                 InteractionKind::File(path) => {
@@ -3787,6 +3962,8 @@ impl Default for Application {
             global_shadow: 8.0,
 
             // TEMP VARIABLES
+            properties_shortcut_key_filter: String::new(),
+            properties_shortcut_kind: (true, true), // (normal, modkey) `true` -> keys, `false` -> text
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
             new_profile_name: "My Profile".to_string(),
@@ -3810,3 +3987,93 @@ impl Default for Application {
         }
     }
 }
+
+static KEYS: [enigo::Key; 87] = [
+    enigo::Key::Unicode('a'),
+    enigo::Key::Unicode('b'),
+    enigo::Key::Unicode('c'),
+    enigo::Key::Unicode('d'),
+    enigo::Key::Unicode('e'),
+    enigo::Key::Unicode('f'),
+    enigo::Key::Unicode('g'),
+    enigo::Key::Unicode('h'),
+    enigo::Key::Unicode('i'),
+    enigo::Key::Unicode('j'),
+    enigo::Key::Unicode('k'),
+    enigo::Key::Unicode('l'),
+    enigo::Key::Unicode('m'),
+    enigo::Key::Unicode('n'),
+    enigo::Key::Unicode('o'),
+    enigo::Key::Unicode('p'),
+    enigo::Key::Unicode('q'),
+    enigo::Key::Unicode('r'),
+    enigo::Key::Unicode('s'),
+    enigo::Key::Unicode('t'),
+    enigo::Key::Unicode('u'),
+    enigo::Key::Unicode('v'),
+    enigo::Key::Unicode('w'),
+    enigo::Key::Unicode('x'),
+    enigo::Key::Unicode('y'),
+    enigo::Key::Unicode('z'),
+    enigo::Key::Unicode('0'),
+    enigo::Key::Unicode('1'),
+    enigo::Key::Unicode('2'),
+    enigo::Key::Unicode('3'),
+    enigo::Key::Unicode('4'),
+    enigo::Key::Unicode('5'),
+    enigo::Key::Unicode('6'),
+    enigo::Key::Unicode('7'),
+    enigo::Key::Unicode('8'),
+    enigo::Key::Unicode('9'),
+    enigo::Key::Return,
+    enigo::Key::Tab,
+    enigo::Key::Backspace,
+    enigo::Key::Escape,
+    enigo::Key::Space,
+    enigo::Key::CapsLock,
+    enigo::Key::Shift,
+    enigo::Key::Control,
+    enigo::Key::Alt,
+    enigo::Key::Meta,
+    enigo::Key::LeftArrow,
+    enigo::Key::RightArrow,
+    enigo::Key::UpArrow,
+    enigo::Key::DownArrow,
+    enigo::Key::F1,
+    enigo::Key::F2,
+    enigo::Key::F3,
+    enigo::Key::F4,
+    enigo::Key::F5,
+    enigo::Key::F6,
+    enigo::Key::F7,
+    enigo::Key::F8,
+    enigo::Key::F9,
+    enigo::Key::F10,
+    enigo::Key::F11,
+    enigo::Key::F12,
+    enigo::Key::F13,
+    enigo::Key::F14,
+    enigo::Key::F15,
+    enigo::Key::F16,
+    enigo::Key::F17,
+    enigo::Key::F18,
+    enigo::Key::F19,
+    enigo::Key::F20,
+    enigo::Key::Home,
+    enigo::Key::End,
+    enigo::Key::PageUp,
+    enigo::Key::PageDown,
+    enigo::Key::Insert,
+    enigo::Key::Delete,
+    enigo::Key::Numlock,
+    enigo::Key::ScrollLock,
+    enigo::Key::Pause,
+    enigo::Key::PrintScr,
+    enigo::Key::MediaPlayPause,
+    enigo::Key::MediaStop,
+    enigo::Key::MediaNextTrack,
+    enigo::Key::MediaPrevTrack,
+    enigo::Key::VolumeUp,
+    enigo::Key::VolumeDown,
+    enigo::Key::VolumeMute,
+];
