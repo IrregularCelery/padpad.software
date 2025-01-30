@@ -64,6 +64,10 @@ pub fn get_current_style() -> egui::Style {
             active: pack_widget_visual(Color::SURFACE2),
             open: pack_widget_visual(Color::SURFACE0),
         },
+        selection: egui::style::Selection {
+            bg_fill: Color::ACCENT.gamma_multiply(0.5),
+            stroke: egui::Stroke::new(1.0, Color::ACCENT.gamma_multiply(0.15)),
+        },
         ..Default::default()
     };
 
