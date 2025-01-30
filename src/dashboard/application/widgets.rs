@@ -2,8 +2,8 @@ use std::f32::consts::PI;
 
 use eframe::{
     egui::{
-        Color32, Context, CursorIcon, Id, Margin, Pos2, Rect, Response, Rounding, Sense, Shape,
-        Stroke, Ui, Vec2, Widget,
+        Color32, Context, CursorIcon, FontId, Frame, Id, Margin, Pos2, Rect, Response, Rounding,
+        Sense, Shape, Stroke, Ui, Vec2, Widget,
     },
     epaint::PathShape,
 };
@@ -701,6 +701,131 @@ impl Widget for GLCD {
                         );
                     }
                 }
+            }
+        }
+
+        response
+    }
+}
+
+pub struct ItemList<'a, T, F> {
+    items: &'a mut Vec<T>,
+    spacing: f32,
+    height: f32,
+    background_color: Color32,
+    text_color: Color32,
+    hover_background_color: Color32,
+    border_color: Color32,
+    on_item_removed: Option<F>,
+}
+
+impl<'a, T, F> ItemList<'a, T, F> {
+    pub fn new(
+        items: &'a mut Vec<T>,
+        height: f32,
+        background_color: Color32,
+        text_color: Color32,
+        hover_background_color: Color32,
+        border_color: Color32,
+    ) -> Self {
+        Self {
+            items,
+            spacing: 6.0,
+            height,
+            background_color,
+            text_color,
+            hover_background_color,
+            border_color,
+            on_item_removed: None,
+        }
+    }
+
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing;
+
+        self
+    }
+
+    pub fn on_item_removed(mut self, callback: F) -> Self
+    where
+        F: FnMut(usize),
+    {
+        self.on_item_removed = Some(callback);
+
+        self
+    }
+}
+
+impl<T: std::fmt::Debug, F> Widget for ItemList<'_, T, F>
+where
+    F: FnMut(usize),
+{
+    fn ui(self, ui: &mut Ui) -> Response {
+        let mut clicked_index = None;
+
+        let response = Frame::default()
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    for (index, item) in self.items.iter().enumerate() {
+                        let text = format!("{:?} ×", item);
+                        let galley = ui.painter().layout_no_wrap(
+                            text.clone(),
+                            FontId::proportional(self.height * 0.6),
+                            self.text_color,
+                        );
+
+                        let padding = Vec2::new(self.height * 0.5, 0.0);
+                        let desired_size = galley.size() + padding * 2.0;
+                        let (rect, response) = ui.allocate_exact_size(
+                            Vec2::new(desired_size.x, self.height),
+                            Sense::click(),
+                        );
+
+                        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+                        if ui.is_rect_visible(rect) {
+                            let is_hovered = response.hovered();
+                            let bg_color = if is_hovered {
+                                self.hover_background_color
+                            } else {
+                                self.background_color
+                            };
+
+                            // Draw border
+                            ui.painter().rect_stroke(
+                                rect,
+                                self.height * 0.3,
+                                (1.0, self.border_color),
+                            );
+
+                            // Draw background
+                            ui.painter().rect_filled(rect, self.height * 0.3, bg_color);
+
+                            // Center and draw text
+                            let text_pos = Pos2::new(
+                                rect.min.x + (rect.width() - galley.size().x) * 0.5,
+                                rect.min.y + (rect.height() - galley.size().y) * 0.5,
+                            );
+
+                            ui.painter().galley(text_pos, galley, Color::RED);
+
+                            if response.clicked() {
+                                clicked_index = Some(index);
+                            }
+                        }
+
+                        ui.add_space(self.spacing);
+                    }
+                });
+            })
+            .response;
+
+        // Remove the clicked item if any
+        if let Some(index) = clicked_index {
+            self.items.remove(index);
+
+            if let Some(mut callback) = self.on_item_removed {
+                callback(index);
             }
         }
 
