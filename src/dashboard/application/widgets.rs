@@ -41,11 +41,21 @@ impl ModalManager {
 
 pub struct Button {
     size: (f32, f32),
+    pressed: bool,
 }
 
 impl Button {
     pub fn new(size: (f32, f32)) -> Self {
-        Self { size }
+        Self {
+            size,
+            pressed: false,
+        }
+    }
+
+    pub fn set_pressed(mut self, pressed: bool) -> Self {
+        self.pressed = pressed;
+
+        self
     }
 
     pub const STYLES_COUNT: u8 = 0;
@@ -101,7 +111,9 @@ impl Widget for Button {
             Stroke::new(1.0, Color32::from_gray(40)),
         );
 
-        let inner_color = if response.hovered() {
+        let inner_color = if self.pressed {
+            Color::ACCENT.gamma_multiply(0.5)
+        } else if response.hovered() {
             Color32::from_gray(25)
         } else {
             Color32::from_gray(20)
