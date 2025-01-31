@@ -49,7 +49,7 @@ pub struct Application {
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
-    /// For storing current components state while editing
+    /// For storing last components state before editing layout
     components_backup: (HashMap<String, Component>, HashMap<String, Interaction>),
     // Visuals
     global_shadow: f32,
