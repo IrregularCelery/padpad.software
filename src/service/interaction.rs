@@ -1,6 +1,6 @@
 use enigo::{
     Direction::{Press, Release},
-    Enigo, Key, Keyboard, Settings,
+    Enigo, Keyboard, Settings,
 };
 use open;
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,7 @@ use crate::{
     log_error,
     service::serial::Serial,
     tcp,
+    utility::EnigoKey,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -19,7 +20,7 @@ pub enum InteractionKind {
     Command(String /* command */, String /* shell */),
     Application(String /* full_path */),
     Website(String /* url */),
-    Shortcut(Vec<Key> /* keys */, String /* text */),
+    Shortcut(Vec<EnigoKey> /* keys */, String /* text */),
     File(String /* full_path */),
 }
 
@@ -77,12 +78,12 @@ fn open_website(website_url: &str) {
 }
 
 // If `text` parameter is NOT empty, `keys` will be ignored
-fn simulate_shortcut(keys: &Vec<Key> /* Vec<enigo::Key> */, text: &str) {
+fn simulate_shortcut(keys: &Vec<EnigoKey> /* Vec<enigo::Key> */, text: &str) {
     let mut enigo = Enigo::new(&Settings::default()).unwrap();
 
     if text.is_empty() {
         for key in keys.iter() {
-            if let Err(e) = enigo.key(key.clone(), Press) {
+            if let Err(e) = enigo.key(key.0.clone(), Press) {
                 log_error!(
                     "Shortcut simulation failed while pressing key {:?}: {:?}",
                     key,
@@ -92,7 +93,7 @@ fn simulate_shortcut(keys: &Vec<Key> /* Vec<enigo::Key> */, text: &str) {
         }
 
         for key in keys.iter().rev() {
-            if let Err(e) = enigo.key(key.clone(), Release) {
+            if let Err(e) = enigo.key(key.0.clone(), Release) {
                 log_error!(
                     "Shortcut simulation failed while releasing key {:?}: {:?}",
                     key,

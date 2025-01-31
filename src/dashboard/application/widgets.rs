@@ -756,7 +756,7 @@ impl<'a, T, F> ItemList<'a, T, F> {
     }
 }
 
-impl<T: std::fmt::Debug, F> Widget for ItemList<'_, T, F>
+impl<T: std::fmt::Display, F> Widget for ItemList<'_, T, F>
 where
     F: FnMut(usize),
 {
@@ -767,7 +767,7 @@ where
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     for (index, item) in self.items.iter().enumerate() {
-                        let text = format!("{:?} ×", item);
+                        let text = format!("{} ×", item);
                         let galley = ui.painter().layout_no_wrap(
                             text.clone(),
                             FontId::proportional(self.height * 0.6),

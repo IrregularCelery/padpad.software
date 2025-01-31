@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 // Function will look for the hex bytes inside a string that at least has braces "{", "}"
 // Return Vec<u8> of all hex bytes
 // e.g. `input` = { 0x00, 0xFE, 0x15, ..., 0xFF } => [0, 254, 21, ..., 255]
@@ -86,4 +88,22 @@ pub fn restart() {
         .spawn()
         .expect("Failed to restart");
     std::process::exit(0);
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EnigoKey(pub enigo::Key);
+
+impl std::fmt::Display for EnigoKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self.0 {
+                enigo::Key::Unicode(letter) => {
+                    format!("Key '{}'", letter)
+                }
+                _ => format!("{:?}", self.0),
+            }
+        )
+    }
 }
