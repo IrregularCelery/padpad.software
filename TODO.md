@@ -46,6 +46,7 @@
 - [x] Rotary encoder
 - [x] Joystick/Thumbstick
   - [x] Add the ability to scroll with the `joystick` if the modkey was `held`
+- [ ] Add `home_page` icon for `Potentiometer`
 
 ### Optional
 
