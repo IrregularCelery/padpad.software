@@ -2104,7 +2104,7 @@ impl Application {
         ),
     > {
         // TODO: REMOVE THESE TEST VALUES
-        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|16|105|106|17|105|106";
+        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|15|255|0|16|105|106|17|105|106";
         //let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
@@ -2876,8 +2876,17 @@ impl Application {
 
                     ui.label(
                         egui::RichText::new(
-                            "If some buttons are missing, make sure \
+                            "ℹ If some buttons are missing, make sure \
                             you've added them to your layout.",
+                        )
+                        .color(Color::YELLOW.gamma_multiply(0.75))
+                        .size(18.0),
+                    );
+
+                    ui.label(
+                        egui::RichText::new(
+                            "If you want to set software-based interactions, \
+                        you can leave the field empty.",
                         )
                         .color(Color::YELLOW.gamma_multiply(0.75))
                         .size(18.0),
@@ -3004,6 +3013,8 @@ impl Application {
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
                     {
+                        // Upload new memory button layout to device
+
                         app.close_modal();
                     }
                     if ui
@@ -3666,9 +3677,12 @@ impl Application {
                                     );
 
                                     if ui
-                                        .label(
-                                            egui::RichText::new("Button Memory Manager")
-                                                .color(Color::BLUE),
+                                        .add(
+                                            egui::Label::new(
+                                                egui::RichText::new("Button Memory Manager")
+                                                    .color(Color::BLUE),
+                                            )
+                                            .sense(egui::Sense::click()),
                                         )
                                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                                         .clicked()
@@ -3964,17 +3978,20 @@ impl Application {
                                     egui::RichText::new(
                                         "Warning: This button already has an HID keyboard shortcut \
                                         stored in the device. It's recommended to clear it before \
-                                        assigning a new software-based shortcut."
+                                        assigning a new software-based interaction."
                                     )
                                     .color(Color::YELLOW.gamma_multiply(0.75))
                                     .size(13.5),
                                 );
 
                                     if ui
-                                        .label(
-                                            egui::RichText::new("\nClick here to open manager")
-                                                .color(Color::BLUE)
-                                                .size(14.0),
+                                        .add(
+                                            egui::Label::new(
+                                                egui::RichText::new("\nClick here to open manager")
+                                                    .color(Color::BLUE)
+                                                    .size(14.0),
+                                            )
+                                            .sense(egui::Sense::click()),
                                         )
                                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                                         .clicked()
