@@ -198,6 +198,19 @@ impl eframe::App for Application {
                             true,
                         );
                     }
+
+                    if ui.button("Resize layout to fit components").clicked() {
+                        self.show_yes_no_modal(
+                            "resize-layout-to-fit-components",
+                            "Resizing Layout".to_string(),
+                            "This operations will resize your layout and center components.\n\
+                            Are you sure you want to continue?"
+                                .to_string(),
+                            |app| app.resize_layout_to_fit_components(),
+                            |_app| {},
+                            true,
+                        );
+                    }
                 },
             );
 
@@ -4416,6 +4429,23 @@ impl Application {
 
     // Helper methods
 
+    fn resize_layout_to_fit_components(&mut self) {
+        let components_rect = self.get_layout_components_rect();
+
+        if let Some(config) = &mut self.config {
+            if let Some(layout) = &mut config.layout {
+                // TODO: Maybe show a modal to get user's desired paddings
+                let padding_x = 50.0;
+                let padding_y = 50.0;
+
+                layout.size.0 = components_rect.width() + (padding_x * 2.0);
+                layout.size.1 = components_rect.height() + (padding_y * 2.0);
+
+                self.center_components_to_layout();
+            }
+        }
+    }
+
     fn center_components_to_layout(&mut self) {
         let components_rect = self.get_layout_components_rect();
 
@@ -4434,6 +4464,8 @@ impl Application {
                     component.position.0 += offset_x;
                     component.position.1 += offset_y;
                 }
+
+                update_config_and_server(config, |_| {});
             }
         }
     }
