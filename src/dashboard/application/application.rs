@@ -185,6 +185,19 @@ impl eframe::App for Application {
                     if ui.button("Button Memory Manager").clicked() {
                         self.open_button_memory_manager_modal();
                     }
+
+                    if ui.button("Center components to layout").clicked() {
+                        self.show_yes_no_modal(
+                            "components-center-to-layout",
+                            "Centering Components".to_string(),
+                            "You're about to center every components to your layout.\n\
+                            Are you sure you want to continue?"
+                                .to_string(),
+                            |app| app.center_components_to_layout(),
+                            |_app| {},
+                            true,
+                        );
+                    }
                 },
             );
 
@@ -4399,6 +4412,81 @@ impl Application {
                 .range(min_range..=max_range)
                 .clamp_existing_to_range(true),
         );
+    }
+
+    // Helper methods
+
+    fn center_components_to_layout(&mut self) {
+        let components_rect = self.get_layout_components_rect();
+
+        if let Some(config) = &mut self.config {
+            if let Some(layout) = &mut config.layout {
+                let layout_center = (layout.size.0 / 2.0, layout.size.1 / 2.0);
+                let components_center = (
+                    (components_rect.min.x + components_rect.max.x) / 2.0,
+                    (components_rect.min.y + components_rect.max.y) / 2.0,
+                );
+
+                let offset_x = layout_center.0 - components_center.0;
+                let offset_y = layout_center.1 - components_center.1;
+
+                for component in layout.components.values_mut() {
+                    component.position.0 += offset_x;
+                    component.position.1 += offset_y;
+                }
+            }
+        }
+    }
+
+    fn get_layout_components_rect(&self) -> egui::Rect {
+        let mut rect = egui::Rect::NOTHING;
+
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                let (min_x, min_y, max_x, max_y) = layout.components.iter().fold(
+                    (f32::MAX, f32::MAX, f32::MIN, f32::MIN),
+                    |(min_x, min_y, max_x, max_y), (component_global_id, component)| {
+                        let kind_string = component_global_id.split(':').next().unwrap_or("");
+                        let kind = match kind_string {
+                            "Button" => ComponentKind::Button,
+                            "LED" => ComponentKind::LED,
+                            "Potentiometer" => ComponentKind::Potentiometer,
+                            "Joystick" => ComponentKind::Joystick,
+                            "RotaryEncoder" => ComponentKind::RotaryEncoder,
+                            "Display" => ComponentKind::Display,
+                            _ => ComponentKind::None,
+                        };
+
+                        let (width, height) = match kind {
+                            ComponentKind::None => (0.0, 0.0),
+                            ComponentKind::Button => self.component_button_size,
+                            ComponentKind::LED => self.component_led_size,
+                            ComponentKind::Potentiometer => self.component_potentiometer_size,
+                            ComponentKind::Joystick => self.component_joystick_size,
+                            ComponentKind::RotaryEncoder => self.component_rotary_encoder_size,
+                            ComponentKind::Display => (
+                                self.component_display_size.0 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                                self.component_display_size.1 * DASHBOARD_DISAPLY_PIXEL_SIZE,
+                            ),
+                        };
+
+                        (
+                            min_x.min(component.position.0),
+                            min_y.min(component.position.1),
+                            max_x.max(component.position.0 + (width * component.scale)),
+                            max_y.max(component.position.1 + (height * component.scale)),
+                        )
+                    },
+                );
+
+                rect.min.x = min_x;
+                rect.min.y = min_y;
+                rect.max.x = max_x;
+                rect.max.y = max_y;
+            }
+        }
+
+        rect
     }
 }
 
