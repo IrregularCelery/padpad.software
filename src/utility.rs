@@ -100,7 +100,7 @@ impl std::fmt::Display for EnigoKey {
             "{}",
             match self.0 {
                 enigo::Key::Unicode(letter) => {
-                    format!("Key '{}'", letter)
+                    format!("Key '{}'", letter.to_uppercase())
                 }
                 _ => format!("{:?}", self.0),
             }

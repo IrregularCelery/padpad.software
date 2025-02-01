@@ -845,15 +845,21 @@ impl Application {
                         }
                     }
 
-                    if !self.editing_layout {
-                        continue;
-                    }
-
                     let response = if let Some(r) = response {
                         r
                     } else {
                         continue;
                     };
+
+                    if !self.editing_layout {
+                        if response.double_clicked() {
+                            self.toggle_layout_state();
+
+                            self.open_component_properties_modal(component.0.clone());
+                        }
+
+                        continue;
+                    }
 
                     // Open the interactions modal
                     if response.clicked() {
@@ -3384,7 +3390,11 @@ impl Application {
                 ComponentKind::Display => GLCD::STYLES_COUNT,
             };
 
+            let mut is_internal_profile = false;
+
             if let Some(config) = &app.config {
+                is_internal_profile = config.settings.current_profile == 0;
+
                 let current_profile = &config.profiles[config.settings.current_profile];
 
                 current_profile_name = current_profile.name.clone();
@@ -3677,6 +3687,35 @@ impl Application {
                 });
             }
 
+            ui.separator();
+
+            if is_internal_profile && !app.server_data.is_device_paired {
+                ui.vertical_centered(|ui| {
+                    ui.group(|ui| {
+                        ui.label(
+                            egui::RichText::new("Warning")
+                                .color(Color::YELLOW)
+                                .size(20.0),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Help)
+                        .on_hover_ui(|ui| {
+                            ui.set_max_width(320.0);
+
+                            ui.label(
+                                egui::RichText::new(
+                                    "The device is not currently paired, so the app cannot \
+                                    determine whether it has button memory. To ensure proper \
+                                    functionality, connect your device before adding \
+                                    interactions to any components.",
+                                )
+                                .color(Color::YELLOW.gamma_multiply(0.75))
+                                .size(13.5),
+                            );
+                        });
+                    });
+                });
+            }
+
             let mut should_open_button_memory_manager = false;
 
             ui.allocate_ui_with_layout(
@@ -3689,12 +3728,10 @@ impl Application {
                 |ui| {
                     if kind == ComponentKind::Button
                         && interactions.normal != InteractionKind::None()
+                        && is_internal_profile
                         && button_memory.0
                     /* normal */
                     {
-                        // TODO: Add checks for profile
-                        // TODO: Add another message for when the device isn't paired and we cannot
-                        // retrieve the buttons
                         ui.vertical_centered_justified(|ui| {
                             ui.horizontal_wrapped(|ui| {
                                 ui.group(|ui| {
@@ -3723,8 +3760,6 @@ impl Application {
                             });
                         });
                     }
-
-                    ui.separator();
 
                     // Normal interaction
 
@@ -3912,13 +3947,13 @@ impl Application {
                                 ui.add(
                                     ItemList::new(
                                         keys,
-                                        24.0,
+                                        26.0,
                                         Color::SURFACE1,
                                         Color::WHITE,
                                         Color::YELLOW.gamma_multiply(0.5),
                                         egui::Color32::from_gray(12),
                                     )
-                                    .spacing(4.0)
+                                    .spacing(2.0)
                                     .on_item_removed(|_item| {
                                         should_update = true;
                                     }),
@@ -3932,7 +3967,7 @@ impl Application {
                                         )
                                         .show_ui(ui, |ui| {
                                             ui.add_sized(
-                                                (200.0, 0.0),
+                                                (160.0, 0.0),
                                                 egui::TextEdit::singleline(
                                                     &mut app.properties_shortcut_key_filter,
                                                 )
