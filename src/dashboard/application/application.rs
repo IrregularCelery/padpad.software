@@ -16,8 +16,8 @@ use padpad_software::{
     },
     constants::{
         DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE,
-        DEFAULT_DEVICE_NAME, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT,
-        HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
+        DEFAULT_DEVICE_NAME, FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES,
+        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
         SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
@@ -49,6 +49,10 @@ pub struct Application {
     server_data: ServerData,
     components: HashMap<String /* component_global_id */, String /* value */>,
     component_properties: (Option<Component>, Option<Interaction>), // Current editing component properties
+    button_memory: HashMap<
+        String,           /* component_global_id */
+        (String, String), /* ascii_char (normal, key) */
+    >,
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
@@ -72,6 +76,7 @@ pub struct Application {
     test_potentiometer_style: u8,
     test_potentiometer_value: f32,
     test_joystick_value: (f32, f32),
+    test_ascii_char_input: String,
 
     // Constants
     component_button_size: (f32 /* width */, f32 /* height */),
@@ -175,6 +180,10 @@ impl eframe::App for Application {
                         .clicked()
                     {
                         self.toggle_layout_state();
+                    }
+
+                    if ui.button("Button Memory Manager").clicked() {
+                        self.open_button_memory_manager_modal();
                     }
                 },
             );
@@ -2094,9 +2103,9 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        //// TODO: REMOVE THESE TEST VALUES
-        //let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106";
-        let buttons_string = self.server_data.raw_layout.0.clone();
+        // TODO: REMOVE THESE TEST VALUES
+        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|16|105|106|17|105|106";
+        //let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -2176,6 +2185,29 @@ impl Application {
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("ASCII char");
+
+                    let response =
+                        ui.add(egui::TextEdit::singleline(&mut self.test_ascii_char_input));
+
+                    if response.changed() {
+                        // Keep only the last valid ASCII character
+                        self.test_ascii_char_input.retain(|c| {
+                            c.is_ascii() && !FORBIDDEN_CHARACTERS.contains(&c.to_string().as_str())
+                        });
+
+                        if self.test_ascii_char_input.len() > 1 {
+                            self.test_ascii_char_input = self
+                                .test_ascii_char_input
+                                .chars()
+                                .last()
+                                .unwrap_or('\0')
+                                .to_string();
+                        }
+                    }
+                });
+
                 if ui.button("Restart application").clicked() {
                     restart();
                 }
@@ -2793,7 +2825,200 @@ impl Application {
         });
     }
 
-    fn open_button_memory_manager_modal(&mut self) {}
+    fn open_button_memory_manager_modal(&mut self) {
+        use egui::*;
+
+        self.button_memory.clear();
+
+        for (button_id, button_normal, button_mod) in self.get_buttons() {
+            let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
+
+            self.button_memory.insert(
+                component_global_id,
+                (
+                    (button_normal as char).to_string(),
+                    (button_mod as char).to_string(),
+                ),
+            );
+        }
+
+        self.show_custom_modal("button-memory-manager-modal", |ui, app| {
+            ui.set_width(638.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Button Memory Manager");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            // Content
+
+            ui.vertical_centered(|ui| {
+                ui.group(|ui| {
+                    ui.set_max_width(350.0);
+
+                    ui.label(
+                        egui::RichText::new(
+                            "If some buttons are missing, make sure \
+                            you've added them to your layout.",
+                        )
+                        .color(Color::YELLOW.gamma_multiply(0.75))
+                        .size(18.0),
+                    );
+                });
+            });
+
+            egui::ScrollArea::vertical()
+                .max_height(350.0)
+                .show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        for (button_id, _, _) in app.get_buttons() {
+                            let component_global_id =
+                                format!("{}:{}", ComponentKind::Button, button_id);
+
+                            let mem = app.button_memory.get_mut(&component_global_id);
+
+                            if let Some(memory) = mem {
+                                ui.allocate_ui_with_layout(
+                                    (216.0, ui.available_height()).into(),
+                                    Layout::left_to_right(Align::Center),
+                                    |ui| {
+                                        ui.vertical(|ui| {
+                                            ui.group(|ui| {
+                                                ui.label(
+                                                    RichText::new(component_global_id)
+                                                        .color(Color32::GRAY)
+                                                        .size(16.0),
+                                                );
+
+                                                ui.horizontal(|ui| {
+                                                    ui.vertical(|ui| {
+                                                        ui.add_space(
+                                                            ui.style().spacing.item_spacing.x / 2.0
+                                                                + 2.0,
+                                                        );
+                                                        ui.label("Key")
+                                                            .on_hover_text("Pressing the button");
+                                                    });
+
+                                                    let key_response = ui.add_sized(
+                                                        (48.0, ui.available_height()),
+                                                        TextEdit::singleline(&mut memory.0)
+                                                            .margin(vec2(8.0, 8.0))
+                                                            .horizontal_align(Align::Center),
+                                                    );
+
+                                                    if key_response.changed() {
+                                                        // Keep only the last valid ASCII character
+                                                        memory.0.retain(|c| {
+                                                            c.is_ascii()
+                                                                && !FORBIDDEN_CHARACTERS.contains(
+                                                                    &c.to_string().as_str(),
+                                                                )
+                                                        });
+
+                                                        if memory.0.len() > 1 {
+                                                            memory.0 = memory
+                                                                .0
+                                                                .chars()
+                                                                .last()
+                                                                .unwrap_or('\0')
+                                                                .to_string();
+                                                        }
+                                                    }
+
+                                                    ui.vertical(|ui| {
+                                                        ui.add_space(
+                                                            ui.style().spacing.item_spacing.x / 2.0
+                                                                + 2.0,
+                                                        );
+                                                        ui.label("Mod").on_hover_text(
+                                                    "Pressing the button while holding ModKey",
+                                                );
+                                                    });
+
+                                                    let key_response = ui.add_sized(
+                                                        (48.0, ui.available_height()),
+                                                        TextEdit::singleline(&mut memory.1)
+                                                            .margin(vec2(8.0, 8.0))
+                                                            .horizontal_align(Align::Center),
+                                                    );
+
+                                                    if key_response.changed() {
+                                                        // Keep only the last valid ASCII character
+                                                        memory.1.retain(|c| {
+                                                            c.is_ascii()
+                                                                && !FORBIDDEN_CHARACTERS.contains(
+                                                                    &c.to_string().as_str(),
+                                                                )
+                                                        });
+
+                                                        if memory.1.len() > 1 {
+                                                            memory.1 = memory
+                                                                .1
+                                                                .chars()
+                                                                .last()
+                                                                .unwrap_or('\0')
+                                                                .to_string();
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                        });
+                                    },
+                                );
+                            }
+                        }
+                    });
+                });
+
+            ui.add_space(ui.spacing().item_spacing.x * 1.5);
+
+            ui.vertical_centered(|ui| {
+                ui.set_max_width(350.0);
+                ui.horizontal_top(|ui| {
+                    let spacing = ui.spacing().item_spacing.x;
+
+                    let total_width = ui.available_width();
+                    let button_width = (total_width - spacing) / 2.0;
+
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Save to Device"))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        app.close_modal();
+                    }
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        app.close_modal();
+                    }
+                });
+            });
+        });
+
+        self.set_can_close_modal(false);
+    }
 
     fn open_set_device_name_modal(&mut self) {
         use egui::*;
@@ -4061,6 +4286,7 @@ impl Application {
             );
 
             if should_open_button_memory_manager {
+                app.close_modal();
                 app.open_button_memory_manager_modal();
             }
         });
@@ -4263,6 +4489,7 @@ impl Default for Application {
             server_needs_restart: false,
             components: HashMap::default(),
             component_properties: (None, None), // Current editing component properties
+            button_memory: Default::default(),
             editing_layout: false,
             dragged_component_offset: (0.0, 0.0),
             layout_grid: (true, 10.0),
@@ -4286,6 +4513,7 @@ impl Default for Application {
             test_potentiometer_style: 0,
             test_potentiometer_value: 15.0,
             test_joystick_value: (0.0, 0.0),
+            test_ascii_char_input: String::new(),
 
             // Constants
             component_button_size: (100.0, 100.0),
