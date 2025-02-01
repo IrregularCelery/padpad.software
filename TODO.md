@@ -27,9 +27,9 @@
 - [x] On every update, send a request to server to update device
 - [x] When updating interaction, it should consider showing correct fields based on current profile
 - [ ] Create a separate modal for native HID keyboard simulated keys (Only visible in internal profile)
-- [ ] Create some nice qol functionalities:
+- [x] Create some nice qol functionalities:
   - [x] Center components to the layout
-  - [ ] Auto-size layout to fit components
+  - [x] Auto-size layout to fit components
 - [ ] Add ability to change component id
 
 ### Firmware
