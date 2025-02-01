@@ -186,7 +186,7 @@ impl eframe::App for Application {
                         self.open_button_memory_manager_modal();
                     }
 
-                    if ui.button("Center components to layout").clicked() {
+                    if ui.button("Center components").clicked() {
                         self.show_yes_no_modal(
                             "components-center-to-layout",
                             "Centering Components".to_string(),
@@ -194,6 +194,19 @@ impl eframe::App for Application {
                             Are you sure you want to continue?"
                                 .to_string(),
                             |app| app.center_components_to_layout(),
+                            |_app| {},
+                            true,
+                        );
+                    }
+
+                    if ui.button("Top Left components").clicked() {
+                        self.show_yes_no_modal(
+                            "components-top-left-to-layout",
+                            "Top-Left Components".to_string(),
+                            "You're about to top-left every components to your layout.\n\
+                            Are you sure you want to continue?"
+                                .to_string(),
+                            |app| app.top_left_components_to_layout(),
                             |_app| {},
                             true,
                         );
@@ -4463,6 +4476,27 @@ impl Application {
                 for component in layout.components.values_mut() {
                     component.position.0 += offset_x;
                     component.position.1 += offset_y;
+                }
+
+                update_config_and_server(config, |_| {});
+            }
+        }
+    }
+
+    /// Useful for when you want to edit the layout and you want to enable snap to grid option
+    fn top_left_components_to_layout(&mut self) {
+        let components_rect = self.get_layout_components_rect();
+
+        if let Some(config) = &mut self.config {
+            if let Some(layout) = &mut config.layout {
+                let components_top_left = components_rect.min;
+
+                let offset_x = components_top_left.x;
+                let offset_y = components_top_left.y;
+
+                for component in layout.components.values_mut() {
+                    component.position.0 -= offset_x;
+                    component.position.1 -= offset_y;
                 }
 
                 update_config_and_server(config, |_| {});
