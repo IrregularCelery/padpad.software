@@ -5,6 +5,8 @@ use std::{
 
 use eframe::egui::{self, Context, DragValue, Pos2, Rect, Response, Ui, Vec2};
 
+use crate::application::utility::request_device_upload;
+
 use super::{
     get_current_style,
     utility::{request_restart_service, request_send_serial},
@@ -17,8 +19,8 @@ use padpad_software::{
     constants::{
         DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE,
         DEFAULT_DEVICE_NAME, FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES,
-        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
-        SERVER_DATA_UPDATE_INTERVAL,
+        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP,
+        SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
     service::interaction::InteractionKind,
@@ -50,8 +52,8 @@ pub struct Application {
     components: HashMap<String /* component_global_id */, String /* value */>,
     component_properties: (Option<Component>, Option<Interaction>), // Current editing component properties
     button_memory: HashMap<
-        String,           /* component_global_id */
-        (String, String), /* ascii_char (normal, key) */
+        String,                             /* component_global_id */
+        ((u8, String), (u8, String), bool), /* (normal (byte, str), mod (byte, str), is_modkey) */
     >,
     editing_layout: bool,
     dragged_component_offset: (f32, f32),
@@ -2496,36 +2498,16 @@ impl Application {
                 ui.group(|ui| {
                     ui.text_edit_multiline(&mut self.xbm_string);
 
-                    if ui.button("Save to memory").clicked() {
-                        if self.server_data.is_device_paired {
-                            self.show_yes_no_modal(
-                                "memory-override-confirmation",
-                                "Override memory".to_string(),
-                                "This operation will override the current memory!\n\
-                                Are you sure you want to continue?"
-                                    .to_string(),
-                                |_app| {
-                                    // `m` = `Memory`, `1` = true
-                                    request_send_serial("m1").ok();
-                                },
-                                |_app| {},
-                                true,
-                            );
-                        } else {
-                            self.show_not_paired_error();
-                        }
-                    }
-
                     if ui.button("Upload and Test").clicked() {
                         if self.server_data.is_device_paired {
                             let xbm_string = self.xbm_string.clone();
 
                             match extract_hex_bytes(&xbm_string, HOME_IMAGE_BYTES_SIZE) {
                                 Ok(bytes) => {
-                                    // `ui` = `Upload *HOME* Image`
-                                    let message = format!("ui{}", hex_bytes_vec_to_string(&bytes));
+                                    // `i` = *HOME* Image
+                                    let data = format!("i{}", hex_bytes_vec_to_string(&bytes));
 
-                                    request_send_serial(message.as_str()).ok();
+                                    request_device_upload(data, false).ok();
 
                                     self.show_message_modal(
                                         "xbm-upload-ok",
@@ -2557,9 +2539,29 @@ impl Application {
                                 on your device!\nAre you sure you want to continue?"
                                     .to_string(),
                                 |_app| {
-                                    // `ui` = `Upload *HOME* Image`, and since there's no value
+                                    // `i` = *HOME* Image, and since there's no value
                                     // the device removes current image and set its default
-                                    request_send_serial("ui").ok();
+                                    request_device_upload("i".to_string(), false).ok();
+                                },
+                                |_app| {},
+                                true,
+                            );
+                        } else {
+                            self.show_not_paired_error();
+                        }
+                    }
+
+                    if ui.button("Save to memory").clicked() {
+                        if self.server_data.is_device_paired {
+                            self.show_yes_no_modal(
+                                "memory-override-confirmation",
+                                "Override memory".to_string(),
+                                "This operation will override the current memory!\n\
+                                Are you sure you want to continue?"
+                                    .to_string(),
+                                |_app| {
+                                    // `m` = `Memory`, `1` = true
+                                    request_send_serial("m1").ok();
                                 },
                                 |_app| {},
                                 true,
@@ -2884,17 +2886,28 @@ impl Application {
         for (button_id, button_normal, button_mod) in self.get_buttons() {
             let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
 
-            self.button_memory.insert(
-                component_global_id,
-                (
-                    (button_normal as char).to_string(),
-                    (button_mod as char).to_string(),
-                ),
-            );
+            if let Some(config) = &self.config {
+                if let Some(layout) = &config.layout {
+                    if layout.components.contains_key(&component_global_id) {
+                        let is_modkey = button_normal == 255;
+
+                        let corrected_mod = if is_modkey { 0 } else { button_mod };
+
+                        self.button_memory.insert(
+                            component_global_id,
+                            (
+                                (button_normal, (button_normal as char).to_string()),
+                                (corrected_mod, (corrected_mod as char).to_string()),
+                                is_modkey,
+                            ),
+                        );
+                    }
+                }
+            }
         }
 
         self.show_custom_modal("button-memory-manager-modal", |ui, app| {
-            ui.set_width(638.0);
+            ui.set_width(650.0);
 
             ui.scope(|ui| {
                 let mut style = get_current_style();
@@ -2921,107 +2934,205 @@ impl Application {
 
             // Content
 
+            let card_width = 216.0;
+
             egui::ScrollArea::vertical()
-                .max_height(350.0)
+                .max_height(300.0)
                 .show(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        for (button_id, _, _) in app.get_buttons() {
-                            let component_global_id =
-                                format!("{}:{}", ComponentKind::Button, button_id);
+                    ui.horizontal(|ui| {
+                        ui.add_space(ui.style().spacing.item_spacing.x * 1.5);
 
-                            let mem = app.button_memory.get_mut(&component_global_id);
+                        ui.horizontal_wrapped(|ui| {
+                            for (button_id, _, _) in app.get_buttons() {
+                                let component_global_id =
+                                    format!("{}:{}", ComponentKind::Button, button_id);
 
-                            if let Some(memory) = mem {
-                                ui.allocate_ui_with_layout(
-                                    (216.0, ui.available_height()).into(),
-                                    Layout::left_to_right(Align::Center),
-                                    |ui| {
-                                        ui.vertical(|ui| {
-                                            ui.group(|ui| {
-                                                ui.label(
-                                                    RichText::new(component_global_id)
-                                                        .color(Color32::GRAY)
-                                                        .size(16.0),
-                                                );
+                                let button_memory = app.button_memory.get_mut(&component_global_id);
 
-                                                ui.horizontal(|ui| {
-                                                    ui.vertical(|ui| {
-                                                        ui.add_space(
-                                                            ui.style().spacing.item_spacing.x / 2.0
-                                                                + 2.0,
+                                if let Some(memory) = button_memory {
+                                    ui.allocate_ui_with_layout(
+                                        (card_width, ui.available_height()).into(),
+                                        Layout::left_to_right(Align::Center),
+                                        |ui| {
+                                            ui.vertical(|ui| {
+                                                ui.group(|ui| {
+                                                    ui.horizontal_wrapped(|ui| {
+                                                        ui.label(
+                                                            RichText::new(component_global_id)
+                                                                .color(Color32::GRAY)
+                                                                .size(16.0),
                                                         );
-                                                        ui.label("Key")
-                                                            .on_hover_text("Pressing the button");
+
+                                                        ui.add_space(
+                                                            ui.style().spacing.item_spacing.x,
+                                                        );
+
+                                                        let modkey_response = ui
+                                                            .checkbox(
+                                                                &mut memory.2,
+                                                                RichText::new("ModKey?")
+                                                                    .color(Color32::GRAY)
+                                                                    .size(16.0),
+                                                            )
+                                                            .on_hover_text(
+                                                                RichText::new(
+                                                                    "Assigns this button as \
+                                                                    the modifier.",
+                                                                )
+                                                                .size(18.0),
+                                                            );
+
+                                                        if modkey_response.changed() {
+                                                            if memory.2 {
+                                                                memory.0 = (
+                                                                    255,
+                                                                    (255 as char).to_string(),
+                                                                );
+                                                                memory.1 =
+                                                                    (0, (0 as char).to_string());
+                                                            } else {
+                                                                memory.0 = (0, String::new());
+                                                                memory.1 = (0, String::new());
+                                                            }
+                                                        }
                                                     });
 
-                                                    let key_response = ui.add_sized(
-                                                        (48.0, ui.available_height()),
-                                                        TextEdit::singleline(&mut memory.0)
-                                                            .margin(vec2(8.0, 8.0))
-                                                            .horizontal_align(Align::Center),
-                                                    );
-
-                                                    if key_response.changed() {
-                                                        // Keep only the last valid ASCII character
-                                                        memory.0.retain(|c| {
-                                                            c.is_ascii()
-                                                                && !FORBIDDEN_CHARACTERS.contains(
-                                                                    &c.to_string().as_str(),
+                                                    if memory.2 {
+                                                        ui.horizontal_centered(|ui| {
+                                                            ui.allocate_ui_with_layout(
+                                                                (
+                                                                    ui.available_width()
+                                                                        - ui.style()
+                                                                            .spacing
+                                                                            .item_spacing
+                                                                            .x
+                                                                            * 1.5
+                                                                        - 1.0,
+                                                                    ui.available_height(),
                                                                 )
+                                                                    .into(),
+                                                                Layout::centered_and_justified(
+                                                                    Direction::TopDown,
+                                                                ),
+                                                                |ui| {
+                                                                    ui.group(|ui| {
+                                                                        ui.label(
+                                                                            RichText::new("MODKEY")
+                                                                                .color(Color::GREEN)
+                                                                                .size(23.0),
+                                                                        )
+                                                                        .on_hover_text(
+                                                                            RichText::new(
+                                                                                "This is \
+                                                                            a modifier key. When \
+                                                                            held down, pressing \
+                                                                            other buttons will \
+                                                                            trigger an alternative \
+                                                                            action.",
+                                                                            )
+                                                                            .size(16.0),
+                                                                        );
+                                                                    });
+                                                                },
+                                                            );
                                                         });
 
-                                                        if memory.0.len() > 1 {
-                                                            memory.0 = memory
+                                                        return;
+                                                    }
+
+                                                    ui.horizontal(|ui| {
+                                                        ui.vertical(|ui| {
+                                                            ui.add_space(
+                                                                ui.style().spacing.item_spacing.x
+                                                                    / 2.0
+                                                                    + 2.0,
+                                                            );
+                                                            ui.label("Key").on_hover_text(
+                                                                "Pressing the button",
+                                                            );
+                                                        });
+
+                                                        let key_response = ui.add_sized(
+                                                            (48.0, ui.available_height()),
+                                                            TextEdit::singleline(&mut memory.0 .1)
+                                                                .margin(vec2(8.0, 8.0))
+                                                                .horizontal_align(Align::Center),
+                                                        );
+
+                                                        if key_response.changed() {
+                                                            // Keep only the last valid character in range 0-255
+                                                            memory
                                                                 .0
+                                                                 .1
+                                                                .retain(|c| (c as u32) < 256);
+
+                                                            // Keep only the last valid character
+                                                            memory.0 .1 = memory
+                                                                .0
+                                                                 .1
                                                                 .chars()
                                                                 .last()
                                                                 .unwrap_or('\0')
                                                                 .to_string();
+                                                            memory.0 .0 = memory
+                                                                .0
+                                                                 .1
+                                                                .chars()
+                                                                .next()
+                                                                .unwrap_or('\0')
+                                                                as u8;
                                                         }
-                                                    }
 
-                                                    ui.vertical(|ui| {
-                                                        ui.add_space(
-                                                            ui.style().spacing.item_spacing.x / 2.0
-                                                                + 2.0,
-                                                        );
-                                                        ui.label("Mod").on_hover_text(
-                                                    "Pressing the button while holding ModKey",
-                                                );
-                                                    });
-
-                                                    let key_response = ui.add_sized(
-                                                        (48.0, ui.available_height()),
-                                                        TextEdit::singleline(&mut memory.1)
-                                                            .margin(vec2(8.0, 8.0))
-                                                            .horizontal_align(Align::Center),
-                                                    );
-
-                                                    if key_response.changed() {
-                                                        // Keep only the last valid ASCII character
-                                                        memory.1.retain(|c| {
-                                                            c.is_ascii()
-                                                                && !FORBIDDEN_CHARACTERS.contains(
-                                                                    &c.to_string().as_str(),
-                                                                )
+                                                        ui.vertical(|ui| {
+                                                            ui.add_space(
+                                                                ui.style().spacing.item_spacing.x
+                                                                    / 2.0
+                                                                    + 2.0,
+                                                            );
+                                                            ui.label("Mod").on_hover_text(
+                                                                "Pressing the button \
+                                                                while holding ModKey",
+                                                            );
                                                         });
 
-                                                        if memory.1.len() > 1 {
-                                                            memory.1 = memory
+                                                        let key_response = ui.add_sized(
+                                                            (48.0, ui.available_height()),
+                                                            TextEdit::singleline(&mut memory.1 .1)
+                                                                .margin(vec2(8.0, 8.0))
+                                                                .horizontal_align(Align::Center),
+                                                        );
+
+                                                        if key_response.changed() {
+                                                            // Keep only the last valid character in range 0-255
+                                                            memory
                                                                 .1
+                                                                 .1
+                                                                .retain(|c| (c as u32) < 256);
+
+                                                            // Keep only the last valid character
+                                                            memory.1 .1 = memory
+                                                                .1
+                                                                 .1
                                                                 .chars()
                                                                 .last()
                                                                 .unwrap_or('\0')
                                                                 .to_string();
+                                                            memory.1 .0 = memory
+                                                                .1
+                                                                 .1
+                                                                .chars()
+                                                                .next()
+                                                                .unwrap_or('\0')
+                                                                as u8;
                                                         }
-                                                    }
+                                                    });
                                                 });
                                             });
-                                        });
-                                    },
-                                );
+                                        },
+                                    );
+                                }
                             }
-                        }
+                        });
                     });
                 });
 
@@ -3047,6 +3158,17 @@ impl Application {
                             .color(Color::YELLOW.gamma_multiply(0.75))
                             .size(18.0),
                         );
+
+                        ui.label(
+                            egui::RichText::new(
+                                "\n⚫Your device's flash memory has a limited number of \
+                                write/erase cycles.\n\t\t\
+                                Excessive writing can shorten its lifespan. \
+                                (usually 10,000-100,000)",
+                            )
+                            .color(Color::YELLOW.gamma_multiply(0.75))
+                            .size(18.0),
+                        );
                     });
                 });
             });
@@ -3067,8 +3189,55 @@ impl Application {
                         .clicked()
                     {
                         // Upload new memory button layout to device
+                        // Format: id:key|mod; e.g. 1:98|112;2:99|113;
+                        let mut data = String::new();
 
-                        app.close_modal();
+                        for (button_id, (button_key, button_mod, _)) in app.button_memory.iter() {
+                            let id: u8 = button_id
+                                .split(SERIAL_MESSAGE_SEP)
+                                .last()
+                                .unwrap_or("0")
+                                .parse()
+                                .unwrap_or(0);
+
+                            if id < 1 {
+                                continue;
+                            }
+
+                            data.push_str(id.to_string().as_str());
+                            data.push_str(SERIAL_MESSAGE_SEP);
+                            data.push_str(button_key.0.to_string().as_str());
+                            data.push_str(SERIAL_MESSAGE_INNER_SEP);
+                            data.push_str(button_mod.0.to_string().as_str());
+                            data.push_str(SERIAL_MESSAGE_END);
+                        }
+
+                        app.show_yes_no_modal(
+                            "button-memory-manager-upload-to-device-confirmation",
+                            "Update to Device".to_string(),
+                            "You're about to upload this button memory layout to you device!\n\
+                            Are you sure you want to continue?"
+                                .to_string(),
+                            move |app| {
+                                // `b` = buttons_layout
+                                request_device_upload(format!("b{}", data), true).ok();
+
+                                // Close this modal and the `ButtonMemoryManger` modal
+                                app.close_modals(1);
+
+                                app.show_message_modal(
+                                    "button-memory-manager-upload-to-device",
+                                    "Success".to_string(),
+                                    "New button memory layout was successfully uploaded to your \
+                                    device."
+                                        .to_string(),
+                                )
+                            },
+                            |app| {
+                                app.close_modal();
+                            },
+                            false,
+                        );
                     }
                     if ui
                         .add_sized([button_width, 0.0], egui::Button::new("Close"))

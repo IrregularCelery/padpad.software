@@ -238,7 +238,32 @@ impl Serial {
 
                         self.refresh_device(&mut config);
                     } else {
+                        let mut is_uploading = false;
+                        let mut is_saving_to_flash = false;
+
+                        // Ask device to re-send its internal data if some thing was uploaded
+                        if server_data.pending_serial_message.starts_with('u') {
+                            is_uploading = true;
+
+                            if server_data.pending_serial_message.chars().nth(1) == Some('M') {
+                                is_saving_to_flash = true;
+                            }
+
+                            // Remove the char because device's messaging structure is different
+                            server_data.pending_serial_message.remove(1);
+                        }
+
                         self.write(server_data.pending_serial_message);
+
+                        if is_uploading {
+                            // `i` => Internal, `data` => device's data
+                            self.write("idata".to_string());
+
+                            // Save to device's flash memory
+                            if is_saving_to_flash {
+                                self.write("m1".to_string()); // `m` => Memory, `1` => True
+                            }
+                        }
                     }
 
                     server_data.pending_serial_message = String::new();
