@@ -6,6 +6,13 @@ pub fn request_send_serial(message: &str) -> Result<String, String> {
     client_to_server_message(&request)
 }
 
+pub fn request_device_upload(data: String, save_to_flash: bool) -> Result<String, String> {
+    // `u` => Upload, `M` => Save to Memory
+    let request = format!("u{}{}", if save_to_flash { "M" } else { "-" }, data);
+
+    request_send_serial(&request)
+}
+
 pub fn request_restart_service() -> Result<String, String> {
     client_to_server_message("restart")
 }
