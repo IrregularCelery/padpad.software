@@ -38,7 +38,7 @@ pub const FORBIDDEN_CHARACTERS: [&str; 3] = [
 ];
 
 // Debug
-pub const DEBUG_SERIAL_DISABLE: bool = true; // Disables Serial comm for testing dashboard
+pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testing dashboard
 pub const DEBUG_TCP_CLIENT_CONNECTION: bool = false;
 pub const DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION: bool = false; // Logging received/sent messages
 

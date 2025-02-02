@@ -2144,9 +2144,9 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        // TODO: REMOVE THESE TEST VALUES
-        let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|15|255|0|16|105|106|17|105|106";
-        //let buttons_string = self.server_data.raw_layout.0.clone();
+        //// TODO: REMOVE THESE TEST VALUES
+        //let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|15|255|0|16|105|106|17|105|106";
+        let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
 
@@ -2871,6 +2871,16 @@ impl Application {
 
         self.button_memory.clear();
 
+        if !self.server_data.is_device_paired {
+            self.show_message_modal(
+                "button-memory-manager-device-not-paired",
+                "Error".to_string(),
+                "Your device needs to be connected!".to_string(),
+            );
+
+            return;
+        }
+
         for (button_id, button_normal, button_mod) in self.get_buttons() {
             let component_global_id = format!("{}:{}", ComponentKind::Button, button_id);
 
@@ -2910,30 +2920,6 @@ impl Application {
             });
 
             // Content
-
-            ui.vertical_centered(|ui| {
-                ui.group(|ui| {
-                    ui.set_max_width(350.0);
-
-                    ui.label(
-                        egui::RichText::new(
-                            "ℹ If some buttons are missing, make sure \
-                            you've added them to your layout.",
-                        )
-                        .color(Color::YELLOW.gamma_multiply(0.75))
-                        .size(18.0),
-                    );
-
-                    ui.label(
-                        egui::RichText::new(
-                            "If you want to set software-based interactions, \
-                        you can leave the field empty.",
-                        )
-                        .color(Color::YELLOW.gamma_multiply(0.75))
-                        .size(18.0),
-                    );
-                });
-            });
 
             egui::ScrollArea::vertical()
                 .max_height(350.0)
@@ -3038,6 +3024,32 @@ impl Application {
                         }
                     });
                 });
+
+            ui.add_space(ui.spacing().item_spacing.x * 1.0);
+
+            ui.vertical_centered(|ui| {
+                ui.group(|ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            egui::RichText::new(
+                                "⚫If some buttons are missing, make sure \
+                                you've added them to your layout",
+                            )
+                            .color(Color::YELLOW.gamma_multiply(0.75))
+                            .size(18.0),
+                        );
+
+                        ui.label(
+                            egui::RichText::new(
+                                "\n⚫If you want to set software-based interactions, \
+                                you can leave the field empty",
+                            )
+                            .color(Color::YELLOW.gamma_multiply(0.75))
+                            .size(18.0),
+                        );
+                    });
+                });
+            });
 
             ui.add_space(ui.spacing().item_spacing.x * 1.5);
 
