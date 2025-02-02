@@ -17,10 +17,11 @@ use padpad_software::{
         update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
     },
     constants::{
-        DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE,
-        DEFAULT_DEVICE_NAME, FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES,
-        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP,
-        SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
+        APP_MIN_HEIGHT, APP_MIN_WIDTH, APP_PADDING_X, APP_PADDING_Y, DASHBOARD_DISAPLY_PIXEL_SIZE,
+        DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME,
+        FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT,
+        HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
+        SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
     service::interaction::InteractionKind,
@@ -43,6 +44,7 @@ pub struct Application {
     ),
     modal: Arc<Mutex<ModalManager>>,
     config: Option<Config>,
+    needs_resize: bool,
     device_name: String,
     baud_rate_string: String,
     baud_rate: Option<u32>,
@@ -100,6 +102,9 @@ impl eframe::App for Application {
         use egui::*;
 
         ctx.set_style(get_current_style());
+
+        // Resize the application's window if needed
+        self.resize_window_based_on_layout(ctx);
 
         if self.server_needs_restart {
             request_restart_service().ok();
@@ -252,6 +257,33 @@ impl eframe::App for Application {
 }
 
 impl Application {
+    fn resize_window_based_on_layout(&mut self, ctx: &Context) {
+        if !self.needs_resize {
+            return;
+        }
+
+        if let Some(config) = &self.config {
+            if let Some(layout) = &config.layout {
+                let mut new_window_size = (
+                    layout.size.0 + (APP_PADDING_X * 2) as f32,
+                    layout.size.1 + (APP_PADDING_Y * 2) as f32,
+                );
+
+                if new_window_size.0 < APP_MIN_WIDTH as f32 {
+                    new_window_size.0 = APP_MIN_WIDTH as f32;
+                }
+
+                if new_window_size.1 < APP_MIN_HEIGHT as f32 {
+                    new_window_size.1 = APP_MIN_HEIGHT as f32;
+                }
+
+                self.resize_and_center_window(ctx, new_window_size.into());
+
+                self.needs_resize = false;
+            }
+        }
+    }
+
     fn resize_and_center_window(&self, ctx: &Context, size: Vec2) {
         let monitor_size = ctx.input(|i: &egui::InputState| i.viewport().monitor_size);
 
@@ -679,6 +711,8 @@ impl Application {
             update_config_and_server(config, |c| {
                 c.layout = Some(layout);
             });
+
+            self.needs_resize = true;
         }
     }
 
@@ -3520,6 +3554,31 @@ impl Application {
                             .clicked()
                         {
                             if let Some(config) = &mut app.config {
+                                // Check if the entered size can fit the user's monitor
+                                let monitor_size = ui
+                                    .ctx()
+                                    .input(|i: &egui::InputState| i.viewport().monitor_size);
+
+                                if let Some(size) = monitor_size {
+                                    if app.new_layout_size.0 + (APP_PADDING_X * 2) as f32 > size.x
+                                        || app.new_layout_size.1 + (APP_PADDING_Y * 2) as f32
+                                            > size.y
+                                    {
+                                        app.show_message_modal(
+                                            "layout-create-update-size-too-big",
+                                            "Error".to_string(),
+                                            format!(
+                                                "Your current monitor supports a maximum layout \
+                                                size of {}x{}.",
+                                                size.x - (APP_PADDING_Y * 2) as f32,
+                                                size.y - (APP_PADDING_Y * 2) as f32
+                                            ),
+                                        );
+
+                                        return;
+                                    }
+                                }
+
                                 if config.layout.is_none() {
                                     app.create_update_layout(
                                         app.new_layout_name.clone(),
@@ -5019,6 +5078,7 @@ impl Default for Application {
                     None
                 }
             },
+            needs_resize: true,
             device_name: DEFAULT_DEVICE_NAME.to_string(),
             baud_rate_string: DEFAULT_BAUD_RATE.to_string(),
             baud_rate: None,

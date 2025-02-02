@@ -2,6 +2,10 @@ use crate::utility::EnigoKey;
 
 // General
 pub const APP_NAME: &str = "PadPad";
+pub const APP_MIN_WIDTH: usize = 800; // Application window width (in px)
+pub const APP_MIN_HEIGHT: usize = 600; // Application window height (in px)
+pub const APP_PADDING_X: usize = 80; // Distance from the layout to left/right edges (in px)
+pub const APP_PADDING_Y: usize = 80; // Distance from the layout to top/bottom edges (in px)
 pub const DEFAULT_DEVICE_NAME: &str = "PadPad";
 pub const CONFIG_FILE_NAME: &str = "config.toml";
 
