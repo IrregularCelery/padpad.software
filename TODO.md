@@ -30,7 +30,7 @@
 - [x] Create some nice qol functionalities:
   - [x] Center components to the layout
   - [x] Auto-size layout to fit components
-- [ ] Add ability to change component id
+- [x] Add ability to change component id
 
 ### Firmware
 
