@@ -3138,25 +3138,27 @@ impl Application {
 
             ui.add_space(ui.spacing().item_spacing.x * 1.0);
 
-            ui.vertical_centered(|ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(35.0);
+
                 ui.group(|ui| {
                     ui.horizontal_wrapped(|ui| {
                         ui.label(
                             egui::RichText::new(
                                 "⚫If some buttons are missing, make sure \
-                                you've added them to your layout",
+                                you've added them to your layout.",
                             )
                             .color(Color::YELLOW.gamma_multiply(0.75))
-                            .size(18.0),
+                            .size(16.0),
                         );
 
                         ui.label(
                             egui::RichText::new(
-                                "\n⚫If you want to set software-based interactions, \
-                                you can leave the field empty",
+                                "\n⚫If you want to set software-based interaction, \
+                                you can leave the field empty.",
                             )
                             .color(Color::YELLOW.gamma_multiply(0.75))
-                            .size(18.0),
+                            .size(16.0),
                         );
 
                         ui.label(
@@ -3167,7 +3169,17 @@ impl Application {
                                 (usually 10,000-100,000)",
                             )
                             .color(Color::YELLOW.gamma_multiply(0.75))
-                            .size(18.0),
+                            .size(16.0),
+                        );
+
+                        ui.label(
+                            egui::RichText::new(
+                                "\n⚫These keyboard shortcuts are only active when \
+                                the current profile is set to\n\t\t\
+                                the device's internal profile.",
+                            )
+                            .color(Color::YELLOW.gamma_multiply(0.75))
+                            .size(16.0),
                         );
                     });
                 });
@@ -4445,7 +4457,7 @@ impl Application {
                                             egui::PopupCloseBehavior::CloseOnClickOutside,
                                         )
                                         .show_ui(ui, |ui| {
-                                            ui.add_sized(
+                                            let filter_response = ui.add_sized(
                                                 (160.0, 0.0),
                                                 egui::TextEdit::singleline(
                                                     &mut app.properties_shortcut_key_filter,
@@ -4453,6 +4465,8 @@ impl Application {
                                                 .margin(Vec2::new(8.0, 8.0))
                                                 .hint_text("Search"),
                                             );
+
+                                            filter_response.request_focus();
 
                                             let filtered_options: Vec<_> = KEYS
                                                 .iter()
