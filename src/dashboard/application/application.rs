@@ -64,6 +64,8 @@ pub struct Application {
     // TEMP VARIABLES
     properties_shortcut_key_filter: String,
     properties_shortcut_kind: (bool, bool), // (normal, modkey) `true` -> keys, `false` -> text
+    component_id: u8,
+    component_id_exists: bool,
     new_layout_name: String,
     new_layout_size: (f32, f32),
     new_profile_name: String,
@@ -1520,14 +1522,14 @@ impl Application {
         }
     }
 
-    fn delete_component(&mut self, component_global_id: String) {
+    fn delete_component(&mut self, component_global_id: &String) {
         if let Some(config) = &mut self.config {
             if let Some(layout) = &mut config.layout {
-                layout.components.remove(&component_global_id);
+                layout.components.remove(component_global_id);
             }
 
             for profile in &mut config.profiles {
-                profile.interactions.remove(&component_global_id);
+                profile.interactions.remove(component_global_id);
             }
         }
     }
@@ -3767,7 +3769,7 @@ impl Application {
                 }
             }
 
-            ui.set_width(if modkey_interaction { 540.0 } else { 350.0 });
+            ui.set_width(if modkey_interaction { 540.0 } else { 375.0 });
 
             ui.scope(|ui| {
                 let mut style = get_current_style();
@@ -3796,6 +3798,45 @@ impl Application {
                 ui.label(egui::RichText::new("Component"));
                 ui.add_space(ui.style().spacing.item_spacing.x * 4.0);
                 ui.label(egui::RichText::new(component_global_id.clone()).color(Color::BLUE));
+
+                let component_id = component_global_id.clone();
+
+                if ui
+                    .small_button("✏")
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    let (kind_string, id_string) = component_global_id
+                        .split_once(SERIAL_MESSAGE_SEP)
+                        .unwrap_or(("", ""));
+
+                    let id: u8 = id_string.parse().unwrap_or(0);
+
+                    app.open_update_component_id_modal(kind_string.to_string(), id);
+                }
+
+                if ui
+                    .small_button("🗑")
+                    .on_hover_text("Delete this component")
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.show_yes_no_modal(
+                        "component-delete-confirmation-modal",
+                        "Delete Component".to_string(),
+                        "You are about to delete this component!\n\
+                        Are you sure you want to continue?"
+                            .to_string(),
+                        move |app| {
+                            app.delete_component(&component_id);
+                            app.close_modal();
+
+                            return;
+                        },
+                        |_app| {},
+                        true,
+                    );
+                }
             });
 
             ui.horizontal(|ui| {
@@ -3803,30 +3844,6 @@ impl Application {
                 ui.add_space(ui.style().spacing.item_spacing.x * 9.75);
                 ui.label(egui::RichText::new(current_profile_name).color(Color::BLUE));
             });
-
-            let component_id = component_global_id.clone();
-
-            if ui
-                .button("Delete Component")
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .clicked()
-            {
-                app.show_yes_no_modal(
-                    "component-delete-confirmation-modal",
-                    "Delete Component".to_string(),
-                    "You are about to delete this component!\n\
-                    Are you sure you want to continue?"
-                        .to_string(),
-                    move |app| {
-                        app.delete_component(component_id.clone());
-                        app.close_modal();
-
-                        return;
-                    },
-                    |_app| {},
-                    true,
-                );
-            }
 
             let properties = if let Some(p) = &mut app.component_properties.0 {
                 p
@@ -4348,6 +4365,158 @@ impl Application {
         });
     }
 
+    fn open_update_component_id_modal(&mut self, kind: String, id: u8) {
+        use egui::*;
+
+        if id < 1 || kind.is_empty() {
+            self.show_message_modal(
+                "component-update-id-unknown-id",
+                "Error".to_string(),
+                "Could not retrieve id! Please try again.".to_string(),
+            );
+
+            self.set_width_modal(250.0);
+
+            return;
+        }
+
+        self.component_id = id;
+
+        self.show_custom_modal("component-id-update-modal", move |ui, app| {
+            ui.set_max_width(265.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Update Id");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            // Content
+
+            ui.group(|ui| {
+                ui.label(
+                    egui::RichText::new(
+                        "Make sure to enter a valid component ID that your device \
+                        can recognize based on the component type.",
+                    )
+                    .color(Color::YELLOW.gamma_multiply(0.75))
+                    .size(13.5),
+                );
+            });
+
+            let mut can_save = false;
+
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
+                    ui.label(format!("{} Id ", kind));
+                });
+
+                let response = ui.add_sized(
+                    ui.available_size(),
+                    DragValue::new(&mut app.component_id).speed(1),
+                );
+
+                if response.changed() {
+                    if let Some(config) = &app.config {
+                        if let Some(layout) = &config.layout {
+                            let current_id = format!("{}:{}", kind, &app.component_id);
+
+                            if layout.components.contains_key(&current_id) {
+                                app.component_id_exists = true;
+                            } else {
+                                app.component_id_exists = false;
+                            }
+                        }
+                    }
+                }
+
+                if app.component_id > 0 && !app.component_id_exists {
+                    can_save = true;
+                } else {
+                    can_save = false;
+                }
+            });
+
+            if app.component_id_exists {
+                ui.label(
+                    RichText::new(format!("A {} with this Id already exists!", kind))
+                        .color(Color::RED),
+                );
+            }
+
+            ui.add_space(ui.spacing().item_spacing.x * 2.5);
+
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                ui.scope(|ui| {
+                    if !can_save {
+                        ui.disable();
+                    }
+
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Save"))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        let new_id = format!("{}:{}", kind, app.component_id);
+
+                        if let Some(config) = &mut app.config {
+                            let last_id = format!("{}:{}", kind, id);
+
+                            if let Some(layout) = &mut config.layout {
+                                if let Some(component) = layout.components.remove(&last_id) {
+                                    layout.components.insert(new_id.clone(), component);
+                                }
+                            }
+
+                            for profile in &mut config.profiles {
+                                if let Some(component) = profile.interactions.remove(&last_id) {
+                                    profile.interactions.insert(new_id.clone(), component);
+                                }
+                            }
+                        }
+
+                        // Procedure: Close modals -> Disable edit mode -> Re-enable edit mode ->
+                        // Open properties modal with new info
+                        app.close_modals(2);
+
+                        app.open_component_properties_modal(new_id);
+                    }
+                });
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.close_modal();
+                }
+            });
+        });
+    }
+
     // Context menus
 
     fn open_profile_context_menu(&mut self, ui: &mut Ui, profile_name: String) {
@@ -4512,7 +4681,10 @@ impl Application {
                 let (min_x, min_y, max_x, max_y) = layout.components.iter().fold(
                     (f32::MAX, f32::MAX, f32::MIN, f32::MIN),
                     |(min_x, min_y, max_x, max_y), (component_global_id, component)| {
-                        let kind_string = component_global_id.split(':').next().unwrap_or("");
+                        let kind_string = component_global_id
+                            .split(SERIAL_MESSAGE_SEP)
+                            .next()
+                            .unwrap_or("");
                         let kind = match kind_string {
                             "Button" => ComponentKind::Button,
                             "LED" => ComponentKind::LED,
@@ -4672,6 +4844,8 @@ impl Default for Application {
             // TEMP VARIABLES
             properties_shortcut_key_filter: String::new(),
             properties_shortcut_kind: (true, true), // (normal, modkey) `true` -> keys, `false` -> text
+            component_id: 0,
+            component_id_exists: true,
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
             new_profile_name: "My Profile".to_string(),
