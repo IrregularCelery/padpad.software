@@ -9,7 +9,7 @@ use crate::application::utility::request_device_upload;
 
 use super::{
     get_current_style,
-    utility::{request_restart_service, request_send_serial},
+    utility::{request_refresh_device, request_restart_service, request_send_serial},
     widgets::*,
 };
 use padpad_software::{
@@ -136,7 +136,9 @@ impl eframe::App for Application {
             let title_bar_height = 32.0;
             let title_bar_rect = {
                 let mut rect = app_rect;
+
                 rect.max.y = rect.min.y + title_bar_height;
+
                 rect
             };
 
@@ -248,6 +250,7 @@ impl eframe::App for Application {
             }
 
             self.draw_status_indicator(ui);
+            self.draw_profile_select(ui);
         });
 
         if cfg!(debug_assertions) {
@@ -1612,7 +1615,7 @@ impl Application {
                     }
                 });
 
-                request_send_serial("refresh_device").ok();
+                request_refresh_device();
 
                 return true;
             }
@@ -1644,7 +1647,7 @@ impl Application {
                 c.profiles.push(new_profile);
             });
 
-            request_send_serial("refresh_device").ok();
+            request_refresh_device();
 
             return true;
         }
@@ -1698,7 +1701,7 @@ impl Application {
                 }
             });
 
-            request_send_serial("refresh_device").ok();
+            request_refresh_device();
 
             return Ok(format!(
                 "Profile \"{}\" was successfully removed.",
@@ -1712,7 +1715,24 @@ impl Application {
     fn draw_status_indicator(&mut self, ui: &mut Ui) {
         use egui::*;
 
-        ui.with_layout(Layout::left_to_right(Align::Max), |ui| {
+        let indicator_size = 48.0;
+        let padding = ui.style().spacing.item_spacing.x;
+
+        let app_rect = ui.clip_rect();
+        let footer_height = indicator_size;
+        let footer_rect = {
+            let mut rect = app_rect;
+
+            rect.min.y = rect.max.y - footer_height - (padding * 2.0);
+
+            rect.shrink(padding)
+        };
+
+        let ui_builder = UiBuilder::new()
+            .max_rect(footer_rect)
+            .layout(Layout::left_to_right(Align::Max));
+
+        ui.allocate_new_ui(ui_builder, |ui| {
             let paired_status_color = if self.server_data.is_device_paired {
                 Color::GREEN
             } else {
@@ -1723,7 +1743,7 @@ impl Application {
                 "device-paired-status-indicator",
                 ui,
                 paired_status_color,
-                48.0,
+                indicator_size,
             );
 
             if indicator.clicked() {
@@ -1840,6 +1860,100 @@ impl Application {
                 self.paired_status_panel = (PANEL_OPENED_X, 1.0);
             } else {
                 self.paired_status_panel = (PANEL_CLOSED_X, 0.0);
+            }
+        });
+    }
+
+    fn draw_profile_select(&mut self, ui: &mut Ui) {
+        use egui::*;
+
+        let profile_name_height = 48.0;
+        let padding = ui.style().spacing.item_spacing.x;
+
+        let app_rect = ui.clip_rect();
+        let footer_height = profile_name_height;
+        let footer_rect = {
+            let mut rect = app_rect;
+
+            rect.min.y = rect.max.y - footer_height - (padding * 4.0);
+
+            rect.shrink2((padding, padding * 4.0).into())
+        };
+
+        let ui_builder = UiBuilder::new()
+            .max_rect(footer_rect)
+            .layout(Layout::right_to_left(Align::Max));
+
+        ui.allocate_new_ui(ui_builder, |ui| {
+            egui::ComboBox::new("profile-select", "")
+                .width(135.0)
+                .selected_text({
+                    if let Some(config) = &self.config {
+                        config.profiles[config.settings.current_profile]
+                            .name
+                            .as_str()
+                    } else {
+                        "Loading profile..."
+                    }
+                })
+                .show_ui(ui, |ui| {
+                    if let Some(config) = &mut self.config {
+                        let mut selected_profile = -1;
+
+                        for (index, profile) in &mut config.profiles.iter_mut().enumerate() {
+                            let name = profile.name.clone();
+
+                            if ui
+                                .selectable_label(config.settings.current_profile == index, name)
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                if config.settings.current_profile != index {
+                                    selected_profile = index as i32;
+                                }
+                            }
+                        }
+
+                        if selected_profile >= 0 {
+                            update_config_and_server(config, |c| {
+                                c.settings.current_profile = selected_profile as usize;
+                            });
+
+                            request_refresh_device();
+                        }
+                    } else {
+                        ui.label("Loading");
+                    }
+                })
+                .response
+                .on_hover_cursor(CursorIcon::PointingHand)
+                .on_hover_text("Current profile");
+
+            ui.add_space(-ui.style().spacing.item_spacing.x);
+
+            if ui
+                .button(RichText::new("✏"))
+                .on_hover_cursor(CursorIcon::PointingHand)
+                .on_hover_text("Edit current profile")
+                .clicked()
+            {
+                if let Some(config) = &self.config {
+                    let profile_name = &config.profiles[config.settings.current_profile].name;
+
+                    self.new_profile_name = profile_name.to_string();
+                    self.last_profile_name = profile_name.to_string();
+
+                    self.open_create_update_profile_modal(true);
+                }
+            }
+
+            if ui
+                .button("➕")
+                .on_hover_cursor(CursorIcon::PointingHand)
+                .on_hover_text("Create a new profile")
+                .clicked()
+            {
+                self.open_create_update_profile_modal(false);
             }
         });
     }
@@ -2161,7 +2275,7 @@ impl Application {
                 }
             });
 
-            request_send_serial("refresh_device").ok();
+            request_refresh_device();
 
             return Ok("Detected componenets were added to your layout.".to_string());
         }
@@ -2478,6 +2592,10 @@ impl Application {
                     self.resize_and_center_window(ctx, (1600.0, 900.0).into());
                 }
 
+                if ui.button("Auto resize").clicked() {
+                    self.needs_resize = true;
+                }
+
                 ui.group(|ui| {
                     ui.label("Application modals");
 
@@ -2753,7 +2871,7 @@ impl Application {
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
                             ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 2.0);
-                            ui.label("Baud rate");
+                            ui.label("Baud rate ");
                         });
 
                         let baud_rate_response = ui.add_sized(
@@ -2870,7 +2988,7 @@ impl Application {
 
                         if device_name.is_empty()
                             && ui
-                                .add_sized([button_width, 0.0], egui::Button::new("Auto-detecting"))
+                                .add_sized([button_width, 0.0], egui::Button::new("Auto-detect"))
                                 .clicked()
                         {
                             app.show_yes_no_modal(
@@ -3476,7 +3594,7 @@ impl Application {
                         if !is_updating {
                             ui.label("Create new Layout");
                         } else {
-                            ui.label("Editing Layout");
+                            ui.label("Edit Layout");
                         }
 
                         ui.separator();
@@ -3632,36 +3750,39 @@ impl Application {
         use egui::*;
 
         if let Some(config) = &self.config {
-            self.profile_exists = config.does_profile_exist(&self.new_profile_name);
-
             if !is_updating {
                 // Clear the last_profile_name
                 self.last_profile_name = String::new();
+                self.new_profile_name = String::new();
             }
+
+            self.profile_exists = config.does_profile_exist(&self.new_profile_name);
         }
 
         self.show_custom_modal("create-update-profile", move |ui, app| {
-            ui.set_width(250.0);
+            ui.set_width(285.0);
 
-            ui.scope(|ui| {
-                let mut style = get_current_style();
+            ui.vertical_centered(|ui| {
+                ui.scope(|ui| {
+                    let mut style = get_current_style();
 
-                style
-                    .text_styles
-                    .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
+                    style
+                        .text_styles
+                        .insert(TextStyle::Body, FontId::new(24.0, FontFamily::Proportional));
 
-                style.visuals.override_text_color = Some(Color::WHITE);
-                style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color::WHITE);
+                    style.visuals.override_text_color = Some(Color::WHITE);
+                    style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color::WHITE);
 
-                ui.set_style(style);
+                    ui.set_style(style);
 
-                if !is_updating {
-                    ui.label("Create new Profile");
-                } else {
-                    ui.label("Editing Profile");
-                }
+                    if !is_updating {
+                        ui.label("Create new Profile");
+                    } else {
+                        ui.label("Edit Profile");
+                    }
 
-                ui.separator();
+                    ui.separator();
+                });
             });
 
             ui.add_space(20.0);
@@ -3678,10 +3799,56 @@ impl Application {
                             .truncate(DASHBOARD_PROFILE_MAX_CHARACTERS);
                     }
 
+                    let button_size = vec2(if is_updating { 42.0 } else { 0.0 }, 0.0);
+
                     let name_response = ui.add_sized(
-                        ui.available_size(),
+                        ui.available_size() - button_size, /* accouting for the delete button */
                         TextEdit::singleline(&mut app.new_profile_name).margin(vec2(8.0, 8.0)),
                     );
+
+                    if is_updating
+                        && ui
+                            .button("🗑")
+                            .on_hover_cursor(CursorIcon::PointingHand)
+                            .on_hover_text("Delete this profile")
+                            .clicked()
+                    {
+                        // Delete this profile
+                        let profile_name = app.last_profile_name.clone();
+
+                        app.show_yes_no_modal(
+                            "profile-delete-confirmation",
+                            "Deleting Profile".to_string(),
+                            format!(
+                                "You're about to delete \"{}\"\n\
+                            Are you sure you want to continue?",
+                                profile_name
+                            ),
+                            move |app| {
+                                // Close this and the update profile modals
+                                app.close_modals(2);
+
+                                match app.delete_profile(&profile_name) {
+                                    Ok(message) => {
+                                        app.show_message_modal(
+                                            "profile-delete-confirmation-result",
+                                            "Success".to_string(),
+                                            message,
+                                        );
+                                    }
+                                    Err(error) => app.show_message_modal(
+                                        "profile-delete-confirmation-result",
+                                        "Error".to_string(),
+                                        error,
+                                    ),
+                                }
+                            },
+                            |app| {
+                                app.close_modal();
+                            },
+                            false,
+                        );
+                    }
 
                     if app.new_profile_name.len() > DASHBOARD_PROFILE_MAX_CHARACTERS {
                         app.new_profile_name
@@ -3697,7 +3864,9 @@ impl Application {
 
                 if app.profile_exists {
                     ui.label(
-                        RichText::new("A profile with this name already exists!").color(Color::RED),
+                        RichText::new("A profile with this name already exists!")
+                            .size(16.5)
+                            .color(Color::RED),
                     );
                 }
             });
@@ -4340,38 +4509,46 @@ impl Application {
                                     &mut interactions.normal,
                                     InteractionKind::None(),
                                     "None",
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                 ui.selectable_value(
                                     &mut interactions.normal,
                                     InteractionKind::Command(String::new(), "sh".to_string()),
                                     "Command",
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                 ui.selectable_value(
                                     &mut interactions.normal,
                                     InteractionKind::Application(String::new()),
                                     "Application",
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                 ui.selectable_value(
                                     &mut interactions.normal,
                                     InteractionKind::Website(String::new()),
                                     "Website",
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                 ui.selectable_value(
                                     &mut interactions.normal,
                                     InteractionKind::Shortcut(vec![], String::new()),
                                     "Shortcut",
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                                 ui.selectable_value(
                                     &mut interactions.normal,
                                     InteractionKind::File(String::new()),
                                     "File",
-                                );
-                            });
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+                            })
+                            .response
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
                     });
 
                     match &mut interactions.normal {
@@ -4554,6 +4731,7 @@ impl Application {
                                             for key in filtered_options {
                                                 if ui
                                                     .selectable_label(false, format!("{}", key))
+                                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
                                                     .clicked()
                                                 {
                                                     ui.memory_mut(|mem| mem.toggle_popup(ui.id()));
@@ -4570,7 +4748,11 @@ impl Application {
                                             ui.add_space((32.0 * 5.0) - 4.0);
                                         });
 
-                                if keys_response.response.clicked() {
+                                if keys_response
+                                    .response
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                    .clicked()
+                                {
                                     app.properties_shortcut_key_filter.clear();
                                 }
 
@@ -4726,6 +4908,7 @@ impl Application {
             if app.component_id_exists {
                 ui.label(
                     RichText::new(format!("A {} with this Id already exists!", kind))
+                        .size(16.5)
                         .color(Color::RED),
                 );
             }
@@ -5117,7 +5300,7 @@ impl Default for Application {
             component_id_exists: true,
             new_layout_name: "New Layout".to_string(),
             new_layout_size: (1030.0, 580.0),
-            new_profile_name: "My Profile".to_string(),
+            new_profile_name: String::new(),
             last_profile_name: String::new(), // Used for updating a profile
             profile_exists: false,
             xbm_string: String::new(),

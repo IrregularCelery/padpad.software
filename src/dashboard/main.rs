@@ -5,6 +5,7 @@ use eframe::egui;
 mod application;
 
 use application::Application;
+use padpad_software::constants::{APP_MIN_HEIGHT, APP_MIN_WIDTH};
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -13,8 +14,8 @@ fn main() -> eframe::Result {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_min_inner_size([640.0, 360.0])
+            .with_inner_size([APP_MIN_WIDTH as f32, APP_MIN_HEIGHT as f32])
+            .with_min_inner_size([APP_MIN_WIDTH as f32, APP_MIN_HEIGHT as f32])
             .with_clamp_size_to_monitor_size(false)
             .with_decorations(false)
             .with_resizable(false)
