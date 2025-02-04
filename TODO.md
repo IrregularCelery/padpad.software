@@ -31,7 +31,7 @@
   - [x] Center components to the layout
   - [x] Auto-size layout to fit components
 - [x] Add ability to change component id
-- [ ] Created a parser for the interactions, so when for example the Command contains %value%, it
+- [x] Created a parser for the interactions, so when for example the Command contains %value%, it
       gets replaced by the actually value of the component. e.g. potentiometer values
 
 ### Firmware
