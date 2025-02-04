@@ -142,8 +142,6 @@ impl Default for Layout {
         Self {
             name: "New Layout".to_string(),
             components: Default::default(),
-            // TODO: Make this dynamic by getting the current screen size and subtract the
-            // rest of the ui, to calculate the maximum layout size
             size: (1030.0, 580.0),
         }
     }

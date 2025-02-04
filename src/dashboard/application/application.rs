@@ -2297,8 +2297,6 @@ impl Application {
             u8, /* mod_key */
         ),
     > {
-        //// TODO: REMOVE THESE TEST VALUES
-        //let buttons_string = "1|97|98|2|99|100|3|101|102|4|103|104|5|105|106|6|105|106|7|105|106|8|105|106|9|105|106|10|105|106|11|105|106|12|105|106|13|105|106|14|105|106|15|255|0|16|105|106|17|105|106";
         let buttons_string = self.server_data.raw_layout.0.clone();
 
         let mut buttons: Vec<(u8, u8, u8)> = vec![];
@@ -2333,9 +2331,7 @@ impl Application {
     // 1,2,3... = potentiometer id (Started from 1)
     // 25 => value of the potentiometer which is just the starting value and doesn't update
     fn get_potentiometers(&self) -> impl Iterator<Item = (u8 /* id */, u8 /* value */)> {
-        // TODO: REMOVE THESE TEST VALUES
-        let potentiometers_string = "1|25|2|45|3|12|4|99|5|75";
-        //let potentiometers_string = &self.server_data.raw_layout.1;
+        let potentiometers_string = &self.server_data.raw_layout.1;
 
         let mut potentiometers: Vec<(u8, u8)> = vec![];
 
