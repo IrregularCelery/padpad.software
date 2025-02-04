@@ -14,7 +14,7 @@ use crate::{
     utility::EnigoKey,
 };
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InteractionKind {
     None(), /* Can be used for interactions that are handled by the device, or no interactions */
     Command(String /* command */, String /* shell */),
@@ -22,6 +22,20 @@ pub enum InteractionKind {
     Website(String /* url */),
     Shortcut(Vec<EnigoKey> /* keys */, String /* text */),
     File(String /* full_path */),
+}
+
+impl PartialEq for InteractionKind {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (InteractionKind::None(), InteractionKind::None()) => true,
+            (InteractionKind::Command(_, _), InteractionKind::Command(_, _)) => true,
+            (InteractionKind::Application(_), InteractionKind::Application(_)) => true,
+            (InteractionKind::Website(_), InteractionKind::Website(_)) => true,
+            (InteractionKind::Shortcut(_, _), InteractionKind::Shortcut(_, _)) => true,
+            (InteractionKind::File(_), InteractionKind::File(_)) => true,
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for InteractionKind {

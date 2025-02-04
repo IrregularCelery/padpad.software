@@ -783,10 +783,14 @@ impl Application {
                 fill: Color::OVERLAY0,
                 rounding: 8.0.into(),
                 shadow: egui::Shadow {
-                    offset: egui::vec2(0.0, 4.0),
+                    offset: egui::vec2(0.0, if self.editing_layout { 0.0 } else { 4.0 }),
                     blur: 8.0,
-                    spread: 2.0,
-                    color: Color::OVERLAY1.gamma_multiply(0.5),
+                    spread: if self.editing_layout { 8.0 } else { 2.0 },
+                    color: if self.editing_layout {
+                        Color::RED.gamma_multiply(0.15)
+                    } else {
+                        Color::OVERLAY1.gamma_multiply(0.5)
+                    },
                 },
                 stroke: {
                     if self.editing_layout {
@@ -4218,10 +4222,6 @@ impl Application {
                 ui.set_style(style);
 
                 ui.horizontal(|ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.label("Properties");
-                    });
-
                     if !interactable {
                         ui.add(
                             egui::Label::new(
@@ -4229,7 +4229,7 @@ impl Application {
                             )
                             .sense(egui::Sense::hover()),
                         )
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_cursor(egui::CursorIcon::Help)
                         .on_hover_text(
                             egui::RichText::new(
                                 "This component is decorative and \n\
@@ -4239,6 +4239,10 @@ impl Application {
                             .size(16.0),
                         );
                     }
+
+                    ui.vertical_centered(|ui| {
+                        ui.label("Properties");
+                    });
                 });
 
                 ui.separator();
@@ -4417,26 +4421,6 @@ impl Application {
                 return;
             };
 
-            ui.horizontal_wrapped(|ui| {
-                ui.label("Normal: ");
-                ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 2.0);
-                ui.label(
-                    egui::RichText::new(format!("{:?}", interactions.normal))
-                        .color(egui::Color32::GRAY),
-                );
-            });
-
-            // Check if this component supports modkey interaction
-            if modkey_interaction {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("Modkey: ");
-                    ui.label(
-                        egui::RichText::new(format!("{:?}", interactions.modkey))
-                            .color(egui::Color32::GRAY),
-                    );
-                });
-            }
-
             ui.separator();
 
             if is_internal_profile && !app.server_data.is_device_paired {
@@ -4516,314 +4500,22 @@ impl Application {
 
                     // Normal interaction
 
-                    ui.horizontal(|ui| {
-                        ui.vertical(|ui| {
-                            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
-                            ui.label("Normal");
-                        });
+                    let mut should_update = false;
 
-                        egui::ComboBox::new("properties-interactions-normal", "")
-                            .selected_text(format!("{}", interactions.normal))
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::None(),
-                                    "None",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    draw_normal_interaction_panel(
+                        ui,
+                        interactions,
+                        &mut app.properties_shortcut_kind,
+                        &mut app.properties_shortcut_key_filter,
+                        &mut should_update,
+                    );
 
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::Command(String::new(), "sh".to_string()),
-                                    "Command",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::Application(String::new()),
-                                    "Application",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::Website(String::new()),
-                                    "Website",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::Shortcut(vec![], String::new()),
-                                    "Shortcut",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                ui.selectable_value(
-                                    &mut interactions.normal,
-                                    InteractionKind::File(String::new()),
-                                    "File",
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-                            })
-                            .response
-                            .on_hover_cursor(egui::CursorIcon::PointingHand);
-                    });
-
-                    match &mut interactions.normal {
-                        InteractionKind::None() => {
-                            update_component_interactions(
-                                &component_global_id,
-                                interactions,
-                                &mut app.config,
-                            );
-                        }
-                        InteractionKind::Command(command, _shell) => {
-                            ui.label("Command:");
-
-                            let response = ui.text_edit_singleline(command);
-
-                            if response.changed() {
-                                update_component_interactions(
-                                    &component_global_id,
-                                    interactions,
-                                    &mut app.config,
-                                );
-                            }
-                        }
-                        InteractionKind::Application(path) => {
-                            ui.label("Application Path:");
-
-                            let response = ui.text_edit_singleline(path);
-
-                            if response.changed() {
-                                update_component_interactions(
-                                    &component_global_id,
-                                    interactions,
-                                    &mut app.config,
-                                );
-                            }
-                        }
-                        InteractionKind::Website(url) => {
-                            ui.label("Website URL:");
-
-                            let response = ui.text_edit_singleline(url);
-
-                            if response.changed() {
-                                update_component_interactions(
-                                    &component_global_id,
-                                    interactions,
-                                    &mut app.config,
-                                );
-                            }
-                        }
-                        InteractionKind::Shortcut(keys, text) => {
-                            let mut should_update = false;
-
-                            ui.horizontal_top(|ui| {
-                                let spacing = ui.spacing().item_spacing.x;
-
-                                let total_width = ui.available_width();
-                                let button_width = (total_width - spacing) / 2.0;
-
-                                if ui
-                                    .add_sized(
-                                        [button_width, 0.0],
-                                        egui::Button::new("Keys")
-                                            .fill(if app.properties_shortcut_kind.0 {
-                                                Color::ACCENT.gamma_multiply(0.5)
-                                            } else {
-                                                egui::Color32::TRANSPARENT
-                                            })
-                                            .stroke(egui::Stroke::new(
-                                                2.0,
-                                                if app.properties_shortcut_kind.0 {
-                                                    Color::ACCENT.gamma_multiply(0.1)
-                                                } else {
-                                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                                },
-                                            )),
-                                    )
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .on_hover_ui(|ui| {
-                                        ui.label(
-                                            egui::RichText::new(
-                                                "When this shortcut is triggered, it simulates \n\
-                                                pressing a set of keys in order.",
-                                            )
-                                            .color(egui::Color32::GRAY)
-                                            .size(15.0),
-                                        );
-                                    })
-                                    .clicked()
-                                {
-                                    app.properties_shortcut_kind.0 = true;
-
-                                    should_update = true;
-                                }
-
-                                if ui
-                                    .add_sized(
-                                        [button_width, 0.0],
-                                        egui::Button::new("Text")
-                                            .fill(if !app.properties_shortcut_kind.0 {
-                                                Color::ACCENT.gamma_multiply(0.5)
-                                            } else {
-                                                egui::Color32::TRANSPARENT
-                                            })
-                                            .stroke(egui::Stroke::new(
-                                                2.0,
-                                                if !app.properties_shortcut_kind.0 {
-                                                    Color::ACCENT.gamma_multiply(0.1)
-                                                } else {
-                                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                                },
-                                            )),
-                                    )
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .on_hover_ui(|ui| {
-                                        ui.label(
-                                            egui::RichText::new(
-                                                "When this shortcut is triggered, it simulates \n\
-                                                typing a text.",
-                                            )
-                                            .color(egui::Color32::GRAY)
-                                            .size(15.0),
-                                        );
-                                    })
-                                    .clicked()
-                                {
-                                    app.properties_shortcut_kind.0 = false;
-
-                                    should_update = true;
-                                }
-                            });
-
-                            // Keys
-                            if app.properties_shortcut_kind.0 {
-                                // `text` must be empty in `keys` mode
-                                *text = String::new();
-
-                                ui.add(
-                                    ItemList::new(
-                                        keys,
-                                        26.0,
-                                        Color::SURFACE1,
-                                        Color::WHITE,
-                                        Color::YELLOW.gamma_multiply(0.5),
-                                        egui::Color32::from_gray(12),
-                                    )
-                                    .spacing(2.0)
-                                    .on_item_removed(|_item| {
-                                        should_update = true;
-                                    }),
-                                );
-
-                                let keys_response =
-                                    egui::ComboBox::new("properties-interactions-normal-keys", "")
-                                        .selected_text("Keys")
-                                        .close_behavior(
-                                            egui::PopupCloseBehavior::CloseOnClickOutside,
-                                        )
-                                        .show_ui(ui, |ui| {
-                                            let filter_response = ui.add_sized(
-                                                (160.0, 0.0),
-                                                egui::TextEdit::singleline(
-                                                    &mut app.properties_shortcut_key_filter,
-                                                )
-                                                .margin(Vec2::new(8.0, 8.0))
-                                                .hint_text("Search"),
-                                            );
-
-                                            filter_response.request_focus();
-
-                                            let filtered_options: Vec<_> = KEYS
-                                                .iter()
-                                                .filter(|option| {
-                                                    format!("{}", option).to_lowercase().contains(
-                                                        &app.properties_shortcut_key_filter
-                                                            .to_lowercase(),
-                                                    )
-                                                })
-                                                .collect();
-
-                                            for key in filtered_options {
-                                                if ui
-                                                    .selectable_label(false, format!("{}", key))
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                                    .clicked()
-                                                {
-                                                    ui.memory_mut(|mem| mem.toggle_popup(ui.id()));
-
-                                                    keys.push(key.clone());
-
-                                                    app.properties_shortcut_key_filter.clear();
-
-                                                    should_update = true;
-                                                }
-                                            }
-
-                                            // Dummy items to fill the space even if there's no item
-                                            ui.add_space((32.0 * 5.0) - 4.0);
-                                        });
-
-                                if keys_response
-                                    .response
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked()
-                                {
-                                    app.properties_shortcut_key_filter.clear();
-                                }
-
-                            // Text
-                            } else {
-                                ui.label("Text:");
-
-                                const ROWS: usize = 5;
-
-                                let mut response = None;
-
-                                egui::ScrollArea::vertical()
-                                    .max_height((ROWS + 1) as f32 * 20.0)
-                                    .show(ui, |ui| {
-                                        response = Some(
-                                            ui.add(
-                                                egui::TextEdit::multiline(text)
-                                                    .desired_rows(ROWS)
-                                                    .desired_width(f32::INFINITY),
-                                            ),
-                                        );
-                                    });
-
-                                if let Some(r) = response {
-                                    if r.changed() {
-                                        should_update = true;
-                                    }
-                                }
-                            }
-
-                            if should_update {
-                                update_component_interactions(
-                                    &component_global_id,
-                                    interactions,
-                                    &mut app.config,
-                                );
-                            }
-                        }
-                        InteractionKind::File(path) => {
-                            ui.label("File Path:");
-
-                            let response = ui.text_edit_singleline(path);
-
-                            if response.changed() {
-                                update_component_interactions(
-                                    &component_global_id,
-                                    interactions,
-                                    &mut app.config,
-                                );
-                            }
-                        }
+                    if should_update {
+                        update_component_interactions(
+                            &component_global_id,
+                            interactions,
+                            &mut app.config,
+                        );
                     }
                 },
             );
@@ -5342,6 +5034,286 @@ impl Default for Application {
             component_joystick_size: (100.0, 100.0),
             component_rotary_encoder_size: (100.0, 100.0),
             component_display_size: (128.0, 64.0),
+        }
+    }
+}
+
+// Panels
+
+fn draw_normal_interaction_panel(
+    ui: &mut Ui,
+    interactions: &mut Interaction,
+    properties_shortcut_kind: &mut (bool, bool), // (normal, modkey) `true` -> keys, `false` -> text
+    properties_shortcut_key_filter: &mut String,
+    should_update: &mut bool,
+) {
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+            ui.label("Normal");
+        });
+
+        egui::ComboBox::new("properties-interactions-normal", "")
+            .selected_text(format!("{}", interactions.normal))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut interactions.normal, InteractionKind::None(), "None")
+                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.selectable_value(
+                    &mut interactions.normal,
+                    InteractionKind::Command(String::new(), "sh".to_string()),
+                    "Command",
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.selectable_value(
+                    &mut interactions.normal,
+                    InteractionKind::Application(String::new()),
+                    "Application",
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.selectable_value(
+                    &mut interactions.normal,
+                    InteractionKind::Website(String::new()),
+                    "Website",
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.selectable_value(
+                    &mut interactions.normal,
+                    InteractionKind::Shortcut(vec![], String::new()),
+                    "Shortcut",
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.selectable_value(
+                    &mut interactions.normal,
+                    InteractionKind::File(String::new()),
+                    "File",
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+            })
+            .response
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+    });
+
+    match &mut interactions.normal {
+        InteractionKind::None() => {
+            *should_update = true;
+        }
+        InteractionKind::Command(command, _shell) => {
+            ui.label("Command:");
+
+            let response = ui.text_edit_singleline(command);
+
+            if response.changed() {
+                *should_update = true;
+            }
+        }
+        InteractionKind::Application(path) => {
+            ui.label("Application Path:");
+
+            let response = ui.text_edit_singleline(path);
+
+            if response.changed() {
+                *should_update = true;
+            }
+        }
+        InteractionKind::Website(url) => {
+            ui.label("Website URL:");
+
+            let response = ui.text_edit_singleline(url);
+
+            if response.changed() {
+                *should_update = true;
+            }
+        }
+        InteractionKind::Shortcut(keys, text) => {
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized(
+                        [button_width, 0.0],
+                        egui::Button::new("Keys")
+                            .fill(if properties_shortcut_kind.0 {
+                                Color::ACCENT.gamma_multiply(0.5)
+                            } else {
+                                egui::Color32::TRANSPARENT
+                            })
+                            .stroke(egui::Stroke::new(
+                                2.0,
+                                if properties_shortcut_kind.0 {
+                                    Color::ACCENT.gamma_multiply(0.1)
+                                } else {
+                                    egui::Color32::WHITE.gamma_multiply(0.25)
+                                },
+                            )),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_ui(|ui| {
+                        ui.label(
+                            egui::RichText::new(
+                                "When this shortcut is triggered, it simulates \n\
+                                                pressing a set of keys in order.",
+                            )
+                            .color(egui::Color32::GRAY)
+                            .size(15.0),
+                        );
+                    })
+                    .clicked()
+                {
+                    properties_shortcut_kind.0 = true;
+
+                    *should_update = true;
+                }
+
+                if ui
+                    .add_sized(
+                        [button_width, 0.0],
+                        egui::Button::new("Text")
+                            .fill(if !properties_shortcut_kind.0 {
+                                Color::ACCENT.gamma_multiply(0.5)
+                            } else {
+                                egui::Color32::TRANSPARENT
+                            })
+                            .stroke(egui::Stroke::new(
+                                2.0,
+                                if !properties_shortcut_kind.0 {
+                                    Color::ACCENT.gamma_multiply(0.1)
+                                } else {
+                                    egui::Color32::WHITE.gamma_multiply(0.25)
+                                },
+                            )),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_ui(|ui| {
+                        ui.label(
+                            egui::RichText::new(
+                                "When this shortcut is triggered, it simulates \n\
+                                                typing a text.",
+                            )
+                            .color(egui::Color32::GRAY)
+                            .size(15.0),
+                        );
+                    })
+                    .clicked()
+                {
+                    properties_shortcut_kind.0 = false;
+
+                    *should_update = true;
+                }
+            });
+
+            // Keys
+            if properties_shortcut_kind.0 {
+                // `text` must be empty in `keys` mode
+                *text = String::new();
+
+                ui.add(
+                    ItemList::new(
+                        keys,
+                        26.0,
+                        Color::SURFACE1,
+                        Color::WHITE,
+                        Color::YELLOW.gamma_multiply(0.5),
+                        egui::Color32::from_gray(12),
+                    )
+                    .spacing(2.0)
+                    .on_item_removed(|_item| {
+                        *should_update = true;
+                    }),
+                );
+
+                let keys_response = egui::ComboBox::new("properties-interactions-normal-keys", "")
+                    .selected_text("Keys")
+                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                    .show_ui(ui, |ui| {
+                        let filter_response = ui.add_sized(
+                            (160.0, 0.0),
+                            egui::TextEdit::singleline(properties_shortcut_key_filter)
+                                .margin(Vec2::new(8.0, 8.0))
+                                .hint_text("Search"),
+                        );
+
+                        filter_response.request_focus();
+
+                        let filtered_options: Vec<_> = KEYS
+                            .iter()
+                            .filter(|option| {
+                                format!("{}", option)
+                                    .to_lowercase()
+                                    .contains(&properties_shortcut_key_filter.to_lowercase())
+                            })
+                            .collect();
+
+                        for key in filtered_options {
+                            if ui
+                                .selectable_label(false, format!("{}", key))
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                ui.memory_mut(|mem| mem.toggle_popup(ui.id()));
+
+                                keys.push(key.clone());
+
+                                properties_shortcut_key_filter.clear();
+
+                                *should_update = true;
+                            }
+                        }
+
+                        // Dummy items to fill the space even if there's no item
+                        ui.add_space((32.0 * 5.0) - 4.0);
+                    });
+
+                if keys_response
+                    .response
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    properties_shortcut_key_filter.clear();
+                }
+
+            // Text
+            } else {
+                ui.label("Text:");
+
+                const ROWS: usize = 5;
+
+                let mut response = None;
+
+                egui::ScrollArea::vertical()
+                    .max_height((ROWS + 1) as f32 * 20.0)
+                    .show(ui, |ui| {
+                        response = Some(
+                            ui.add(
+                                egui::TextEdit::multiline(text)
+                                    .desired_rows(ROWS)
+                                    .desired_width(f32::INFINITY),
+                            ),
+                        );
+                    });
+
+                if let Some(r) = response {
+                    if r.changed() {
+                        *should_update = true;
+                    }
+                }
+            }
+        }
+        InteractionKind::File(path) => {
+            ui.label("File Path:");
+
+            let response = ui.text_edit_singleline(path);
+
+            if response.changed() {
+                *should_update = true;
+            }
         }
     }
 }
