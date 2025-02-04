@@ -118,14 +118,20 @@ fn open_file(file_full_path: &str) {
     println!("File opened: {}", file_path);
 }
 
-fn do_interaction(kind: &InteractionKind) {
+fn do_interaction(kind: &InteractionKind, value: impl ToString) {
+    let parse_value = |text: &str| text.replace("{value}", &value.to_string());
+
     match kind {
         InteractionKind::None() => (),
-        InteractionKind::Command(command, unix_shell) => run_command(&command, &unix_shell),
-        InteractionKind::Application(app_full_path) => open_application(&app_full_path),
-        InteractionKind::Website(website_url) => open_website(&website_url),
-        InteractionKind::Shortcut(keys, text) => simulate_shortcut(keys, &text),
-        InteractionKind::File(file_full_path) => open_file(&file_full_path),
+        InteractionKind::Command(command, unix_shell) => {
+            run_command(&parse_value(command), &unix_shell)
+        }
+        InteractionKind::Application(app_full_path) => {
+            open_application(&parse_value(app_full_path))
+        }
+        InteractionKind::Website(website_url) => open_website(&parse_value(website_url)),
+        InteractionKind::Shortcut(keys, text) => simulate_shortcut(keys, &parse_value(text)),
+        InteractionKind::File(file_full_path) => open_file(&parse_value(file_full_path)),
     }
 }
 
@@ -192,7 +198,7 @@ pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
         &interactions.modkey
     };
 
-    do_interaction(interaction);
+    do_interaction(interaction, value);
 }
 
 pub fn do_potentiometer(
@@ -210,5 +216,5 @@ pub fn do_potentiometer(
 
     let interaction = &interactions.normal;
 
-    do_interaction(interaction);
+    do_interaction(interaction, value);
 }
