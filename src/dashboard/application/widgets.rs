@@ -162,7 +162,7 @@ impl Widget for LED {
         let center = rect.center();
 
         painter.rect_filled(
-            Rect::from_center_size(center, desired_size * 0.55),
+            Rect::from_center_size(center, desired_size),
             ui.style().visuals.menu_rounding,
             Color32::from_rgb(self.value.0, self.value.1, self.value.2),
         );

@@ -2013,10 +2013,7 @@ impl Application {
 
         draw_rect_shadow(
             ui,
-            Rect::from_center_size(
-                rect.center(),
-                (scaled_size.0 * 0.55, scaled_size.1 * 0.55).into(),
-            ),
+            Rect::from_center_size(rect.center(), scaled_size.into()),
             ui.style().visuals.menu_rounding.nw,
             self.global_shadow,
             (0.0, 0.0),
@@ -5145,10 +5142,10 @@ impl Default for Application {
 
             // Constants
             component_button_size: (100.0, 100.0),
-            component_led_size: (100.0, 100.0),
-            component_potentiometer_size: (100.0, 100.0),
-            component_joystick_size: (100.0, 100.0),
-            component_rotary_encoder_size: (100.0, 100.0),
+            component_led_size: (60.0, 60.0),
+            component_potentiometer_size: (130.0, 130.0),
+            component_joystick_size: (120.0, 120.0),
+            component_rotary_encoder_size: (80.0, 80.0),
             component_display_size: (128.0, 64.0),
         }
     }
