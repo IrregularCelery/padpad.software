@@ -18,6 +18,7 @@ impl Color {
     pub const GREEN: Color32 = Color32::from_rgb(77, 255, 83);
     pub const RED: Color32 = Color32::from_rgb(255, 77, 77);
     pub const BLUE: Color32 = Color32::from_rgb(77, 116, 255);
+    pub const LIGHT_BLUE: Color32 = Color32::from_rgb(153, 175, 255);
     pub const PURPLE: Color32 = Color32::from_rgb(133, 77, 255);
     pub const PINK: Color32 = Color32::from_rgb(255, 77, 208);
     pub const BLACK: Color32 = Color32::from_rgb(0, 0, 0);

@@ -14,7 +14,7 @@ use crate::{
     utility::EnigoKey,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InteractionKind {
     None(), /* Can be used for interactions that are handled by the device, or no interactions */
     Command(String /* command */, String /* shell */),
@@ -24,8 +24,8 @@ pub enum InteractionKind {
     File(String /* full_path */),
 }
 
-impl PartialEq for InteractionKind {
-    fn eq(&self, other: &Self) -> bool {
+impl InteractionKind {
+    pub fn equals_kind(&self, other: &Self) -> bool {
         match (self, other) {
             (InteractionKind::None(), InteractionKind::None()) => true,
             (InteractionKind::Command(_, _), InteractionKind::Command(_, _)) => true,
