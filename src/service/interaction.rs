@@ -182,13 +182,6 @@ pub fn do_button(id: u8, value: i8, modkey: bool, _serial: &mut Serial) {
         return;
     }
 
-    // TEST: Upload key letters for buttons
-    //if id == 4 {
-    //    serial.write("u1:0|111;2:98|112;3:99|113;4:100|114;5:101|115;6:102|116;7:103|117;8:104|118;9:105|119;10:106|120;11:107|121;12:108|122;13:109|32;14:48|120;15:255|0;".to_string()); // 120 = 'w' | 121 = 'z'
-    //
-    //    return;
-    //}
-
     let interactions =
         get_component_interactions(component_global_id).unwrap_or(Interaction::default());
 
