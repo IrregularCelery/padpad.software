@@ -4111,6 +4111,7 @@ impl Application {
             // `button_memory.0` = normal, `button_memory.1` = mod
             let mut button_memory = (false, false);
 
+            // Retrieve buttons memory
             if kind == ComponentKind::Button {
                 for (button_id, button_normal, button_mod) in app.get_buttons() {
                     if button_id == id_string.parse::<u8>().unwrap_or(0) {
@@ -4216,14 +4217,36 @@ impl Application {
 
                 ui.set_style(style);
 
-                ui.vertical_centered(|ui| {
-                    ui.label("Properties");
+                ui.horizontal(|ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.label("Properties");
+                    });
+
+                    if !interactable {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new("ℹ").color(Color::YELLOW.gamma_multiply(0.75)),
+                            )
+                            .sense(egui::Sense::hover()),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(
+                            egui::RichText::new(
+                                "This component is decorative and \n\
+                                cannot be assigned any interactions",
+                            )
+                            .color(Color::YELLOW.gamma_multiply(0.75))
+                            .size(16.0),
+                        );
+                    }
                 });
 
                 ui.separator();
 
-                ui.add_space(ui.spacing().item_spacing.x);
+                ui.add_space(ui.spacing().item_spacing.y / 2.0);
             });
+
+            ui.add_space(ui.spacing().item_spacing.y / 2.0);
 
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new("Component"));
@@ -4396,6 +4419,7 @@ impl Application {
 
             ui.horizontal_wrapped(|ui| {
                 ui.label("Normal: ");
+                ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 2.0);
                 ui.label(
                     egui::RichText::new(format!("{:?}", interactions.normal))
                         .color(egui::Color32::GRAY),
@@ -4494,7 +4518,7 @@ impl Application {
 
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.add_space(ui.style().spacing.item_spacing.x / 2.0 + 1.0);
+                            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
                             ui.label("Normal");
                         });
 
