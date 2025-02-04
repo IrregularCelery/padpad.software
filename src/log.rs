@@ -33,7 +33,7 @@ impl Logger {
         &self,
         level: &str,
         message: &str,
-        trace_string: String,
+        #[allow(unused_variables)] trace_string: String,
         separated: bool, // Add two empty lines before and after this log message
         write_to_file: bool,
     ) {
@@ -41,6 +41,7 @@ impl Logger {
             .format("%Y-%m-%d %H:%M:%S.%f")
             .to_string();
         let thread_id = std::thread::current();
+        #[allow(unused_mut)]
         let mut trace = String::new();
 
         #[cfg(debug_assertions)]

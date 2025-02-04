@@ -78,10 +78,13 @@ pub struct Application {
     xbm_string: String,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
 
-    // TODO: Remove this
+    #[cfg(debug_assertions)]
     test_potentiometer_style: u8,
+    #[cfg(debug_assertions)]
     test_potentiometer_value: f32,
+    #[cfg(debug_assertions)]
     test_joystick_value: (f32, f32),
+    #[cfg(debug_assertions)]
     test_ascii_char_input: String,
 
     // Constants
@@ -2262,29 +2265,6 @@ impl Application {
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("ASCII char");
-
-                    let response =
-                        ui.add(egui::TextEdit::singleline(&mut self.test_ascii_char_input));
-
-                    if response.changed() {
-                        // Keep only the last valid ASCII character
-                        self.test_ascii_char_input.retain(|c| {
-                            c.is_ascii() && !FORBIDDEN_CHARACTERS.contains(&c.to_string().as_str())
-                        });
-
-                        if self.test_ascii_char_input.len() > 1 {
-                            self.test_ascii_char_input = self
-                                .test_ascii_char_input
-                                .chars()
-                                .last()
-                                .unwrap_or('\0')
-                                .to_string();
-                        }
-                    }
-                });
-
                 if ui.button("Restart application").clicked() {
                     restart();
                 }
@@ -2323,82 +2303,110 @@ impl Application {
                     });
                 });
 
-                let xbm_data = vec![
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc, 0x00,
-                    0xe0, 0xff, 0x1f, 0x00, 0xfc, 0x00, 0xf8, 0xff, 0x7f, 0x00, 0xfc, 0x00, 0xfc,
-                    0xff, 0xff, 0x00, 0xfc, 0x00, 0xff, 0xff, 0xff, 0x03, 0xfc, 0x80, 0xff, 0xff,
-                    0xff, 0x07, 0xfc, 0xc0, 0xff, 0x03, 0xff, 0x0f, 0xfc, 0xe0, 0xff, 0x00, 0xfc,
-                    0x1f, 0xfc, 0xe0, 0x7f, 0x00, 0xf8, 0x1f, 0xfc, 0xf0, 0x3f, 0x00, 0xf0, 0x3f,
-                    0xfc, 0xf8, 0x3f, 0x00, 0xf0, 0x7f, 0xfc, 0xf8, 0x1f, 0x00, 0xe0, 0x7f, 0xfc,
-                    0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfc,
-                    0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfe, 0x1f,
-                    0x00, 0xe0, 0xff, 0xfd, 0xfe, 0x3f, 0x00, 0xf0, 0xff, 0xfd, 0xfe, 0x3f, 0x00,
-                    0xf0, 0xff, 0xfd, 0xfe, 0x7f, 0x00, 0xf8, 0xff, 0xfd, 0xfe, 0xff, 0x00, 0xfc,
-                    0xff, 0xfd, 0xfe, 0xff, 0x03, 0xff, 0xff, 0xfd, 0xfe, 0xff, 0xff, 0xff, 0xff,
-                    0xfd, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xfd, 0xfc, 0xff, 0xff, 0xff, 0xff, 0xfc,
-                    0xfc, 0xff, 0x00, 0xfc, 0xff, 0xfc, 0xfc, 0x0f, 0x00, 0xc0, 0xff, 0xfc, 0xfc,
-                    0x01, 0x00, 0x00, 0xfe, 0xfc, 0xf8, 0x00, 0x00, 0x00, 0x7c, 0xfc, 0x78, 0x00,
-                    0x00, 0x00, 0x78, 0xfc, 0x70, 0x00, 0x00, 0x00, 0x38, 0xfc, 0xe0, 0x00, 0x00,
-                    0x00, 0x1c, 0xfc, 0xe0, 0x01, 0x00, 0x00, 0x1e, 0xfc, 0xc0, 0x03, 0x00, 0x00,
-                    0x0f, 0xfc, 0x80, 0x0f, 0x00, 0xc0, 0x07, 0xfc, 0x00, 0x7f, 0x00, 0xf8, 0x03,
-                    0xfc, 0x00, 0xfc, 0x03, 0xff, 0x00, 0xfc, 0x00, 0xf8, 0xff, 0x7f, 0x00, 0xfc,
-                    0x00, 0xe0, 0xff, 0x1f, 0x00, 0xfc, 0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0xfc,
-                ];
+                #[cfg(debug_assertions)]
+                {
+                    ui.horizontal(|ui| {
+                        ui.label("ASCII char");
 
-                ui.add(GLCD::new(
-                    (128, 64),
-                    3.0,
-                    Color::BLACK,
-                    Color::WHITE,
-                    xbm_data,
-                    (42, 42),
-                    ((128 - 42) / 2, (64 - 42) / 2),
-                ));
+                        let response =
+                            ui.add(egui::TextEdit::singleline(&mut self.test_ascii_char_input));
 
-                ui.add(super::widgets::Button::new(self.component_button_size));
+                        if response.changed() {
+                            // Keep only the last valid ASCII character
+                            self.test_ascii_char_input.retain(|c| {
+                                c.is_ascii()
+                                    && !FORBIDDEN_CHARACTERS.contains(&c.to_string().as_str())
+                            });
 
-                ui.horizontal_wrapped(|ui| {
-                    ui.add(
-                        Potentiometer::new(
-                            format!("{:?}", Id::new("test-potentiometer")),
-                            self.test_potentiometer_value,
-                            (100.0, 100.0),
-                        )
-                        .style(self.test_potentiometer_style),
-                    );
-
-                    ui.horizontal_centered(|ui| {
-                        ui.label("Value: ");
-                        ui.add(DragValue::new(&mut self.test_potentiometer_value));
-
-                        ui.add_space(ui.style().spacing.item_spacing.x);
-
-                        ui.label("Style: ");
-                        ui.add(DragValue::new(&mut self.test_potentiometer_style).speed(1));
+                            if self.test_ascii_char_input.len() > 1 {
+                                self.test_ascii_char_input = self
+                                    .test_ascii_char_input
+                                    .chars()
+                                    .last()
+                                    .unwrap_or('\0')
+                                    .to_string();
+                            }
+                        }
                     });
-                });
 
-                ui.horizontal_wrapped(|ui| {
-                    ui.add(Joystick::new(
-                        self.test_joystick_value,
-                        self.component_joystick_size,
+                    let xbm_data = vec![
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc,
+                        0x00, 0xe0, 0xff, 0x1f, 0x00, 0xfc, 0x00, 0xf8, 0xff, 0x7f, 0x00, 0xfc,
+                        0x00, 0xfc, 0xff, 0xff, 0x00, 0xfc, 0x00, 0xff, 0xff, 0xff, 0x03, 0xfc,
+                        0x80, 0xff, 0xff, 0xff, 0x07, 0xfc, 0xc0, 0xff, 0x03, 0xff, 0x0f, 0xfc,
+                        0xe0, 0xff, 0x00, 0xfc, 0x1f, 0xfc, 0xe0, 0x7f, 0x00, 0xf8, 0x1f, 0xfc,
+                        0xf0, 0x3f, 0x00, 0xf0, 0x3f, 0xfc, 0xf8, 0x3f, 0x00, 0xf0, 0x7f, 0xfc,
+                        0xf8, 0x1f, 0x00, 0xe0, 0x7f, 0xfc, 0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc,
+                        0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc,
+                        0xfc, 0x1f, 0x00, 0xe0, 0xff, 0xfc, 0xfe, 0x1f, 0x00, 0xe0, 0xff, 0xfd,
+                        0xfe, 0x3f, 0x00, 0xf0, 0xff, 0xfd, 0xfe, 0x3f, 0x00, 0xf0, 0xff, 0xfd,
+                        0xfe, 0x7f, 0x00, 0xf8, 0xff, 0xfd, 0xfe, 0xff, 0x00, 0xfc, 0xff, 0xfd,
+                        0xfe, 0xff, 0x03, 0xff, 0xff, 0xfd, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xfd,
+                        0xfe, 0xff, 0xff, 0xff, 0xff, 0xfd, 0xfc, 0xff, 0xff, 0xff, 0xff, 0xfc,
+                        0xfc, 0xff, 0x00, 0xfc, 0xff, 0xfc, 0xfc, 0x0f, 0x00, 0xc0, 0xff, 0xfc,
+                        0xfc, 0x01, 0x00, 0x00, 0xfe, 0xfc, 0xf8, 0x00, 0x00, 0x00, 0x7c, 0xfc,
+                        0x78, 0x00, 0x00, 0x00, 0x78, 0xfc, 0x70, 0x00, 0x00, 0x00, 0x38, 0xfc,
+                        0xe0, 0x00, 0x00, 0x00, 0x1c, 0xfc, 0xe0, 0x01, 0x00, 0x00, 0x1e, 0xfc,
+                        0xc0, 0x03, 0x00, 0x00, 0x0f, 0xfc, 0x80, 0x0f, 0x00, 0xc0, 0x07, 0xfc,
+                        0x00, 0x7f, 0x00, 0xf8, 0x03, 0xfc, 0x00, 0xfc, 0x03, 0xff, 0x00, 0xfc,
+                        0x00, 0xf8, 0xff, 0x7f, 0x00, 0xfc, 0x00, 0xe0, 0xff, 0x1f, 0x00, 0xfc,
+                        0x00, 0x00, 0xfe, 0x01, 0x00, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc,
+                    ];
+
+                    ui.add(GLCD::new(
+                        (128, 64),
+                        3.0,
+                        Color::BLACK,
+                        Color::WHITE,
+                        xbm_data,
+                        (42, 42),
+                        ((128 - 42) / 2, (64 - 42) / 2),
                     ));
 
-                    ui.horizontal_centered(|ui| {
-                        ui.label("X: ");
-                        ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
+                    ui.add(super::widgets::Button::new(self.component_button_size));
 
-                        ui.add_space(ui.style().spacing.item_spacing.x);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add(
+                            Potentiometer::new(
+                                format!("{:?}", Id::new("test-potentiometer")),
+                                self.test_potentiometer_value,
+                                (100.0, 100.0),
+                            )
+                            .style(self.test_potentiometer_style),
+                        );
 
-                        ui.label("Y: ");
-                        ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
+                        ui.horizontal_centered(|ui| {
+                            ui.label("Value: ");
+                            ui.add(DragValue::new(&mut self.test_potentiometer_value));
+
+                            ui.add_space(ui.style().spacing.item_spacing.x);
+
+                            ui.label("Style: ");
+                            ui.add(DragValue::new(&mut self.test_potentiometer_style).speed(1));
+                        });
                     });
-                });
 
-                ui.add(RotaryEncoder::new(self.component_rotary_encoder_size));
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add(Joystick::new(
+                            self.test_joystick_value,
+                            self.component_joystick_size,
+                        ));
 
-                ui.add(LED::new((255, 181, 0), self.component_led_size));
+                        ui.horizontal_centered(|ui| {
+                            ui.label("X: ");
+                            ui.add(DragValue::new(&mut self.test_joystick_value.0).speed(0.1));
+
+                            ui.add_space(ui.style().spacing.item_spacing.x);
+
+                            ui.label("Y: ");
+                            ui.add(DragValue::new(&mut self.test_joystick_value.1).speed(0.1));
+                        });
+                    });
+
+                    ui.add(RotaryEncoder::new(self.component_rotary_encoder_size));
+
+                    ui.add(LED::new((255, 181, 0), self.component_led_size));
+                }
 
                 ui.group(|ui| {
                     ui.label("Theme");
@@ -3095,10 +3103,13 @@ impl Application {
 
                                                         if key_response.changed() {
                                                             // Keep only the last valid character in range 0-255
-                                                            memory
-                                                                .0
-                                                                 .1
-                                                                .retain(|c| (c as u32) < 256);
+                                                            memory.0 .1.retain(|c| {
+                                                                ((c as u32) < 256)
+                                                                    && !FORBIDDEN_CHARACTERS
+                                                                        .contains(
+                                                                            &c.to_string().as_str(),
+                                                                        )
+                                                            });
 
                                                             // Keep only the last valid character
                                                             memory.0 .1 = memory
@@ -3138,10 +3149,13 @@ impl Application {
 
                                                         if key_response.changed() {
                                                             // Keep only the last valid character in range 0-255
-                                                            memory
-                                                                .1
-                                                                 .1
-                                                                .retain(|c| (c as u32) < 256);
+                                                            memory.1 .1.retain(|c| {
+                                                                ((c as u32) < 256)
+                                                                    && !FORBIDDEN_CHARACTERS
+                                                                        .contains(
+                                                                            &c.to_string().as_str(),
+                                                                        )
+                                                            });
 
                                                             // Keep only the last valid character
                                                             memory.1 .1 = memory
@@ -5109,10 +5123,13 @@ impl Default for Application {
             xbm_string: String::new(),
             paired_status_panel: (0.0, 0.0),
 
-            // TODO: Remove this
+            #[cfg(debug_assertions)]
             test_potentiometer_style: 0,
+            #[cfg(debug_assertions)]
             test_potentiometer_value: 15.0,
+            #[cfg(debug_assertions)]
             test_joystick_value: (0.0, 0.0),
+            #[cfg(debug_assertions)]
             test_ascii_char_input: String::new(),
 
             // Constants
