@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use eframe::{
     egui::{
@@ -840,6 +840,66 @@ where
                 callback(index);
             }
         }
+
+        response
+    }
+}
+
+pub struct ToggleSwitch {
+    checked: bool,
+    size: (f32, f32),
+}
+
+impl ToggleSwitch {
+    pub fn new(checked: bool, size: (f32, f32)) -> Self {
+        Self { checked, size }
+    }
+}
+
+impl Widget for ToggleSwitch {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let desired_size = Vec2::from(self.size);
+        let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
+
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+        let painter = ui.painter();
+
+        // Animation progress based on time
+        let knob_position_value = animate_value(
+            ui.ctx(),
+            response.id,
+            if self.checked { 1.0 } else { 0.0 },
+            0.1,
+        );
+
+        // Background
+        let rounding = rect.height() / 2.0;
+        let background_color = if self.checked {
+            ui.style().visuals.selection.bg_fill
+        } else {
+            ui.style().visuals.widgets.inactive.bg_fill
+        };
+
+        painter.rect_filled(rect, rounding, background_color);
+
+        // Knob
+        let knob_radius = (rect.height() - 4.0) / 2.0;
+        let knob_x_range = rect.width() - 2.0 * (knob_radius + 2.0);
+        let knob_x = rect.left() + knob_radius + 2.0 + (knob_x_range * knob_position_value);
+
+        // Add a small bounce effect to the knob
+        let bounce_offset = (knob_position_value * TAU).sin() * 1.0;
+        let knob_y = rect.center().y + bounce_offset;
+
+        painter.circle_filled(
+            Pos2::new(knob_x, knob_y),
+            knob_radius,
+            ui.style().visuals.widgets.active.bg_fill,
+        );
 
         response
     }
