@@ -4091,6 +4091,18 @@ impl Application {
                 ComponentKind::Display => false,
             };
 
+            // Does the component have a value? e.g. potentiometer has 0-99
+            // returns (bool, &str) -> `true/false`, `hint_text`
+            let has_value = match kind {
+                ComponentKind::None => (false, ""),
+                ComponentKind::Button => (false, ""),
+                ComponentKind::LED => (false, ""),
+                ComponentKind::Potentiometer => (true, "value is 0-99"),
+                ComponentKind::Joystick => (false, ""),
+                ComponentKind::RotaryEncoder => (false, ""),
+                ComponentKind::Display => (false, ""),
+            };
+
             // Check if component have multiple styles
             let multiple_styles = match kind {
                 ComponentKind::None => 0,
@@ -4457,44 +4469,6 @@ impl Application {
                 (ui.available_width(), ui.available_height()).into(),
                 egui::Layout::top_down(egui::Align::LEFT),
                 |ui| {
-                    if kind == ComponentKind::Button
-                        && interactions.normal != InteractionKind::None()
-                        && is_internal_profile
-                        && button_memory.0
-                    /* normal */
-                    {
-                        ui.vertical_centered_justified(|ui| {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.group(|ui| {
-                                    ui.label(
-                                    egui::RichText::new(
-                                        "Warning: This button already has an HID keyboard shortcut \
-                                        stored in the device. It's recommended to clear it before \
-                                        assigning a new software-based interaction."
-                                    )
-                                    .color(Color::YELLOW.gamma_multiply(0.75))
-                                    .size(13.5),
-                                );
-
-                                    if ui
-                                        .add(
-                                            egui::Label::new(
-                                                egui::RichText::new("\nClick here to open manager")
-                                                    .color(Color::BLUE)
-                                                    .size(14.0),
-                                            )
-                                            .sense(egui::Sense::click()),
-                                        )
-                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                        .clicked()
-                                    {
-                                        should_open_button_memory_manager = true;
-                                    }
-                                });
-                            });
-                        });
-                    }
-
                     // Interactions
 
                     ui.horizontal(|ui| {
@@ -4599,14 +4573,27 @@ impl Application {
                         });
                     }
 
+                    let hid_warning_normal_condition = kind == ComponentKind::Button
+                        && interactions.normal != InteractionKind::None()
+                        && is_internal_profile
+                        && button_memory.0;
+
+                    let hid_warning_modkey_condition = kind == ComponentKind::Button
+                        && interactions.modkey != InteractionKind::None()
+                        && is_internal_profile
+                        && button_memory.1;
+
                     let mut should_update_interactions = false;
 
                     if app.properties_selected_interaction {
                         draw_normal_interaction_panel(
                             ui,
                             interactions,
+                            has_value,
+                            hid_warning_normal_condition,
                             &mut app.properties_shortcut_kind,
                             &mut app.properties_shortcut_key_filter,
+                            &mut should_open_button_memory_manager,
                             &mut should_update_interactions,
                         );
                     } else {
@@ -4615,8 +4602,11 @@ impl Application {
                             draw_modkey_interaction_panel(
                                 ui,
                                 interactions,
+                                has_value,
+                                hid_warning_modkey_condition,
                                 &mut app.properties_shortcut_kind,
                                 &mut app.properties_shortcut_key_filter,
+                                &mut should_open_button_memory_manager,
                                 &mut should_update_interactions,
                             );
                         }
@@ -5156,10 +5146,47 @@ impl Default for Application {
 fn draw_normal_interaction_panel(
     ui: &mut Ui,
     interactions: &mut Interaction,
+    // (bool, &str) -> `true/false`, `hint_text`
+    has_value: (bool, &str), // does the component have a value? e.g. potentiometer has 0-99
+    hid_warning_condition: bool,
     properties_shortcut_kind: &mut (bool, bool), // (normal, modkey) `true` -> keys, `false` -> text
     properties_shortcut_key_filter: &mut String,
+    should_open_button_memory_manager: &mut bool,
     should_update: &mut bool,
 ) {
+    if hid_warning_condition {
+        ui.vertical_centered_justified(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.group(|ui| {
+                    ui.label(
+                        egui::RichText::new(
+                            "Warning: This button already has an HID keyboard shortcut \
+                            stored in the device. It's recommended to clear it before \
+                            assigning a new software-based interaction.",
+                        )
+                        .color(Color::YELLOW.gamma_multiply(0.75))
+                        .size(13.5),
+                    );
+
+                    if ui
+                        .add(
+                            egui::Label::new(
+                                egui::RichText::new("\nClick here to open manager")
+                                    .color(Color::BLUE)
+                                    .size(14.0),
+                            )
+                            .sense(egui::Sense::click()),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        *should_open_button_memory_manager = true;
+                    }
+                });
+            });
+        });
+    }
+
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
             ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
@@ -5249,30 +5276,151 @@ fn draw_normal_interaction_panel(
             *should_update = true;
         }
         InteractionKind::Command(command, _shell) => {
-            ui.label("Command:");
+            ui.horizontal(|ui| {
+                ui.label("Command");
 
-            let response = ui.text_edit_singleline(command);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\techo \"{value}\"\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(command)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Application(path) => {
-            ui.label("Application Path:");
+            ui.horizontal(|ui| {
+                ui.label("Application Full Path");
 
-            let response = ui.text_edit_singleline(path);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\t~/.local/bin/brightness {value}\nor\n\
+                            \tC:\\Program Files\\Volume Changer\\Volume.exe {value}\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(path)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Website(url) => {
-            ui.label("Website URL:");
+            ui.horizontal(|ui| {
+                ui.label("Website URL");
 
-            let response = ui.text_edit_singleline(url);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\thttps://www.google.com/search?q=number {value}\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(url)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Shortcut(keys, text) => {
@@ -5453,12 +5601,53 @@ fn draw_normal_interaction_panel(
             }
         }
         InteractionKind::File(path) => {
-            ui.label("File Path:");
+            ui.horizontal(|ui| {
+                ui.label("File Full Path");
 
-            let response = ui.text_edit_singleline(path);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                            \tC:\\media\\pictures\\{value}.jpg\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(path)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
     }
@@ -5467,10 +5656,47 @@ fn draw_normal_interaction_panel(
 fn draw_modkey_interaction_panel(
     ui: &mut Ui,
     interactions: &mut Interaction,
+    // (bool, &str) -> `true/false`, `hint_text`
+    has_value: (bool, &str), // does the component have a value? e.g. potentiometer has 0-99
+    hid_warning_condition: bool,
     properties_shortcut_kind: &mut (bool, bool), // (normal, modkey) `true` -> keys, `false` -> text
     properties_shortcut_key_filter: &mut String,
+    should_open_button_memory_manager: &mut bool,
     should_update: &mut bool,
 ) {
+    if hid_warning_condition {
+        ui.vertical_centered_justified(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.group(|ui| {
+                    ui.label(
+                        egui::RichText::new(
+                            "Warning: This button already has an HID keyboard shortcut \
+                            stored in the device. It's recommended to clear it before \
+                            assigning a new software-based interaction.",
+                        )
+                        .color(Color::YELLOW.gamma_multiply(0.75))
+                        .size(13.5),
+                    );
+
+                    if ui
+                        .add(
+                            egui::Label::new(
+                                egui::RichText::new("\nClick here to open manager")
+                                    .color(Color::BLUE)
+                                    .size(14.0),
+                            )
+                            .sense(egui::Sense::click()),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        *should_open_button_memory_manager = true;
+                    }
+                });
+            });
+        });
+    }
+
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
             ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 2.0);
@@ -5560,30 +5786,151 @@ fn draw_modkey_interaction_panel(
             *should_update = true;
         }
         InteractionKind::Command(command, _shell) => {
-            ui.label("Command:");
+            ui.horizontal(|ui| {
+                ui.label("Command");
 
-            let response = ui.text_edit_singleline(command);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\techo \"{value}\"\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(command)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Application(path) => {
-            ui.label("Application Path:");
+            ui.horizontal(|ui| {
+                ui.label("Application Full Path");
 
-            let response = ui.text_edit_singleline(path);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\t~/.local/bin/brightness {value}\nor\n\
+                            \tC:\\Program Files\\Volume Changer\\Volume.exe {value}\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(path)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Website(url) => {
-            ui.label("Website URL:");
+            ui.horizontal(|ui| {
+                ui.label("Website URL");
 
-            let response = ui.text_edit_singleline(url);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\thttps://www.google.com/search?q=number {value}\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(url)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
         InteractionKind::Shortcut(keys, text) => {
@@ -5764,12 +6111,53 @@ fn draw_modkey_interaction_panel(
             }
         }
         InteractionKind::File(path) => {
-            ui.label("File Path:");
+            ui.horizontal(|ui| {
+                ui.label("File Full Path");
 
-            let response = ui.text_edit_singleline(path);
+                if has_value.0 {
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                        )
+                        .sense(egui::Sense::hover()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::Help)
+                    .on_hover_text(
+                        egui::RichText::new(
+                            "You can pass this component's value\n\
+                            to your interaction by adding {value}\n\n\
+                            Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                            \tC:\\media\\pictures\\{value}.jpg\n\n("
+                                .to_string()
+                                + has_value.1
+                                + ")",
+                        )
+                        .color(Color::LIGHT_BLUE)
+                        .size(16.0),
+                    );
+                }
+            });
 
-            if response.changed() {
-                *should_update = true;
+            const ROWS: usize = 2;
+
+            let mut response = None;
+
+            egui::ScrollArea::vertical()
+                .max_height((ROWS + 1) as f32 * 20.0)
+                .show(ui, |ui| {
+                    response = Some(
+                        ui.add(
+                            egui::TextEdit::multiline(path)
+                                .desired_rows(ROWS)
+                                .desired_width(f32::INFINITY),
+                        ),
+                    );
+                });
+
+            if let Some(r) = response {
+                if r.changed() {
+                    *should_update = true;
+                }
             }
         }
     }
