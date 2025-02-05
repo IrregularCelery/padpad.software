@@ -4573,6 +4573,8 @@ impl Application {
                         });
                     }
 
+                    ui.add_space(-ui.style().spacing.item_spacing.y);
+
                     let hid_warning_normal_condition = kind == ComponentKind::Button
                         && interactions.normal != InteractionKind::None()
                         && is_internal_profile
