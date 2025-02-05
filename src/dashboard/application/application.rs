@@ -77,6 +77,7 @@ pub struct Application {
     last_profile_name: String, // Used for updating a profile
     profile_exists: bool,
     xbm_string: String,
+    current_display_image: Vec<u8>,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
 
     #[cfg(debug_assertions)]
@@ -244,14 +245,15 @@ impl eframe::App for Application {
 
             // Custom main window content
 
+            self.draw_status_indicator(ui);
+
             if let Some(config) = &self.config {
                 if config.layout.is_none() {
                     self.draw_new_layout_button(ui);
+                } else {
+                    self.draw_profile_select(ui);
                 }
             }
-
-            self.draw_status_indicator(ui);
-            self.draw_profile_select(ui);
         });
 
         if cfg!(debug_assertions) {
@@ -2830,6 +2832,16 @@ impl Application {
                                 })
                                 .color(Color::BLUE),
                             );
+
+                            if ui
+                                .small_button(RichText::new("✏"))
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .on_hover_text("Edit device name")
+                                .clicked()
+                            {
+                                app.open_set_device_name_modal();
+                                app.set_width_modal(350.0);
+                            }
                         });
                     }
 
@@ -4349,6 +4361,8 @@ impl Application {
                 return;
             };
 
+            let mut should_open_display_icon_manager = (false, None);
+
             // Since the value for `Display` icon is stored in its label, we won't show
             // the `label` field for the `Display` component
             if kind != ComponentKind::Display {
@@ -4372,6 +4386,17 @@ impl Application {
                         );
                     }
                 });
+            } else {
+                if ui.button("Open Display Icon Manager").clicked() {
+                    let xbm_data = match hex_bytes_string_to_vec(&properties.label) {
+                        Ok(bytes) => bytes,
+                        Err(_) => vec![],
+                    };
+
+                    if !xbm_data.is_empty() {
+                        should_open_display_icon_manager = (true, Some(xbm_data));
+                    }
+                }
             }
 
             ui.horizontal_top(|ui| {
@@ -4442,6 +4467,10 @@ impl Application {
                     );
                 }
             });
+
+            if should_open_display_icon_manager.0 {
+                app.open_update_display_image_modal(should_open_display_icon_manager.1.unwrap());
+            }
 
             if !interactable {
                 return;
@@ -4807,6 +4836,245 @@ impl Application {
         });
     }
 
+    fn open_update_display_image_modal(&mut self, xbm_data: Vec<u8>) {
+        self.current_display_image = xbm_data;
+
+        self.show_custom_modal("display-image-update-modal", move |ui, app| {
+            ui.set_width(350.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Display Icon Manager");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            const DISPLAY_SIZE: (usize, usize) = (64, 64);
+
+            ui.vertical_centered(|ui| {
+                ui.add(GLCD::new(
+                    DISPLAY_SIZE,
+                    DASHBOARD_DISAPLY_PIXEL_SIZE,
+                    Color::BLACK,
+                    Color::WHITE,
+                    app.current_display_image.clone(),
+                    (HOME_IMAGE_WIDTH, HOME_IMAGE_HEIGHT),
+                    (
+                        (DISPLAY_SIZE.0 - HOME_IMAGE_WIDTH) / 2,
+                        (DISPLAY_SIZE.1 - HOME_IMAGE_HEIGHT) / 2,
+                    ), // Center icon
+                ))
+                .on_hover_cursor(egui::CursorIcon::Default);
+
+                ui.allocate_new_ui(
+                    egui::UiBuilder::new()
+                        .max_rect(egui::Rect::from_min_size(
+                            ui.cursor().min
+                                - (Vec2::new(
+                                    -ui.available_width(),
+                                    ui.available_height() / 2.0 + 24.0,
+                                ) - Vec2::new(0.0, DISPLAY_SIZE.1 as f32 / 2.0))
+                                    / 2.0,
+                            (DISPLAY_SIZE.0 as f32 * DASHBOARD_DISAPLY_PIXEL_SIZE, 32.0).into(),
+                        ))
+                        .layout(egui::Layout::centered_and_justified(
+                            egui::Direction::TopDown,
+                        )),
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                egui::RichText::new("Preview").color(egui::Color32::from_gray(127)),
+                            );
+
+                            ui.add_space(-ui.style().spacing.item_spacing.x / 2.0);
+
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new("ℹ")
+                                        .color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
+                                )
+                                .sense(egui::Sense::hover()),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::Help)
+                            .on_hover_text(
+                                egui::RichText::new(
+                                    "Make sure to check your device\n\
+                                    as well before saving!",
+                                )
+                                .color(Color::LIGHT_BLUE)
+                                .size(16.0),
+                            );
+                        });
+                    },
+                );
+
+                const ROWS: usize = 3;
+
+                egui::ScrollArea::vertical()
+                    .max_height((ROWS + 1) as f32 * 20.0)
+                    .show(ui, |ui| {
+                        Some(
+                            ui.add(
+                                egui::TextEdit::multiline(&mut app.xbm_string)
+                                    .hint_text("Paste your icon data here...")
+                                    .desired_rows(ROWS)
+                                    .desired_width(f32::INFINITY),
+                            ),
+                        );
+                    });
+
+                //ui.group(|ui| {
+                //    ui.horizontal(|ui| {
+                //        ui.label(
+                //            egui::RichText::new(
+                //                "⚫Your device's flash memory has a limited\n\
+                //                \t number of write/erase cycles.\n\
+                //                \t Excessive writing can shorten its lifespan.\n\
+                //                \t (usually 10,000-100,000)",
+                //            )
+                //            .color(Color::YELLOW.gamma_multiply(0.75))
+                //            .size(16.0),
+                //        );
+                //    });
+                //});
+
+                ui.add_space(ui.spacing().item_spacing.x);
+
+                ui.horizontal_top(|ui| {
+                    let spacing = ui.spacing().item_spacing.x;
+
+                    let total_width = ui.available_width();
+                    let button_width = (total_width - spacing) / 2.0;
+
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Save to Device"))
+                        .on_hover_text("Save this icon to device memory")
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        if app.server_data.is_device_paired {
+                            app.show_yes_no_modal(
+                                "memory-override-confirmation",
+                                "Override memory".to_string(),
+                                "This operation will override the current memory on your device!\n\
+                                Are you sure you want to continue?"
+                                    .to_string(),
+                                |_app| {
+                                    // `m` = `Memory`, `1` = true
+                                    request_send_serial("m1").ok();
+                                },
+                                |_app| {},
+                                true,
+                            );
+                        } else {
+                            app.show_not_paired_error();
+                        }
+                    }
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Upload and Test"))
+                        .on_hover_text(
+                            "This operation won't save to device memory, \n\
+                            you need to do it manually.",
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        if app.server_data.is_device_paired {
+                            let xbm_string = app.xbm_string.clone();
+
+                            match extract_hex_bytes(&xbm_string, HOME_IMAGE_BYTES_SIZE) {
+                                Ok(bytes) => {
+                                    // `i` = *HOME* Image
+                                    let data = format!("i{}", hex_bytes_vec_to_string(&bytes));
+
+                                    app.current_display_image = bytes;
+
+                                    request_device_upload(data, false).ok();
+
+                                    app.show_message_modal(
+                                        "xbm-upload-ok",
+                                        "Ok".to_string(),
+                                        "New X BitMap image \
+                                was uploaded to the device."
+                                            .to_string(),
+                                    );
+                                }
+                                Err(error) => {
+                                    app.show_message_modal(
+                                        "xbm-upload-error",
+                                        "Error".to_string(),
+                                        error,
+                                    );
+                                }
+                            }
+                        } else {
+                            app.show_not_paired_error();
+                        }
+                    }
+                });
+
+                ui.horizontal_top(|ui| {
+                    let spacing = ui.spacing().item_spacing.x;
+
+                    let total_width = ui.available_width();
+                    let button_width = (total_width - spacing) / 2.0;
+
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Reset to Default"))
+                        .on_hover_text(
+                            "Remove current saved icon from the device\n\
+                            and show default.",
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        if app.server_data.is_device_paired {
+                            app.show_yes_no_modal(
+                                "xbm-remove-confirmation",
+                                "Reset Display Icon".to_string(),
+                                "You're about to remove and reset current \"Home Image\" \
+                                on your device!\nAre you sure you want to continue?"
+                                    .to_string(),
+                                |_app| {
+                                    // `i` = *HOME* Image, and since there's no value
+                                    // the device removes current image and set its default
+                                    request_device_upload("i".to_string(), false).ok();
+                                },
+                                |_app| {},
+                                true,
+                            );
+                        } else {
+                            app.show_not_paired_error();
+                        }
+                    }
+                    if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        app.close_modal();
+                    }
+                });
+            });
+        });
+    }
+
     // Context menus
 
     fn open_profile_context_menu(&mut self, ui: &mut Ui, profile_name: String) {
@@ -5144,6 +5412,7 @@ impl Default for Application {
             last_profile_name: String::new(), // Used for updating a profile
             profile_exists: false,
             xbm_string: String::new(),
+            current_display_image: vec![],
             paired_status_panel: (0.0, 0.0),
 
             #[cfg(debug_assertions)]
