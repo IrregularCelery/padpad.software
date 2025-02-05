@@ -724,35 +724,58 @@ impl Application {
     }
 
     fn draw_new_layout_button(&mut self, ui: &mut Ui) {
-        ui.vertical_centered(|ui| {
-            ui.add_space((ui.available_height() / 2.0) - 96.0);
+        egui::Window::new("Add layout button")
+            .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+            .movable(false)
+            .resizable(false)
+            .collapsible(false)
+            .title_bar(false)
+            .frame(egui::Frame::none())
+            .fixed_size(((APP_MIN_WIDTH / 2) as f32, 0.0))
+            .show(ui.ctx(), |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
 
-            ui.scope(|ui| {
-                let mut style = get_current_style();
+                        style.text_styles.insert(
+                            egui::TextStyle::Button,
+                            egui::FontId::new(64.0, egui::FontFamily::Proportional),
+                        );
 
-                style.text_styles.insert(
-                    egui::TextStyle::Button,
-                    egui::FontId::new(64.0, egui::FontFamily::Proportional),
-                );
+                        style.visuals.widgets.inactive.rounding = 24.0.into();
+                        style.visuals.widgets.hovered.rounding = 24.0.into();
+                        style.visuals.widgets.active.rounding = 24.0.into();
 
-                style.visuals.widgets.inactive.rounding = 24.0.into();
-                style.visuals.widgets.hovered.rounding = 24.0.into();
-                style.visuals.widgets.active.rounding = 24.0.into();
+                        style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0;
+                        style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY1;
+                        style.visuals.widgets.hovered.bg_stroke.width = 2.0;
+                        style.visuals.widgets.active.weak_bg_fill = Color::OVERLAY0;
 
-                style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0;
-                style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY1;
-                style.visuals.widgets.hovered.bg_stroke.width = 2.0;
-                style.visuals.widgets.active.weak_bg_fill = Color::OVERLAY0;
+                        ui.set_style(style);
 
-                ui.set_style(style);
+                        let new_layout_button = ui
+                            .add_sized((128.0, 128.0), egui::Button::new("+"))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
 
-                let new_layout_button = ui.add_sized((128.0, 128.0), egui::Button::new("+"));
+                        if new_layout_button.clicked() {
+                            self.open_create_update_layout_modal();
+                        }
+                    });
 
-                if new_layout_button.clicked() {
-                    self.open_create_update_layout_modal();
-                }
+                    ui.label(
+                        egui::RichText::new("You haven't created your layout yet")
+                            .color(egui::Color32::from_gray(150))
+                            .size(28.0),
+                    );
+
+                    ui.add_space(-ui.style().spacing.item_spacing.y);
+
+                    ui.label(
+                        egui::RichText::new("Click the add button to start...")
+                            .color(egui::Color32::from_gray(110)),
+                    );
+                });
             });
-        });
     }
 
     fn draw_layout(&mut self, ctx: &Context) {
