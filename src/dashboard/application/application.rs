@@ -5189,24 +5189,25 @@ fn draw_normal_interaction_panel(
 
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
-            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
-            ui.label("Normal");
+            ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 2.0);
+            ui.label("Kind");
         });
+
+        ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+
+        const INTERACTION_NONE: InteractionKind = InteractionKind::None();
+        const INTERACTION_COMMAND: InteractionKind =
+            InteractionKind::Command(String::new(), String::new());
+        const INTERACTION_APPLICATION: InteractionKind =
+            InteractionKind::Application(String::new());
+        const INTERACTION_WEBSITE: InteractionKind = InteractionKind::Website(String::new());
+        const INTERACTION_SHORTCUT: InteractionKind =
+            InteractionKind::Shortcut(vec![], String::new());
+        const INTERACTION_FILE: InteractionKind = InteractionKind::File(String::new());
 
         egui::ComboBox::new("properties-interactions-normal", "")
             .selected_text(format!("{}", interactions.normal))
             .show_ui(ui, |ui| {
-                const INTERACTION_NONE: InteractionKind = InteractionKind::None();
-                const INTERACTION_COMMAND: InteractionKind =
-                    InteractionKind::Command(String::new(), String::new());
-                const INTERACTION_APPLICATION: InteractionKind =
-                    InteractionKind::Application(String::new());
-                const INTERACTION_WEBSITE: InteractionKind =
-                    InteractionKind::Website(String::new());
-                const INTERACTION_SHORTCUT: InteractionKind =
-                    InteractionKind::Shortcut(vec![], String::new());
-                const INTERACTION_FILE: InteractionKind = InteractionKind::File(String::new());
-
                 if ui
                     .selectable_label(interactions.normal.equals_kind(&INTERACTION_NONE), "None")
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -5269,7 +5270,46 @@ fn draw_normal_interaction_panel(
             })
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+        if interactions.normal.equals_kind(&INTERACTION_SHORTCUT) {
+            ui.vertical(|ui| {
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 3.0);
+
+                ui.horizontal(|ui| {
+                    ui.add_space(ui.style().spacing.item_spacing.y * 1.5);
+
+                    let mode_label_response = ui
+                        .add(egui::Label::new("Text Mode").sense(egui::Sense::click()))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(
+                            "When this shortcut is triggered, it simulates \n\
+                            typing a text.",
+                        );
+
+                    ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 2.0);
+
+                    let mode_switch_response = ui
+                        .add(ToggleSwitch::new(!properties_shortcut_kind.0, (50.0, 26.0)))
+                        .on_hover_text(
+                            "When this shortcut is triggered, it simulates \n\
+                            typing a text.",
+                        );
+
+                    if mode_label_response.clicked() || mode_switch_response.clicked() {
+                        properties_shortcut_kind.0 = !properties_shortcut_kind.0;
+                    }
+                });
+            });
+        }
     });
+
+    let default_hint = if has_value.0 {
+        "You can pass this component's value\n\
+        to your interaction by adding {value}\n\n"
+    } else {
+        ""
+    }
+    .to_string();
 
     match &mut interactions.normal {
         InteractionKind::None() => {
@@ -5279,27 +5319,32 @@ fn draw_normal_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Command");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\techo \"{value}\""
+                    } else {
+                        "Example:\n\techo \"Hello world!\""
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\techo \"{value}\"\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5328,28 +5373,34 @@ fn draw_normal_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Application Full Path");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\t~/.local/bin/brightness {value}\nor\n\
+                        \tC:\\Program Files\\Volume Changer\\Volume.exe {value}"
+                    } else {
+                        "Example:\n\t~/.local/bin/terminal \nor\n\
+                        \tC:\\Program Files\\My Application\\App.exe"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\t~/.local/bin/brightness {value}\nor\n\
-                            \tC:\\Program Files\\Volume Changer\\Volume.exe {value}\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5378,27 +5429,32 @@ fn draw_normal_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Website URL");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\thttps://www.google.com/search?q=number {value}"
+                    } else {
+                        "Example:\n\thttps://www.github.com/IrregularCelery"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\thttps://www.google.com/search?q=number {value}\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5424,107 +5480,36 @@ fn draw_normal_interaction_panel(
             }
         }
         InteractionKind::Shortcut(keys, text) => {
-            ui.horizontal_top(|ui| {
-                let spacing = ui.spacing().item_spacing.x;
-
-                let total_width = ui.available_width();
-                let button_width = (total_width - spacing) / 2.0;
-
-                if ui
-                    .add_sized(
-                        [button_width, 0.0],
-                        egui::Button::new("Keys")
-                            .fill(if properties_shortcut_kind.0 {
-                                Color::ACCENT.gamma_multiply(0.5)
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            })
-                            .stroke(egui::Stroke::new(
-                                2.0,
-                                if properties_shortcut_kind.0 {
-                                    Color::ACCENT.gamma_multiply(0.1)
-                                } else {
-                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                },
-                            )),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_ui(|ui| {
-                        ui.label(
-                            egui::RichText::new(
-                                "When this shortcut is triggered, it simulates \n\
-                                                pressing a set of keys in order.",
-                            )
-                            .color(egui::Color32::GRAY)
-                            .size(15.0),
-                        );
-                    })
-                    .clicked()
-                {
-                    properties_shortcut_kind.0 = true;
-
-                    *should_update = true;
-                }
-
-                if ui
-                    .add_sized(
-                        [button_width, 0.0],
-                        egui::Button::new("Text")
-                            .fill(if !properties_shortcut_kind.0 {
-                                Color::ACCENT.gamma_multiply(0.5)
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            })
-                            .stroke(egui::Stroke::new(
-                                2.0,
-                                if !properties_shortcut_kind.0 {
-                                    Color::ACCENT.gamma_multiply(0.1)
-                                } else {
-                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                },
-                            )),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_ui(|ui| {
-                        ui.label(
-                            egui::RichText::new(
-                                "When this shortcut is triggered, it simulates \n\
-                                                typing a text.",
-                            )
-                            .color(egui::Color32::GRAY)
-                            .size(15.0),
-                        );
-                    })
-                    .clicked()
-                {
-                    properties_shortcut_kind.0 = false;
-
-                    *should_update = true;
-                }
-            });
-
             // Keys
             if properties_shortcut_kind.0 {
                 // `text` must be empty in `keys` mode
                 *text = String::new();
 
-                ui.add(
-                    ItemList::new(
-                        keys,
-                        26.0,
-                        Color::SURFACE1,
-                        Color::WHITE,
-                        Color::YELLOW.gamma_multiply(0.5),
-                        egui::Color32::from_gray(12),
-                    )
-                    .spacing(2.0)
-                    .on_item_removed(|_item| {
-                        *should_update = true;
-                    }),
-                );
+                ui.vertical_centered_justified(|ui| {
+                    if keys.is_empty() {
+                        ui.group(|ui| {
+                            ui.label("No keys were added yet!");
+                        });
+                    } else {
+                        ui.add(
+                            ItemList::new(
+                                keys,
+                                26.0,
+                                egui::Color32::from_gray(50),
+                                Color::WHITE,
+                                Color::ACCENT.gamma_multiply(0.15),
+                                egui::Color32::from_gray(12),
+                            )
+                            .spacing(2.0)
+                            .on_item_removed(|_item| {
+                                *should_update = true;
+                            }),
+                        );
+                    }
+                });
 
                 let keys_response = egui::ComboBox::new("properties-interactions-normal-keys", "")
-                    .selected_text("Keys")
+                    .selected_text("Add Keys")
                     .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                     .show_ui(ui, |ui| {
                         let filter_response = ui.add_sized(
@@ -5575,9 +5560,9 @@ fn draw_normal_interaction_panel(
 
             // Text
             } else {
-                ui.label("Text:");
+                ui.label("Text");
 
-                const ROWS: usize = 5;
+                const ROWS: usize = 2;
 
                 let mut response = None;
 
@@ -5604,28 +5589,34 @@ fn draw_normal_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("File Full Path");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                        \tC:\\media\\pictures\\{value}.jpg"
+                    } else {
+                        "Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                        \tC:\\media\\pictures\\bird.jpg"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
-                            \tC:\\media\\pictures\\{value}.jpg\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5700,23 +5691,24 @@ fn draw_modkey_interaction_panel(
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
             ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 2.0);
-            ui.label("Alternative");
+            ui.label("Kind");
         });
+
+        ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+
+        const INTERACTION_NONE: InteractionKind = InteractionKind::None();
+        const INTERACTION_COMMAND: InteractionKind =
+            InteractionKind::Command(String::new(), String::new());
+        const INTERACTION_APPLICATION: InteractionKind =
+            InteractionKind::Application(String::new());
+        const INTERACTION_WEBSITE: InteractionKind = InteractionKind::Website(String::new());
+        const INTERACTION_SHORTCUT: InteractionKind =
+            InteractionKind::Shortcut(vec![], String::new());
+        const INTERACTION_FILE: InteractionKind = InteractionKind::File(String::new());
 
         egui::ComboBox::new("properties-interactions-modkey", "")
             .selected_text(format!("{}", interactions.modkey))
             .show_ui(ui, |ui| {
-                const INTERACTION_NONE: InteractionKind = InteractionKind::None();
-                const INTERACTION_COMMAND: InteractionKind =
-                    InteractionKind::Command(String::new(), String::new());
-                const INTERACTION_APPLICATION: InteractionKind =
-                    InteractionKind::Application(String::new());
-                const INTERACTION_WEBSITE: InteractionKind =
-                    InteractionKind::Website(String::new());
-                const INTERACTION_SHORTCUT: InteractionKind =
-                    InteractionKind::Shortcut(vec![], String::new());
-                const INTERACTION_FILE: InteractionKind = InteractionKind::File(String::new());
-
                 if ui
                     .selectable_label(interactions.modkey.equals_kind(&INTERACTION_NONE), "None")
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -5779,7 +5771,46 @@ fn draw_modkey_interaction_panel(
             })
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+        if interactions.modkey.equals_kind(&INTERACTION_SHORTCUT) {
+            ui.vertical(|ui| {
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 3.0);
+
+                ui.horizontal(|ui| {
+                    ui.add_space(ui.style().spacing.item_spacing.y * 1.5);
+
+                    let mode_label_response = ui
+                        .add(egui::Label::new("Text Mode").sense(egui::Sense::click()))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(
+                            "When this shortcut is triggered, it simulates \n\
+                            typing a text.",
+                        );
+
+                    ui.add_space(ui.style().spacing.item_spacing.y * 2.0 + 2.0);
+
+                    let mode_switch_response = ui
+                        .add(ToggleSwitch::new(!properties_shortcut_kind.1, (50.0, 26.0)))
+                        .on_hover_text(
+                            "When this shortcut is triggered, it simulates \n\
+                            typing a text.",
+                        );
+
+                    if mode_label_response.clicked() || mode_switch_response.clicked() {
+                        properties_shortcut_kind.1 = !properties_shortcut_kind.1;
+                    }
+                });
+            });
+        }
     });
+
+    let default_hint = if has_value.0 {
+        "You can pass this component's value\n\
+        to your interaction by adding {value}\n\n"
+    } else {
+        ""
+    }
+    .to_string();
 
     match &mut interactions.modkey {
         InteractionKind::None() => {
@@ -5789,27 +5820,32 @@ fn draw_modkey_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Command");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\techo \"{value}\""
+                    } else {
+                        "Example:\n\techo \"Hello world!\""
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\techo \"{value}\"\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5838,28 +5874,34 @@ fn draw_modkey_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Application Full Path");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\t~/.local/bin/brightness {value}\nor\n\
+                        \tC:\\Program Files\\Volume Changer\\Volume.exe {value}"
+                    } else {
+                        "Example:\n\t~/.local/bin/terminal \nor\n\
+                        \tC:\\Program Files\\My Application\\App.exe"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\t~/.local/bin/brightness {value}\nor\n\
-                            \tC:\\Program Files\\Volume Changer\\Volume.exe {value}\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5888,27 +5930,32 @@ fn draw_modkey_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("Website URL");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\thttps://www.google.com/search?q=number {value}"
+                    } else {
+                        "Example:\n\thttps://www.github.com/IrregularCelery"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\thttps://www.google.com/search?q=number {value}\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
@@ -5934,107 +5981,36 @@ fn draw_modkey_interaction_panel(
             }
         }
         InteractionKind::Shortcut(keys, text) => {
-            ui.horizontal_top(|ui| {
-                let spacing = ui.spacing().item_spacing.x;
-
-                let total_width = ui.available_width();
-                let button_width = (total_width - spacing) / 2.0;
-
-                if ui
-                    .add_sized(
-                        [button_width, 0.0],
-                        egui::Button::new("Keys")
-                            .fill(if properties_shortcut_kind.1 {
-                                Color::ACCENT.gamma_multiply(0.5)
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            })
-                            .stroke(egui::Stroke::new(
-                                2.0,
-                                if properties_shortcut_kind.1 {
-                                    Color::ACCENT.gamma_multiply(0.1)
-                                } else {
-                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                },
-                            )),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_ui(|ui| {
-                        ui.label(
-                            egui::RichText::new(
-                                "When this shortcut is triggered, it simulates \n\
-                                pressing a set of keys in order.",
-                            )
-                            .color(egui::Color32::GRAY)
-                            .size(15.0),
-                        );
-                    })
-                    .clicked()
-                {
-                    properties_shortcut_kind.1 = true;
-
-                    *should_update = true;
-                }
-
-                if ui
-                    .add_sized(
-                        [button_width, 0.0],
-                        egui::Button::new("Text")
-                            .fill(if !properties_shortcut_kind.1 {
-                                Color::ACCENT.gamma_multiply(0.5)
-                            } else {
-                                egui::Color32::TRANSPARENT
-                            })
-                            .stroke(egui::Stroke::new(
-                                2.0,
-                                if !properties_shortcut_kind.1 {
-                                    Color::ACCENT.gamma_multiply(0.1)
-                                } else {
-                                    egui::Color32::WHITE.gamma_multiply(0.25)
-                                },
-                            )),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_ui(|ui| {
-                        ui.label(
-                            egui::RichText::new(
-                                "When this shortcut is triggered, it simulates \n\
-                                typing a text.",
-                            )
-                            .color(egui::Color32::GRAY)
-                            .size(15.0),
-                        );
-                    })
-                    .clicked()
-                {
-                    properties_shortcut_kind.1 = false;
-
-                    *should_update = true;
-                }
-            });
-
             // Keys
             if properties_shortcut_kind.1 {
                 // `text` must be empty in `keys` mode
                 *text = String::new();
 
-                ui.add(
-                    ItemList::new(
-                        keys,
-                        26.0,
-                        Color::SURFACE1,
-                        Color::WHITE,
-                        Color::YELLOW.gamma_multiply(0.5),
-                        egui::Color32::from_gray(12),
-                    )
-                    .spacing(2.0)
-                    .on_item_removed(|_item| {
-                        *should_update = true;
-                    }),
-                );
+                ui.vertical_centered_justified(|ui| {
+                    if keys.is_empty() {
+                        ui.group(|ui| {
+                            ui.label("No keys were added yet!");
+                        });
+                    } else {
+                        ui.add(
+                            ItemList::new(
+                                keys,
+                                26.0,
+                                egui::Color32::from_gray(50),
+                                Color::WHITE,
+                                Color::ACCENT.gamma_multiply(0.15),
+                                egui::Color32::from_gray(12),
+                            )
+                            .spacing(2.0)
+                            .on_item_removed(|_item| {
+                                *should_update = true;
+                            }),
+                        );
+                    }
+                });
 
                 let keys_response = egui::ComboBox::new("properties-interactions-modkey-keys", "")
-                    .selected_text("Keys")
+                    .selected_text("Add Keys")
                     .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                     .show_ui(ui, |ui| {
                         let filter_response = ui.add_sized(
@@ -6085,9 +6061,9 @@ fn draw_modkey_interaction_panel(
 
             // Text
             } else {
-                ui.label("Text:");
+                ui.label("Text");
 
-                const ROWS: usize = 5;
+                const ROWS: usize = 2;
 
                 let mut response = None;
 
@@ -6114,28 +6090,34 @@ fn draw_modkey_interaction_panel(
             ui.horizontal(|ui| {
                 ui.label("File Full Path");
 
-                if has_value.0 {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
-                        )
-                        .sense(egui::Sense::hover()),
+                let hint = default_hint
+                    + if has_value.0 {
+                        "Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                        \tC:\\media\\pictures\\{value}.jpg"
+                    } else {
+                        "Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
+                        \tC:\\media\\pictures\\bird.jpg"
+                    };
+                let hint = hint
+                    + if has_value.0 {
+                        format!("\n\n({})", has_value.1)
+                    } else {
+                        String::new()
+                    }
+                    .as_str();
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ").color(Color::LIGHT_BLUE.gamma_multiply(0.75)),
                     )
-                    .on_hover_cursor(egui::CursorIcon::Help)
-                    .on_hover_text(
-                        egui::RichText::new(
-                            "You can pass this component's value\n\
-                            to your interaction by adding {value}\n\n\
-                            Example:\n\t~/media/videos/never-gonna-give-you-up.mkv\nor\n\
-                            \tC:\\media\\pictures\\{value}.jpg\n\n("
-                                .to_string()
-                                + has_value.1
-                                + ")",
-                        )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(hint)
                         .color(Color::LIGHT_BLUE)
                         .size(16.0),
-                    );
-                }
+                );
             });
 
             const ROWS: usize = 2;
