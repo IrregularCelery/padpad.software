@@ -57,7 +57,7 @@ pub struct Application {
         String,                             /* component_global_id */
         ((u8, String), (u8, String), bool), /* (normal (byte, str), mod (byte, str), is_modkey) */
     >,
-    editing_layout: bool,
+    is_editing_layout: bool,
     dragged_component_offset: (f32, f32),
     layout_grid: (bool /* enabled/disabled */, f32 /* size */),
     /// For storing last components state before editing layout
@@ -79,6 +79,7 @@ pub struct Application {
     xbm_string: String,
     current_display_image: Vec<u8>,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
+    components_panel: (f32 /* position_x */, f32 /* opacity */),
 
     #[cfg(debug_assertions)]
     test_potentiometer_style: u8,
@@ -183,21 +184,6 @@ impl eframe::App for Application {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                     }
 
-                    if ui
-                        .button(format!(
-                            "{} editing layout",
-                            if self.editing_layout {
-                                "Disable"
-                            } else {
-                                "Enable"
-                            }
-                        ))
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
-                    {
-                        self.toggle_layout_state();
-                    }
-
                     if ui.button("Button Memory Manager").clicked() {
                         self.open_button_memory_manager_modal();
                     }
@@ -254,6 +240,8 @@ impl eframe::App for Application {
                     self.draw_profile_select(ui);
                 }
             }
+
+            self.draw_components_panel(ui);
         });
 
         if cfg!(debug_assertions) {
@@ -809,17 +797,17 @@ impl Application {
                 fill: Color::OVERLAY0,
                 rounding: 8.0.into(),
                 shadow: egui::Shadow {
-                    offset: egui::vec2(0.0, if self.editing_layout { 0.0 } else { 4.0 }),
+                    offset: egui::vec2(0.0, if self.is_editing_layout { 0.0 } else { 4.0 }),
                     blur: 8.0,
-                    spread: if self.editing_layout { 8.0 } else { 2.0 },
-                    color: if self.editing_layout {
+                    spread: if self.is_editing_layout { 8.0 } else { 2.0 },
+                    color: if self.is_editing_layout {
                         Color::RED.gamma_multiply(0.15)
                     } else {
                         Color::OVERLAY1.gamma_multiply(0.5)
                     },
                 },
                 stroke: {
-                    if self.editing_layout {
+                    if self.is_editing_layout {
                         egui::Stroke {
                             width: 2.0,
                             color: Color::RED,
@@ -973,7 +961,7 @@ impl Application {
                         continue;
                     };
 
-                    if !self.editing_layout {
+                    if !self.is_editing_layout {
                         if response.double_clicked() {
                             self.toggle_layout_state();
 
@@ -1064,7 +1052,7 @@ impl Application {
 
             update_config_and_server(config, |_| {});
 
-            self.editing_layout = false;
+            self.is_editing_layout = false;
             self.components_backup = Default::default();
         } else {
             self.show_message_modal(
@@ -1079,9 +1067,9 @@ impl Application {
 
     /// Toggle layout state between editing and viewing
     fn toggle_layout_state(&mut self) {
-        self.editing_layout = !self.editing_layout;
+        self.is_editing_layout = !self.is_editing_layout;
 
-        if self.editing_layout {
+        if self.is_editing_layout {
             // Started editing layout
 
             if let Some(config) = &self.config {
@@ -1138,7 +1126,7 @@ impl Application {
     }
 
     fn add_button_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1213,7 +1201,7 @@ impl Application {
     }
 
     fn add_led_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1288,7 +1276,7 @@ impl Application {
     }
 
     fn add_potentiometer_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1363,7 +1351,7 @@ impl Application {
     }
 
     fn add_joystick_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1438,7 +1426,7 @@ impl Application {
     }
 
     fn add_rotary_encoder_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1513,7 +1501,7 @@ impl Application {
     }
 
     fn add_display_to_layout(&mut self) {
-        if !self.editing_layout {
+        if !self.is_editing_layout {
             self.toggle_layout_state();
         }
 
@@ -1988,6 +1976,270 @@ impl Application {
         });
     }
 
+    /// Left side panel for adding components to the layout (Only available when a layout exists)
+    fn draw_components_panel(&mut self, ui: &mut Ui) {
+        if let Some(config) = &self.config {
+            if config.layout.is_none() {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        use egui::*;
+
+        let panel_position_x = animate_value(
+            ui.ctx(),
+            "components-panel-position",
+            self.components_panel.0,
+            0.25,
+        );
+
+        let buttons_count = 8; // 7 buttons + extra spacing
+
+        let padding = ui.style().spacing.item_spacing.x - 2.0;
+        let button_size = vec2(42.0, 42.0);
+        let open_button_size = button_size;
+
+        let screen_rect = ui.ctx().screen_rect();
+        let panel_width = button_size.x + (padding + 2.0) * 2.0;
+        let panel_height =
+            (buttons_count as f32 * button_size.y) + ((buttons_count - 1) as f32 * (padding + 2.0));
+
+        let panel_opened_x = 0.0;
+        let panel_closed_x = -(panel_width + padding);
+
+        let panel_x = (padding + 2.0) + panel_closed_x - panel_position_x;
+        //let panel_x = screen_rect.max.x - panel_width; // Right
+        let panel_y = screen_rect.center().y - panel_height / 2.0;
+
+        let panel_open_button_x = (padding + 2.0) + panel_position_x;
+        let panel_open_button_y = screen_rect.center().y - open_button_size.y / 2.0;
+
+        Area::new("components-panel-items".into())
+            .constrain(false)
+            .fixed_pos(egui::pos2(panel_x, panel_y))
+            .show(ui.ctx(), |ui| {
+                Frame::menu(ui.style())
+                    .inner_margin(Margin::same(padding))
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            if ui
+                                .add_sized(button_size, Button::new("🇧"))
+                                .on_hover_text("Add Button to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇱"))
+                                .on_hover_text("Add LED to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇵"))
+                                .on_hover_text("Add Potentiometer to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇯"))
+                                .on_hover_text("Add Joystick to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇷"))
+                                .on_hover_text("Add RotaryEncoder to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇩"))
+                                .on_hover_text("Add Display to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            ui.separator();
+
+                            if ui
+                                .add_sized(button_size, Button::new("❌"))
+                                .on_hover_text("Add Display to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                if self.components_panel.0 == panel_closed_x {
+                                    self.components_panel.0 = panel_opened_x;
+
+                                    if self.is_editing_layout {
+                                        self.toggle_layout_state();
+                                    }
+                                }
+                            }
+                        });
+                    });
+            });
+
+        Area::new("components-panel-button".into())
+            .constrain(false)
+            .order(Order::Foreground)
+            .fixed_pos(egui::pos2(panel_open_button_x, panel_open_button_y))
+            .show(ui.ctx(), |ui| {
+                if ui
+                    .add_sized(open_button_size, Button::new("➕"))
+                    .on_hover_text("Add components to your layout")
+                    .on_hover_cursor(CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    if self.components_panel.0 == panel_opened_x {
+                        self.components_panel.0 = panel_closed_x;
+
+                        if !self.is_editing_layout {
+                            self.toggle_layout_state();
+                        }
+                    }
+                }
+            });
+    }
+
+    /// Right side panel for settings and configurations (Only available when a layout exists)
+    fn draw_toolbar_panel(&mut self, ui: &mut Ui) {
+        if let Some(config) = &self.config {
+            if config.layout.is_none() {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        use egui::*;
+
+        let panel_position_x = animate_value(
+            ui.ctx(),
+            "components-panel-position",
+            self.components_panel.0,
+            0.25,
+        );
+
+        let buttons_count = 8; // 7 buttons + extra spacing
+
+        let padding = ui.style().spacing.item_spacing.x - 2.0;
+        let button_size = vec2(42.0, 42.0);
+        let open_button_size = button_size;
+
+        let screen_rect = ui.ctx().screen_rect();
+        let panel_width = button_size.x + (padding + 2.0) * 2.0;
+        let panel_height =
+            (buttons_count as f32 * button_size.y) + ((buttons_count - 1) as f32 * (padding + 2.0));
+
+        let panel_opened_x = 0.0;
+        let panel_closed_x = -(panel_width + padding);
+
+        let panel_x = (padding + 2.0) + panel_closed_x - panel_position_x;
+        //let panel_x = screen_rect.max.x - panel_width; // Right
+        let panel_y = screen_rect.center().y - panel_height / 2.0;
+
+        let panel_open_button_x = (padding + 2.0) + panel_position_x;
+        let panel_open_button_y = screen_rect.center().y - open_button_size.y / 2.0;
+
+        Area::new("components-panel-items".into())
+            .constrain(false)
+            .fixed_pos(egui::pos2(panel_x, panel_y))
+            .show(ui.ctx(), |ui| {
+                Frame::menu(ui.style())
+                    .inner_margin(Margin::same(padding))
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            if ui
+                                .add_sized(button_size, Button::new("🇧"))
+                                .on_hover_text("Add Button to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇱"))
+                                .on_hover_text("Add LED to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇵"))
+                                .on_hover_text("Add Potentiometer to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇯"))
+                                .on_hover_text("Add Joystick to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇷"))
+                                .on_hover_text("Add RotaryEncoder to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            if ui
+                                .add_sized(button_size, Button::new("🇩"))
+                                .on_hover_text("Add Display to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {}
+
+                            ui.separator();
+
+                            if ui
+                                .add_sized(button_size, Button::new("❌"))
+                                .on_hover_text("Add Display to your layout")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                if self.components_panel.0 == panel_closed_x {
+                                    self.components_panel.0 = panel_opened_x;
+
+                                    if self.is_editing_layout {
+                                        self.toggle_layout_state();
+                                    }
+                                }
+                            }
+                        });
+                    });
+            });
+
+        Area::new("components-panel-button".into())
+            .constrain(false)
+            .order(Order::Foreground)
+            .fixed_pos(egui::pos2(panel_open_button_x, panel_open_button_y))
+            .show(ui.ctx(), |ui| {
+                if ui
+                    .add_sized(open_button_size, Button::new("➕"))
+                    .on_hover_text("Add components to your layout")
+                    .on_hover_cursor(CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    if self.components_panel.0 == panel_opened_x {
+                        self.components_panel.0 = panel_closed_x;
+
+                        if !self.is_editing_layout {
+                            self.toggle_layout_state();
+                        }
+                    }
+                }
+            });
+    }
+
     fn draw_button(
         &mut self,
         ui: &mut Ui,
@@ -2398,7 +2650,7 @@ impl Application {
         }
 
         Window::new("Debug")
-            .default_pos((0.0, 0.0))
+            .default_pos((150.0, 0.0))
             .default_open(true)
             .vscroll(true)
             .show(ctx, |ui| {
@@ -3980,7 +4232,7 @@ impl Application {
             |app| {
                 app.close_modal();
 
-                app.editing_layout = false;
+                app.is_editing_layout = false;
                 app.components_backup = Default::default();
 
                 match app.detect_components() {
@@ -5392,7 +5644,7 @@ impl Default for Application {
             components: HashMap::default(),
             component_properties: (None, None), // Current editing component properties
             button_memory: Default::default(),
-            editing_layout: false,
+            is_editing_layout: false,
             dragged_component_offset: (0.0, 0.0),
             layout_grid: (true, 10.0),
             components_backup: Default::default(),
@@ -5414,6 +5666,7 @@ impl Default for Application {
             xbm_string: String::new(),
             current_display_image: vec![],
             paired_status_panel: (0.0, 0.0),
+            components_panel: (0.0, 0.0),
 
             #[cfg(debug_assertions)]
             test_potentiometer_style: 0,
