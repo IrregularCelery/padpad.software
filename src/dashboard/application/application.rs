@@ -79,7 +79,8 @@ pub struct Application {
     xbm_string: String,
     current_display_image: Vec<u8>,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
-    components_panel: (f32 /* position_x */, f32 /* opacity */),
+    components_panel: f32, /* position_x */
+    toolbar_panel: f32,    /* position_x */
 
     #[cfg(debug_assertions)]
     test_potentiometer_style: u8,
@@ -242,6 +243,7 @@ impl eframe::App for Application {
             }
 
             self.draw_components_panel(ui);
+            self.draw_toolbar_panel(ui);
         });
 
         if cfg!(debug_assertions) {
@@ -1991,7 +1993,7 @@ impl Application {
         let panel_position_x = animate_value(
             ui.ctx(),
             "components-panel-position",
-            self.components_panel.0,
+            self.components_panel,
             0.25,
         );
 
@@ -2025,42 +2027,42 @@ impl Application {
                     .show(ui, |ui| {
                         ui.vertical(|ui| {
                             if ui
-                                .add_sized(button_size, Button::new("🇧"))
+                                .add_sized(button_size, Button::new(RichText::new("🇧").size(24.0)))
                                 .on_hover_text("Add Button to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇱"))
+                                .add_sized(button_size, Button::new(RichText::new("🇱").size(24.0)))
                                 .on_hover_text("Add LED to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇵"))
+                                .add_sized(button_size, Button::new(RichText::new("🇵").size(24.0)))
                                 .on_hover_text("Add Potentiometer to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇯"))
+                                .add_sized(button_size, Button::new(RichText::new("🇯").size(24.0)))
                                 .on_hover_text("Add Joystick to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇷"))
+                                .add_sized(button_size, Button::new(RichText::new("🇷").size(24.0)))
                                 .on_hover_text("Add RotaryEncoder to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇩"))
+                                .add_sized(button_size, Button::new(RichText::new("🇩").size(24.0)))
                                 .on_hover_text("Add Display to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
@@ -2069,13 +2071,13 @@ impl Application {
                             ui.separator();
 
                             if ui
-                                .add_sized(button_size, Button::new("❌"))
-                                .on_hover_text("Add Display to your layout")
+                                .add_sized(button_size, Button::new(RichText::new("🖴").size(24.0)))
+                                .on_hover_text("Save current layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {
-                                if self.components_panel.0 == panel_closed_x {
-                                    self.components_panel.0 = panel_opened_x;
+                                if self.components_panel == panel_closed_x {
+                                    self.components_panel = panel_opened_x;
 
                                     if self.is_editing_layout {
                                         self.toggle_layout_state();
@@ -2097,8 +2099,8 @@ impl Application {
                     .on_hover_cursor(CursorIcon::PointingHand)
                     .clicked()
                 {
-                    if self.components_panel.0 == panel_opened_x {
-                        self.components_panel.0 = panel_closed_x;
+                    if self.components_panel == panel_opened_x {
+                        self.components_panel = panel_closed_x;
 
                         if !self.is_editing_layout {
                             self.toggle_layout_state();
@@ -2120,14 +2122,10 @@ impl Application {
 
         use egui::*;
 
-        let panel_position_x = animate_value(
-            ui.ctx(),
-            "components-panel-position",
-            self.components_panel.0,
-            0.25,
-        );
+        let panel_position_x =
+            animate_value(ui.ctx(), "toolbar-panel-position", self.toolbar_panel, 0.25);
 
-        let buttons_count = 8; // 7 buttons + extra spacing
+        let buttons_count = 4; // 3 buttons + extra spacing
 
         let padding = ui.style().spacing.item_spacing.x - 2.0;
         let button_size = vec2(42.0, 42.0);
@@ -2139,16 +2137,19 @@ impl Application {
             (buttons_count as f32 * button_size.y) + ((buttons_count - 1) as f32 * (padding + 2.0));
 
         let panel_opened_x = 0.0;
-        let panel_closed_x = -(panel_width + padding);
+        let panel_closed_x = panel_width + padding;
 
-        let panel_x = (padding + 2.0) + panel_closed_x - panel_position_x;
-        //let panel_x = screen_rect.max.x - panel_width; // Right
+        //let panel_x = (padding + 2.0) + panel_closed_x - panel_position_x;
+        let panel_x =
+            -(padding - 2.0) + screen_rect.max.x - panel_width - panel_position_x + panel_closed_x;
         let panel_y = screen_rect.center().y - panel_height / 2.0;
 
-        let panel_open_button_x = (padding + 2.0) + panel_position_x;
+        let panel_open_button_x =
+            (padding + 2.0) + screen_rect.max.x - panel_width + panel_position_x;
+        //let panel_open_button_x = (padding + 2.0) + panel_position_x;
         let panel_open_button_y = screen_rect.center().y - open_button_size.y / 2.0;
 
-        Area::new("components-panel-items".into())
+        Area::new("toolbar-panel-items".into())
             .constrain(false)
             .fixed_pos(egui::pos2(panel_x, panel_y))
             .show(ui.ctx(), |ui| {
@@ -2157,43 +2158,15 @@ impl Application {
                     .show(ui, |ui| {
                         ui.vertical(|ui| {
                             if ui
-                                .add_sized(button_size, Button::new("🇧"))
-                                .on_hover_text("Add Button to your layout")
+                                .add_sized(button_size, Button::new(RichText::new("🖮").size(24.0)))
+                                .on_hover_text("Open Button Memory Manager")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
 
                             if ui
-                                .add_sized(button_size, Button::new("🇱"))
-                                .on_hover_text("Add LED to your layout")
-                                .on_hover_cursor(CursorIcon::PointingHand)
-                                .clicked()
-                            {}
-
-                            if ui
-                                .add_sized(button_size, Button::new("🇵"))
-                                .on_hover_text("Add Potentiometer to your layout")
-                                .on_hover_cursor(CursorIcon::PointingHand)
-                                .clicked()
-                            {}
-
-                            if ui
-                                .add_sized(button_size, Button::new("🇯"))
-                                .on_hover_text("Add Joystick to your layout")
-                                .on_hover_cursor(CursorIcon::PointingHand)
-                                .clicked()
-                            {}
-
-                            if ui
-                                .add_sized(button_size, Button::new("🇷"))
-                                .on_hover_text("Add RotaryEncoder to your layout")
-                                .on_hover_cursor(CursorIcon::PointingHand)
-                                .clicked()
-                            {}
-
-                            if ui
-                                .add_sized(button_size, Button::new("🇩"))
-                                .on_hover_text("Add Display to your layout")
+                                .add_sized(button_size, Button::new(RichText::new("📐").size(24.0)))
+                                .on_hover_text("Open Layout settings")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {}
@@ -2201,40 +2174,32 @@ impl Application {
                             ui.separator();
 
                             if ui
-                                .add_sized(button_size, Button::new("❌"))
-                                .on_hover_text("Add Display to your layout")
+                                .add_sized(button_size, Button::new("⮫"))
+                                .on_hover_text("Close Toolbar panel")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {
-                                if self.components_panel.0 == panel_closed_x {
-                                    self.components_panel.0 = panel_opened_x;
-
-                                    if self.is_editing_layout {
-                                        self.toggle_layout_state();
-                                    }
+                                if self.toolbar_panel == panel_closed_x {
+                                    self.toolbar_panel = panel_opened_x;
                                 }
                             }
                         });
                     });
             });
 
-        Area::new("components-panel-button".into())
+        Area::new("toolbar-panel-button".into())
             .constrain(false)
             .order(Order::Foreground)
             .fixed_pos(egui::pos2(panel_open_button_x, panel_open_button_y))
             .show(ui.ctx(), |ui| {
                 if ui
-                    .add_sized(open_button_size, Button::new("➕"))
-                    .on_hover_text("Add components to your layout")
+                    .add_sized(open_button_size, Button::new("⛭"))
+                    .on_hover_text("Open Toolbar panel")
                     .on_hover_cursor(CursorIcon::PointingHand)
                     .clicked()
                 {
-                    if self.components_panel.0 == panel_opened_x {
-                        self.components_panel.0 = panel_closed_x;
-
-                        if !self.is_editing_layout {
-                            self.toggle_layout_state();
-                        }
+                    if self.toolbar_panel == panel_opened_x {
+                        self.toolbar_panel = panel_closed_x;
                     }
                 }
             });
@@ -2650,8 +2615,8 @@ impl Application {
         }
 
         Window::new("Debug")
-            .default_pos((150.0, 0.0))
-            .default_open(true)
+            .default_pos((16.0, 16.0))
+            .default_open(false)
             .vscroll(true)
             .show(ctx, |ui| {
                 if ui.button("Restart application").clicked() {
@@ -5666,7 +5631,8 @@ impl Default for Application {
             xbm_string: String::new(),
             current_display_image: vec![],
             paired_status_panel: (0.0, 0.0),
-            components_panel: (0.0, 0.0),
+            components_panel: 0.0,
+            toolbar_panel: 0.0,
 
             #[cfg(debug_assertions)]
             test_potentiometer_style: 0,
