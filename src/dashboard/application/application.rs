@@ -77,6 +77,10 @@ pub struct Application {
     last_profile_name: String, // Used for updating a profile
     profile_exists: bool,
     xbm_string: String,
+    xbm_serialized: (
+        String, /* value */
+        String, /* component_global_id */
+    ),
     current_display_image: Vec<u8>,
     paired_status_panel: (f32 /* position_x */, f32 /* opacity */),
     components_panel: f32, /* position_x */
@@ -2141,6 +2145,7 @@ impl Application {
                     .on_hover_text("Add components to your layout")
                     .on_hover_cursor(CursorIcon::PointingHand)
                     .clicked()
+                    || self.is_editing_layout
                 {
                     if self.components_panel == panel_opened_x {
                         self.components_panel = panel_closed_x;
@@ -4686,9 +4691,7 @@ impl Application {
                         Err(_) => vec![],
                     };
 
-                    if !xbm_data.is_empty() {
-                        should_open_display_icon_manager = (true, Some(xbm_data));
-                    }
+                    should_open_display_icon_manager = (true, Some(xbm_data));
                 }
             }
 
@@ -4762,7 +4765,10 @@ impl Application {
             });
 
             if should_open_display_icon_manager.0 {
-                app.open_update_display_image_modal(should_open_display_icon_manager.1.unwrap());
+                app.open_update_display_image_modal(
+                    should_open_display_icon_manager.1.unwrap(),
+                    component_global_id.clone(),
+                );
             }
 
             if !interactable {
@@ -5129,7 +5135,7 @@ impl Application {
         });
     }
 
-    fn open_update_display_image_modal(&mut self, xbm_data: Vec<u8>) {
+    fn open_update_display_image_modal(&mut self, xbm_data: Vec<u8>, component_global_id: String) {
         self.current_display_image = xbm_data;
 
         self.show_custom_modal("display-image-update-modal", move |ui, app| {
@@ -5232,21 +5238,6 @@ impl Application {
                         );
                     });
 
-                //ui.group(|ui| {
-                //    ui.horizontal(|ui| {
-                //        ui.label(
-                //            egui::RichText::new(
-                //                "⚫Your device's flash memory has a limited\n\
-                //                \t number of write/erase cycles.\n\
-                //                \t Excessive writing can shorten its lifespan.\n\
-                //                \t (usually 10,000-100,000)",
-                //            )
-                //            .color(Color::YELLOW.gamma_multiply(0.75))
-                //            .size(16.0),
-                //        );
-                //    });
-                //});
-
                 ui.add_space(ui.spacing().item_spacing.x);
 
                 ui.horizontal_top(|ui| {
@@ -5265,15 +5256,47 @@ impl Application {
                             app.show_yes_no_modal(
                                 "memory-override-confirmation",
                                 "Override memory".to_string(),
-                                "This operation will override the current memory on your device!\n\
+                                "This operation will override the current \
+                                memory on your device!\n\
                                 Are you sure you want to continue?"
                                     .to_string(),
-                                |_app| {
+                                move |app| {
+                                    app.close_modal();
+
                                     // `m` = `Memory`, `1` = true
                                     request_send_serial("m1").ok();
+
+                                    if !app.xbm_serialized.0.is_empty()
+                                        && !app.xbm_serialized.1.is_empty()
+                                    {
+                                        if let Some(config) = &mut app.config {
+                                            update_config_and_server(config, |c| {
+                                                if let Some(layout) = &mut c.layout {
+                                                    if let Some(component) = layout
+                                                        .components
+                                                        .get_mut(&app.xbm_serialized.1)
+                                                    {
+                                                        component.label =
+                                                            app.xbm_serialized.0.clone();
+                                                    }
+                                                }
+                                            });
+
+                                            app.xbm_serialized.0.clear();
+                                            app.xbm_serialized.1.clear();
+                                        }
+                                    }
+
+                                    app.show_message_modal(
+                                        "upload-image-to-device-success",
+                                        "Success".to_string(),
+                                        "Device's memory was successfully updated.".to_string(),
+                                    );
                                 },
-                                |_app| {},
-                                true,
+                                |app| {
+                                    app.close_modal();
+                                },
+                                false,
                             );
                         } else {
                             app.show_not_paired_error();
@@ -5293,18 +5316,21 @@ impl Application {
 
                             match extract_hex_bytes(&xbm_string, HOME_IMAGE_BYTES_SIZE) {
                                 Ok(bytes) => {
+                                    let data = hex_bytes_vec_to_string(&bytes);
                                     // `i` = *HOME* Image
-                                    let data = format!("i{}", hex_bytes_vec_to_string(&bytes));
+                                    let data_str = format!("i{}", data);
 
                                     app.current_display_image = bytes;
 
-                                    request_device_upload(data, false).ok();
+                                    request_device_upload(data_str.clone(), false).ok();
+
+                                    app.xbm_serialized = (data, component_global_id.to_string());
 
                                     app.show_message_modal(
                                         "xbm-upload-ok",
                                         "Ok".to_string(),
                                         "New X BitMap image \
-                                was uploaded to the device."
+                                        was uploaded to the device."
                                             .to_string(),
                                     );
                                 }
@@ -5338,18 +5364,33 @@ impl Application {
                         .clicked()
                     {
                         if app.server_data.is_device_paired {
+                            app.xbm_serialized = (
+                                HOME_IMAGE_DEFAULT_BYTES.to_string(),
+                                component_global_id.to_string(),
+                            );
+
                             app.show_yes_no_modal(
                                 "xbm-remove-confirmation",
                                 "Reset Display Icon".to_string(),
                                 "You're about to remove and reset current \"Home Image\" \
                                 on your device!\nAre you sure you want to continue?"
                                     .to_string(),
-                                |_app| {
+                                |app| {
+                                    match hex_bytes_string_to_vec(HOME_IMAGE_DEFAULT_BYTES) {
+                                        Ok(bytes) => {
+                                            app.current_display_image = bytes;
+                                        }
+                                        Err(e) => println!("{}", e),
+                                    }
+
                                     // `i` = *HOME* Image, and since there's no value
                                     // the device removes current image and set its default
                                     request_device_upload("i".to_string(), false).ok();
                                 },
-                                |_app| {},
+                                |app| {
+                                    app.xbm_serialized.0.clear();
+                                    app.xbm_serialized.1.clear();
+                                },
                                 true,
                             );
                         } else {
@@ -5434,7 +5475,7 @@ impl Application {
     }
 
     fn open_grid_context_menu(&mut self, ui: &mut Ui) {
-        ui.set_max_width(100.0);
+        ui.set_max_width(120.0);
 
         let mut layout_size = (0.0, 0.0);
 
@@ -5448,7 +5489,11 @@ impl Application {
                                                                   // of layout border
         let min_range = if max_range < 2.0 { 1.0 } else { 2.0 };
 
-        ui.label(egui::RichText::new("Grid settings").size(17.0));
+        ui.vertical_centered(|ui| {
+            ui.label(egui::RichText::new("Grid settings").size(17.0));
+        });
+
+        ui.add_space(-ui.style().spacing.item_spacing.y / 2.0);
 
         ui.separator();
 
@@ -5463,16 +5508,38 @@ impl Application {
             |ui| {
                 ui.horizontal_centered(|ui| {
                     ui.vertical(|ui| {
+                        ui.label("Enabled");
+                    });
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(-2.0);
+
+                        let response = ui.add(ToggleSwitch::new(self.layout_grid.0, (24.0, 16.0)));
+
+                        if response.clicked() {
+                            self.layout_grid.0 = !self.layout_grid.0;
+                        }
+                    });
+                });
+
+                ui.horizontal_centered(|ui| {
+                    if !self.layout_grid.0 {
+                        ui.disable();
+                    }
+
+                    ui.vertical(|ui| {
                         ui.label("Size");
                     });
 
-                    ui.add_sized(
-                        (ui.available_width() / 2.0, ui.available_height()),
-                        DragValue::new(&mut self.layout_grid.1)
-                            .speed(2.0)
-                            .range(min_range..=max_range)
-                            .clamp_existing_to_range(true),
-                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_sized(
+                            (0.0, ui.available_height()),
+                            DragValue::new(&mut self.layout_grid.1)
+                                .speed(2.0)
+                                .range(min_range..=max_range)
+                                .clamp_existing_to_range(true),
+                        );
+                    });
                 });
             },
         );
@@ -5723,6 +5790,10 @@ impl Default for Application {
             last_profile_name: String::new(), // Used for updating a profile
             profile_exists: false,
             xbm_string: String::new(),
+            xbm_serialized: (
+                String::new(), /* value */
+                String::new(), /* component_global_id */
+            ),
             current_display_image: vec![],
             paired_status_panel: (0.0, 0.0),
             components_panel: 0.0,
