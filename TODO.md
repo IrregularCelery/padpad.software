@@ -13,6 +13,7 @@
       to try to connect by the `port_name`
 - [ ] Add release builds in the github page
 - [x] Cloning the `Config` struct when calling `test_config()` is probably unnecessary. (yep!)
+- [ ] Add firmware version to the `Firmware` and make it readable by the `Software`
 
 ### Dashboard
 
@@ -33,6 +34,8 @@
 - [x] Add ability to change component id
 - [x] Created a parser for the interactions, so when for example the Command contains %value%, it
       gets replaced by the actually value of the component. e.g. potentiometer values
+- [ ] Add a welcome screen with some small hints and information about using the app
+- [ ] Add `Export/Import` buttons for config file
 
 ### Firmware
 
