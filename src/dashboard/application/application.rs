@@ -5246,62 +5246,72 @@ impl Application {
                     let total_width = ui.available_width();
                     let button_width = (total_width - spacing) / 2.0;
 
-                    if ui
-                        .add_sized([button_width, 0.0], egui::Button::new("Save to Device"))
-                        .on_hover_text("Save this icon to device memory")
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
-                    {
-                        if app.server_data.is_device_paired {
-                            app.show_yes_no_modal(
-                                "memory-override-confirmation",
-                                "Override memory".to_string(),
-                                "This operation will override the current \
-                                memory on your device!\n\
-                                Are you sure you want to continue?"
-                                    .to_string(),
-                                move |app| {
-                                    app.close_modal();
-
-                                    // `m` = `Memory`, `1` = true
-                                    request_send_serial("m1").ok();
-
-                                    if !app.xbm_serialized.0.is_empty()
-                                        && !app.xbm_serialized.1.is_empty()
-                                    {
-                                        if let Some(config) = &mut app.config {
-                                            update_config_and_server(config, |c| {
-                                                if let Some(layout) = &mut c.layout {
-                                                    if let Some(component) = layout
-                                                        .components
-                                                        .get_mut(&app.xbm_serialized.1)
-                                                    {
-                                                        component.label =
-                                                            app.xbm_serialized.0.clone();
-                                                    }
-                                                }
-                                            });
-
-                                            app.xbm_serialized.0.clear();
-                                            app.xbm_serialized.1.clear();
-                                        }
-                                    }
-
-                                    app.show_message_modal(
-                                        "upload-image-to-device-success",
-                                        "Success".to_string(),
-                                        "Device's memory was successfully updated.".to_string(),
-                                    );
-                                },
-                                |app| {
-                                    app.close_modal();
-                                },
-                                false,
-                            );
-                        } else {
-                            app.show_not_paired_error();
+                    ui.scope(|ui| {
+                        if app.xbm_serialized.0.is_empty() || app.xbm_serialized.1.is_empty() {
+                            ui.disable();
                         }
-                    }
+
+                        if ui
+                            .add_sized([button_width, 0.0], egui::Button::new("Save to Device"))
+                            .on_hover_text("Save this icon to device memory")
+                            .on_disabled_hover_text(
+                                "You need to upload an icon or reset\n\
+                                the current one before Saving.",
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            if app.server_data.is_device_paired {
+                                app.show_yes_no_modal(
+                                    "memory-override-confirmation",
+                                    "Override memory".to_string(),
+                                    "This operation will override the current \
+                                    memory on your device!\n\
+                                    Are you sure you want to continue?"
+                                        .to_string(),
+                                    move |app| {
+                                        app.close_modal();
+
+                                        // `m` = `Memory`, `1` = true
+                                        request_send_serial("m1").ok();
+
+                                        if !app.xbm_serialized.0.is_empty()
+                                            && !app.xbm_serialized.1.is_empty()
+                                        {
+                                            if let Some(config) = &mut app.config {
+                                                update_config_and_server(config, |c| {
+                                                    if let Some(layout) = &mut c.layout {
+                                                        if let Some(component) = layout
+                                                            .components
+                                                            .get_mut(&app.xbm_serialized.1)
+                                                        {
+                                                            component.label =
+                                                                app.xbm_serialized.0.clone();
+                                                        }
+                                                    }
+                                                });
+
+                                                app.xbm_serialized.0.clear();
+                                                app.xbm_serialized.1.clear();
+                                            }
+                                        }
+
+                                        app.show_message_modal(
+                                            "upload-image-to-device-success",
+                                            "Success".to_string(),
+                                            "Device's memory was successfully updated.".to_string(),
+                                        );
+                                    },
+                                    |app| {
+                                        app.close_modal();
+                                    },
+                                    false,
+                                );
+                            } else {
+                                app.show_not_paired_error();
+                            }
+                        }
+                    });
                     if ui
                         .add_sized([button_width, 0.0], egui::Button::new("Upload and Test"))
                         .on_hover_text(
