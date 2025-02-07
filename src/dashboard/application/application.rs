@@ -2127,7 +2127,7 @@ impl Application {
             .show(ui.ctx(), |ui| {
                 let mut style = get_current_style();
 
-                style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.95);
+                style.visuals.widgets.inactive.weak_bg_fill = Color::SURFACE2.gamma_multiply(0.95);
                 style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
                 style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
                 style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.15);
@@ -2201,6 +2201,21 @@ impl Application {
                     .inner_margin(Margin::same(padding))
                     .show(ui, |ui| {
                         ui.vertical(|ui| {
+                            let mut style = get_current_style();
+
+                            style.visuals.widgets.inactive.weak_bg_fill =
+                                Color::WHITE.gamma_multiply(0.15);
+                            style.visuals.widgets.hovered.weak_bg_fill =
+                                Color::OVERLAY0.gamma_multiply(0.95);
+                            style.visuals.widgets.hovered.bg_stroke.color =
+                                Color::WHITE.gamma_multiply(0.5);
+                            style.visuals.widgets.active.weak_bg_fill =
+                                Color::BLACK.gamma_multiply(0.15);
+                            style.visuals.widgets.noninteractive.bg_stroke.color =
+                                Color::WHITE.gamma_multiply(0.5);
+
+                            ui.set_style(style);
+
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🖮").size(24.0)))
                                 .on_hover_text("Open Button Memory Manager")
@@ -2242,6 +2257,17 @@ impl Application {
             .order(Order::Foreground)
             .fixed_pos(egui::pos2(panel_open_button_x, panel_open_button_y))
             .show(ui.ctx(), |ui| {
+                let mut style = get_current_style();
+
+                style.visuals.widgets.inactive.weak_bg_fill = Color::SURFACE2.gamma_multiply(0.95);
+                style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
+                style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
+                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.15);
+                style.visuals.widgets.noninteractive.bg_stroke.color =
+                    Color::WHITE.gamma_multiply(0.5);
+
+                ui.set_style(style);
+
                 if ui
                     .add_sized(open_button_size, Button::new("⛭"))
                     .on_hover_text("Open Toolbar panel")
