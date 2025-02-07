@@ -2020,6 +2020,7 @@ impl Application {
 
         Area::new("components-panel-items".into())
             .constrain(false)
+            .order(Order::Foreground)
             .fixed_pos(egui::pos2(panel_x, panel_y))
             .show(ui.ctx(), |ui| {
                 Frame::menu(ui.style())
@@ -2151,6 +2152,7 @@ impl Application {
 
         Area::new("toolbar-panel-items".into())
             .constrain(false)
+            .order(Order::Foreground)
             .fixed_pos(egui::pos2(panel_x, panel_y))
             .show(ui.ctx(), |ui| {
                 Frame::menu(ui.style())
@@ -2164,12 +2166,18 @@ impl Application {
                                 .clicked()
                             {}
 
-                            if ui
+                            let layout_settings_button = ui
                                 .add_sized(button_size, Button::new(RichText::new("📐").size(24.0)))
-                                .on_hover_text("Open Layout settings")
-                                .on_hover_cursor(CursorIcon::PointingHand)
-                                .clicked()
-                            {}
+                                .on_hover_text(
+                                    "Open Layout settings\n\
+                                    Right click to view grid settings",
+                                )
+                                .on_hover_cursor(CursorIcon::PointingHand);
+
+                            layout_settings_button
+                                .context_menu(|ui| self.open_grid_context_menu(ui));
+
+                            if layout_settings_button.clicked() {}
 
                             ui.separator();
 
@@ -5358,7 +5366,7 @@ impl Application {
     }
 
     fn open_grid_context_menu(&mut self, ui: &mut Ui) {
-        ui.set_max_width(128.0);
+        ui.set_max_width(100.0);
 
         let mut layout_size = (0.0, 0.0);
 
@@ -5372,15 +5380,33 @@ impl Application {
                                                                   // of layout border
         let min_range = if max_range < 2.0 { 1.0 } else { 2.0 };
 
-        ui.label("Grid settings");
+        ui.label(egui::RichText::new("Grid settings").size(17.0));
 
         ui.separator();
 
-        ui.add(
-            DragValue::new(&mut self.layout_grid.1)
-                .speed(2.0)
-                .range(min_range..=max_range)
-                .clamp_existing_to_range(true),
+        let spacing = ui.spacing().item_spacing.x;
+
+        let total_width = ui.available_width();
+        let input_width = (total_width - (spacing * 4.0)) / 2.0;
+
+        ui.allocate_ui_with_layout(
+            (input_width, 0.0).into(),
+            egui::Layout::top_down(egui::Align::Center),
+            |ui| {
+                ui.horizontal_centered(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("Size");
+                    });
+
+                    ui.add_sized(
+                        (ui.available_width() / 2.0, ui.available_height()),
+                        DragValue::new(&mut self.layout_grid.1)
+                            .speed(2.0)
+                            .range(min_range..=max_range)
+                            .clamp_existing_to_range(true),
+                    );
+                });
+            },
         );
     }
 
