@@ -653,22 +653,23 @@ impl Application {
                 let button_width = (total_width - spacing) / 2.0;
 
                 if ui
-                    .add_sized([button_width, 0.0], egui::Button::new("Yes"))
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .clicked()
-                {
-                    on_confirm(app);
-
-                    if auto_close {
-                        app.close_modal();
-                    }
-                }
-                if ui
                     .add_sized([button_width, 0.0], egui::Button::new("No"))
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
                     on_deny(app);
+
+                    if auto_close {
+                        app.close_modal();
+                    }
+                }
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Yes"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    on_confirm(app);
 
                     if auto_close {
                         app.close_modal();
@@ -3201,7 +3202,12 @@ impl Application {
                                     ui.disable();
                                 }
 
-                                if app.port_name.1 && ui.button("Save").clicked() {
+                                if app.port_name.1
+                                    && ui
+                                        .button("Save")
+                                        .on_hover_cursor(CursorIcon::PointingHand)
+                                        .clicked()
+                                {
                                     if let Some(config) = &mut app.config {
                                         update_config_and_server(config, |c| {
                                             c.settings.port_name =
@@ -3229,8 +3235,15 @@ impl Application {
                             ui.label("Baud rate ");
                         });
 
+                        ui.add_space(2.0);
+
                         let baud_rate_response = ui.add_sized(
-                            ui.available_size() - vec2(70.0, 0.0),
+                            ui.available_size()
+                                - if app.port_name.1 {
+                                    vec2(65.0, 0.0)
+                                } else {
+                                    vec2(70.0, 0.0)
+                                },
                             TextEdit::singleline(&mut app.baud_rate_string).margin(vec2(8.0, 8.0)),
                         );
 
@@ -3243,7 +3256,11 @@ impl Application {
                                 ui.disable();
                             }
 
-                            if ui.button("Save").clicked() {
+                            if ui
+                                .button("Save")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {
                                 if let Some(config) = &mut app.config {
                                     if let Some(baud_rate) = app.baud_rate {
                                         update_config_and_server(config, |c| {
@@ -3266,6 +3283,8 @@ impl Application {
                     if !device_name.is_empty() {
                         ui.vertical_centered_justified(|ui| {
                             ui.horizontal_wrapped(|ui| {
+                                ui.add_space(ui.style().spacing.item_spacing.x / 2.0);
+
                                 ui.group(|ui| {
                                     ui.label(
                                         RichText::new(
@@ -3291,6 +3310,14 @@ impl Application {
 
                         let total_width = ui.available_width();
                         let button_width = (total_width - spacing) / 2.0;
+
+                        if ui
+                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            app.close_modal();
+                        }
 
                         if !device_name.is_empty()
                             && ui
@@ -3344,6 +3371,7 @@ impl Application {
                         if device_name.is_empty()
                             && ui
                                 .add_sized([button_width, 0.0], egui::Button::new("Auto-detect"))
+                                .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                         {
                             app.show_yes_no_modal(
@@ -3369,13 +3397,6 @@ impl Application {
                             );
 
                             app.set_width_modal(400.0);
-                        }
-                        if ui
-                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
-                            app.close_modal();
                         }
                     });
                 },
@@ -3717,6 +3738,14 @@ impl Application {
                     let button_width = (total_width - spacing) / 2.0;
 
                     if ui
+                        .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        app.close_modal();
+                    }
+
+                    if ui
                         .add_sized([button_width, 0.0], egui::Button::new("Save to Device"))
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
@@ -3771,13 +3800,6 @@ impl Application {
                             },
                             false,
                         );
-                    }
-                    if ui
-                        .add_sized([button_width, 0.0], egui::Button::new("Close"))
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
-                    {
-                        app.close_modal();
                     }
                 });
             });
