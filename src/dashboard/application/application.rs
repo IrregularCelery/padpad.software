@@ -2024,56 +2024,87 @@ impl Application {
             .fixed_pos(egui::pos2(panel_x, panel_y))
             .show(ui.ctx(), |ui| {
                 Frame::menu(ui.style())
+                    .fill(Color::SURFACE2.gamma_multiply(0.75))
                     .inner_margin(Margin::same(padding))
                     .show(ui, |ui| {
                         ui.vertical(|ui| {
+                            let mut style = get_current_style();
+
+                            style.visuals.widgets.inactive.weak_bg_fill =
+                                Color::WHITE.gamma_multiply(0.15);
+                            style.visuals.widgets.hovered.weak_bg_fill =
+                                Color::OVERLAY0.gamma_multiply(0.95);
+                            style.visuals.widgets.hovered.bg_stroke.color =
+                                Color::WHITE.gamma_multiply(0.5);
+                            style.visuals.widgets.active.weak_bg_fill =
+                                Color::BLACK.gamma_multiply(0.15);
+                            style.visuals.widgets.noninteractive.bg_stroke.color =
+                                Color::WHITE.gamma_multiply(0.5);
+
+                            ui.set_style(style);
+
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇧").size(24.0)))
                                 .on_hover_text("Add Button to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_button_to_layout();
+                            }
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇱").size(24.0)))
                                 .on_hover_text("Add LED to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_led_to_layout();
+                            }
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇵").size(24.0)))
                                 .on_hover_text("Add Potentiometer to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_potentiometer_to_layout();
+                            }
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇯").size(24.0)))
                                 .on_hover_text("Add Joystick to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_joystick_to_layout();
+                            }
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇷").size(24.0)))
                                 .on_hover_text("Add RotaryEncoder to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_rotary_encoder_to_layout();
+                            }
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇩").size(24.0)))
                                 .on_hover_text("Add Display to your layout")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.add_display_to_layout();
+                            }
 
                             ui.separator();
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🖴").size(24.0)))
-                                .on_hover_text("Save current layout")
+                                .on_hover_text(
+                                    "Save/Discard current layout\n\
+                                    and close components panel",
+                                )
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
                             {
@@ -2094,6 +2125,17 @@ impl Application {
             .order(Order::Foreground)
             .fixed_pos(egui::pos2(panel_open_button_x, panel_open_button_y))
             .show(ui.ctx(), |ui| {
+                let mut style = get_current_style();
+
+                style.visuals.widgets.inactive.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.95);
+                style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
+                style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
+                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.15);
+                style.visuals.widgets.noninteractive.bg_stroke.color =
+                    Color::WHITE.gamma_multiply(0.5);
+
+                ui.set_style(style);
+
                 if ui
                     .add_sized(open_button_size, Button::new("➕"))
                     .on_hover_text("Add components to your layout")
