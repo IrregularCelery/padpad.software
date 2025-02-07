@@ -838,7 +838,23 @@ impl Application {
                 };
 
                 if layout.components.is_empty() {
-                    ui.label("You haven't add any components yet!");
+                    egui::Area::new("layout-empty-hint-texts".into())
+                        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+                        .show(ctx, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.add_space(-ui.style().spacing.item_spacing.y);
+
+                                ui.label(
+                                    egui::RichText::new(
+                                        "You can click the (+) button on the left to add \
+                                        components\nRemember to to save your work using \
+                                        (🖴) button.",
+                                    )
+                                    .size(22.0)
+                                    .color(egui::Color32::from_gray(135)),
+                                );
+                            });
+                        });
 
                     return;
                 }
