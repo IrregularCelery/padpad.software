@@ -1904,6 +1904,17 @@ impl Application {
             rect.shrink2((padding, padding * 4.0).into())
         };
 
+        let mut style = get_current_style();
+
+        style.visuals.widgets.inactive.weak_bg_fill = Color::SURFACE2.gamma_multiply(0.95);
+        style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
+        style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
+        style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.25);
+        style.visuals.widgets.open.weak_bg_fill = Color::BLACK.gamma_multiply(0.25);
+        style.visuals.widgets.noninteractive.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
+
+        ui.set_style(style);
+
         let ui_builder = UiBuilder::new()
             .max_rect(footer_rect)
             .layout(Layout::right_to_left(Align::Max));
@@ -1921,6 +1932,19 @@ impl Application {
                     }
                 })
                 .show_ui(ui, |ui| {
+                    let mut style = get_current_style();
+
+                    style.visuals.widgets.inactive.weak_bg_fill = Color::WHITE.gamma_multiply(0.15);
+                    style.visuals.widgets.hovered.weak_bg_fill =
+                        Color::OVERLAY0.gamma_multiply(0.95);
+                    style.visuals.widgets.hovered.bg_stroke.color =
+                        Color::WHITE.gamma_multiply(0.5);
+                    style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.25);
+                    style.visuals.widgets.noninteractive.bg_stroke.color =
+                        Color::WHITE.gamma_multiply(0.5);
+
+                    ui.set_style(style);
+
                     if let Some(config) = &mut self.config {
                         let mut selected_profile = -1;
 
@@ -2041,7 +2065,7 @@ impl Application {
                             style.visuals.widgets.hovered.bg_stroke.color =
                                 Color::WHITE.gamma_multiply(0.5);
                             style.visuals.widgets.active.weak_bg_fill =
-                                Color::BLACK.gamma_multiply(0.15);
+                                Color::BLACK.gamma_multiply(0.25);
                             style.visuals.widgets.noninteractive.bg_stroke.color =
                                 Color::WHITE.gamma_multiply(0.5);
 
@@ -2134,7 +2158,7 @@ impl Application {
                 style.visuals.widgets.inactive.weak_bg_fill = Color::SURFACE2.gamma_multiply(0.95);
                 style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
                 style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
-                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.15);
+                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.25);
                 style.visuals.widgets.noninteractive.bg_stroke.color =
                     Color::WHITE.gamma_multiply(0.5);
 
@@ -2215,7 +2239,7 @@ impl Application {
                             style.visuals.widgets.hovered.bg_stroke.color =
                                 Color::WHITE.gamma_multiply(0.5);
                             style.visuals.widgets.active.weak_bg_fill =
-                                Color::BLACK.gamma_multiply(0.15);
+                                Color::BLACK.gamma_multiply(0.25);
                             style.visuals.widgets.noninteractive.bg_stroke.color =
                                 Color::WHITE.gamma_multiply(0.5);
 
@@ -2267,7 +2291,7 @@ impl Application {
                 style.visuals.widgets.inactive.weak_bg_fill = Color::SURFACE2.gamma_multiply(0.95);
                 style.visuals.widgets.hovered.weak_bg_fill = Color::OVERLAY0.gamma_multiply(0.5);
                 style.visuals.widgets.hovered.bg_stroke.color = Color::WHITE.gamma_multiply(0.5);
-                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.15);
+                style.visuals.widgets.active.weak_bg_fill = Color::BLACK.gamma_multiply(0.25);
                 style.visuals.widgets.noninteractive.bg_stroke.color =
                     Color::WHITE.gamma_multiply(0.5);
 
