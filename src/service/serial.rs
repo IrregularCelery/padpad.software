@@ -305,6 +305,16 @@ impl Serial {
                         let data_value = &value[1..];
 
                         match data_key {
+                            // 'v' => *Firmeware* Version
+                            'v' => {
+                                if let Ok(mut data) = tcp::get_server_data().lock() {
+                                    let mut server_data = data.clone();
+
+                                    server_data.firmware_version = data_value.to_string();
+
+                                    *data = server_data;
+                                }
+                            }
                             // 'b' => Buttons
                             'b' => {
                                 if let Ok(mut data) = tcp::get_server_data().lock() {

@@ -130,9 +130,6 @@ impl eframe::App for Application {
         // Modal manager
         self.handle_modal(ctx);
 
-        // Unavoidable errors
-        self.handle_unavoidable_error(ctx);
-
         // Application confirm close popup
         self.handle_close_popup(ctx);
 
@@ -226,6 +223,10 @@ impl eframe::App for Application {
             self.draw_components_panel(ui);
             self.draw_toolbar_panel(ui);
         });
+
+        // Unavoidable errors
+        // Handle it last to ensure it's the topmost element
+        self.handle_unavoidable_error(ctx);
 
         if cfg!(debug_assertions) {
             self.draw_debug_panel(ctx);
@@ -2740,6 +2741,13 @@ impl Application {
             .default_open(false)
             .vscroll(true)
             .show(ctx, |ui| {
+                if self.server_data.is_device_paired {
+                    ui.label(format!(
+                        "Firmware Version: {}",
+                        self.server_data.firmware_version
+                    ));
+                }
+
                 if ui.button("Restart application").clicked() {
                     restart();
                 }
