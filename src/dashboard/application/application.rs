@@ -1618,10 +1618,6 @@ impl Application {
     }
 
     fn components_changed(&self) -> bool {
-        if self.components_backup.0.is_empty() || self.components_backup.1.is_empty() {
-            return false;
-        }
-
         if let Some(config) = &self.config {
             if let Some(layout) = &config.layout {
                 if self.components_backup.0 != layout.components {
