@@ -3502,6 +3502,19 @@ impl Application {
 
             // Content
 
+            if app.button_memory.is_empty() {
+                ui.vertical_centered(|ui| {
+                    ui.group(|ui| {
+                        ui.label(
+                            RichText::new("You haven't added any buttons to your layout!")
+                                .color(Color::RED.gamma_multiply(0.75)),
+                        );
+                    });
+                });
+
+                ui.add_space(-ui.style().spacing.item_spacing.y);
+            }
+
             let card_width = 216.0;
 
             egui::ScrollArea::vertical()
@@ -3748,7 +3761,7 @@ impl Application {
 
                         ui.label(
                             egui::RichText::new(
-                                "\n⚫These keyboard shortcuts are only active when \
+                                "\n⚫These keyboard shortcuts are only available when \
                                 the current profile is set to\n\t\t\
                                 the device's internal profile.",
                             )
@@ -3775,6 +3788,10 @@ impl Application {
                         .clicked()
                     {
                         app.close_modal();
+                    }
+
+                    if app.button_memory.is_empty() {
+                        ui.disable();
                     }
 
                     if ui
