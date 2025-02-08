@@ -8,7 +8,7 @@
 - [x] Add `confirm_exit` functionality to `Dashboard` app
 - [x] Handle IPC between `Service` and `Dashboard`
 - [x] Add component values in the `ServerData` (Added `components` to `Application` instead)
-- [ ] Add application name to logging system
+- [x] Add application name to logging system
 - [x] Add manual device connection by checking if the `device_name` is empty, forcing app
       to try to connect by the `port_name`
 - [ ] Add release builds in the github page
@@ -36,7 +36,7 @@
       gets replaced by the actually value of the component. e.g. potentiometer values
 - [ ] Add a welcome screen with some small hints and information about using the app
 - [ ] Add `Export/Import` buttons for config file
-- [ ] Add a small `Information/About` modal that shows info and stuff
+- [x] Add a small `Information/About` modal that shows info and stuff
 
 ### Firmware
 
