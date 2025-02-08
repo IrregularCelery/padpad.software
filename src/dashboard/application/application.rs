@@ -169,25 +169,44 @@ impl eframe::App for Application {
                     ui.add_space(8.0);
 
                     // Close and Minimize Button
-                    let button_size = 16.0;
+                    let button_size = (32.0, 32.0);
 
-                    let close_button = ui
-                        .add(Button::new(RichText::new("×").size(button_size)))
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("Close the window");
+                    ui.scope(|ui| {
+                        let mut style = get_current_style();
 
-                    let minimized_button = ui
-                        .add(Button::new(RichText::new("–").size(button_size)))
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("Minimize the window");
+                        style.visuals.widgets.inactive.weak_bg_fill =
+                            Color::SURFACE2.gamma_multiply(0.95);
+                        style.visuals.widgets.hovered.weak_bg_fill =
+                            Color::OVERLAY0.gamma_multiply(0.5);
+                        style.visuals.widgets.hovered.bg_stroke.color =
+                            Color::WHITE.gamma_multiply(0.5);
+                        style.visuals.widgets.active.weak_bg_fill =
+                            Color::BLACK.gamma_multiply(0.25);
+                        style.visuals.widgets.noninteractive.bg_stroke.color =
+                            Color::WHITE.gamma_multiply(0.5);
 
-                    if close_button.clicked() {
-                        ui.ctx().send_viewport_cmd(ViewportCommand::Close);
-                    }
+                        style.spacing.button_padding = Vec2::ZERO;
 
-                    if minimized_button.clicked() {
-                        ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
-                    }
+                        ui.set_style(style);
+
+                        let close_button = ui
+                            .add_sized(button_size, Button::new(RichText::new("❌")))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text("Close the window");
+
+                        let minimized_button = ui
+                            .add_sized(button_size, Button::new(RichText::new("🗕").size(13.0)))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text("Minimize the window");
+
+                        if close_button.clicked() {
+                            ui.ctx().send_viewport_cmd(ViewportCommand::Close);
+                        }
+
+                        if minimized_button.clicked() {
+                            ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                        }
+                    });
 
                     if ui.button("Button Memory Manager").clicked() {
                         self.open_button_memory_manager_modal();
@@ -839,6 +858,7 @@ impl Application {
 
                 if layout.components.is_empty() {
                     egui::Area::new("layout-empty-hint-texts".into())
+                        .order(egui::Order::Foreground)
                         .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
                         .show(ctx, |ui| {
                             ui.vertical_centered(|ui| {
