@@ -8,7 +8,7 @@ use std::process::Command;
 
 use crate::{
     config::{ComponentKind, Interaction, CONFIG},
-    log_error,
+    log_error, log_info,
     service::serial::Serial,
     tcp,
     utility::EnigoKey,
@@ -64,7 +64,7 @@ fn run_command(command: &str, unix_shell: &str) {
             .expect("Failed to run command");
     }
 
-    println!("Command executed: {}", cmd);
+    log_info!("Command executed: {}", cmd);
 }
 
 fn open_application(app_full_path: &str) {
@@ -74,7 +74,7 @@ fn open_application(app_full_path: &str) {
         .spawn()
         .expect("Failed to open application");
 
-    println!("Application opened: {}", app_path);
+    log_info!("Application opened: {}", app_path);
 }
 
 fn open_website(website_url: &str) {
@@ -88,7 +88,7 @@ fn open_website(website_url: &str) {
 
     open::that_detached(&full_url).expect("Failed to open website");
 
-    println!("Website opened: {}", full_url);
+    log_info!("Website opened: {}", full_url);
 }
 
 // If `text` parameter is NOT empty, `keys` will be ignored
@@ -129,7 +129,7 @@ fn open_file(file_full_path: &str) {
 
     open::that_detached(&file_path).expect("Failed to open file");
 
-    println!("File opened: {}", file_path);
+    log_info!("File opened: {}", file_path);
 }
 
 fn do_interaction(kind: &InteractionKind, value: impl ToString) {

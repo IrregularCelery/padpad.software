@@ -5,7 +5,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::constants::APP_NAME;
+use crate::{constants::APP_NAME, utility::get_app_name_without_extension};
 
 static LOGGER: OnceLock<Logger> = OnceLock::new();
 
@@ -50,10 +50,15 @@ impl Logger {
         }
 
         let log_message = format!(
-            "{}[ {} ][{}][{}]{} {}{}",
+            "{}[ {} ][{}][{}][{}]{} {}{}",
             if separated { "\n" } else { "" },
             level,
             timestamp,
+            if let Some(app_name) = get_app_name_without_extension() {
+                app_name
+            } else {
+                APP_NAME.to_string()
+            },
             thread_id.name().unwrap_or("Unknown"),
             trace,
             message,

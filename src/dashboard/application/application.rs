@@ -18,11 +18,11 @@ use padpad_software::{
         update_config_and_server, Component, ComponentKind, Config, Interaction, Layout, Profile,
     },
     constants::{
-        APP_MIN_HEIGHT, APP_MIN_WIDTH, APP_PADDING_X, APP_PADDING_Y, DASHBOARD_DISAPLY_PIXEL_SIZE,
-        DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE, DEFAULT_DEVICE_NAME,
-        FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES, HOME_IMAGE_HEIGHT,
-        HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP, SERIAL_MESSAGE_SEP,
-        SERVER_DATA_UPDATE_INTERVAL,
+        APP_MIN_HEIGHT, APP_MIN_WIDTH, APP_NAME, APP_PADDING_X, APP_PADDING_Y, APP_VERSION,
+        DASHBOARD_DISAPLY_PIXEL_SIZE, DASHBOARD_PROFILE_MAX_CHARACTERS, DEFAULT_BAUD_RATE,
+        DEFAULT_DEVICE_NAME, FORBIDDEN_CHARACTERS, HOME_IMAGE_BYTES_SIZE, HOME_IMAGE_DEFAULT_BYTES,
+        HOME_IMAGE_HEIGHT, HOME_IMAGE_WIDTH, KEYS, SERIAL_MESSAGE_END, SERIAL_MESSAGE_INNER_SEP,
+        SERIAL_MESSAGE_SEP, SERVER_DATA_UPDATE_INTERVAL,
     },
     log_error,
     service::interaction::InteractionKind,
@@ -35,6 +35,8 @@ static ERROR_MESSAGE: OnceLock<Arc<Mutex<String>>> = OnceLock::new(); // Global 
                                                                       // last unavoidable error message
 
 pub struct Application {
+    update_available: bool,
+    build_date: String,
     close_app: (
         bool, /* show_close_popup */
         bool, /* can_close_app */
@@ -164,7 +166,7 @@ impl eframe::App for Application {
                     .max_rect(title_bar_rect)
                     .layout(Layout::right_to_left(Align::Center)),
                 |ui| {
-                    // Close and Minimize Button
+                    // Close, Minimize and About Button
                     let button_size = (32.0, 32.0);
 
                     ui.scope(|ui| {
@@ -195,12 +197,21 @@ impl eframe::App for Application {
                             .on_hover_cursor(egui::CursorIcon::PointingHand)
                             .on_hover_text("Minimize the window");
 
+                        let about_button = ui
+                            .add_sized(button_size, Button::new(RichText::new("♥").size(20.0)))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text(format!("About {}", APP_NAME));
+
                         if close_button.clicked() {
                             ui.ctx().send_viewport_cmd(ViewportCommand::Close);
                         }
 
                         if minimized_button.clicked() {
                             ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
+                        }
+
+                        if about_button.clicked() {
+                            self.open_about_modal();
                         }
                     });
                 },
@@ -883,10 +894,11 @@ impl Application {
                             size = self.component_led_size;
 
                             let led = self.draw_led(ui, label, position, size, scale, {
-                                // TODO: Actually return a value!
-                                let r = 255;
-                                let g = 0;
-                                let b = 0;
+                                let color = blend_colors(Color::WHITE, Color::ACCENT, 0.5);
+
+                                let r = color.r();
+                                let g = color.g();
+                                let b = color.b();
 
                                 (r, g, b)
                             });
@@ -2782,6 +2794,8 @@ impl Application {
             .default_open(false)
             .vscroll(true)
             .show(ctx, |ui| {
+                ui.label(format!("Software Version: {}", APP_VERSION));
+
                 if self.server_data.is_device_paired {
                     ui.label(format!(
                         "Firmware Version: {}",
@@ -3041,7 +3055,7 @@ impl Application {
                 ui.separator();
 
                 ui.heading("Hello World!");
-                ui.label("PadPad is under construction!");
+                ui.label(format!("{} is under construction!", APP_NAME));
                 ui.label(format!(
                     "Server status: {}",
                     self.server_data.is_client_connected
@@ -3230,6 +3244,19 @@ impl Application {
                                 app.open_set_device_name_modal();
                                 app.set_width_modal(350.0);
                             }
+                        });
+                    }
+
+                    ui.add_space(ui.style().spacing.item_spacing.x);
+
+                    if app.server_data.is_device_paired {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Firmware"));
+                            ui.add_space(ui.style().spacing.item_spacing.x * 5.65);
+                            ui.label(
+                                RichText::new(app.server_data.firmware_version.clone())
+                                    .color(Color::BLUE),
+                            );
                         });
                     }
 
@@ -4976,14 +5003,6 @@ impl Application {
                     }
                 });
             } else {
-                if ui.button("Open Display Icon Manager").clicked() {
-                    let xbm_data = match hex_bytes_string_to_vec(&properties.label) {
-                        Ok(bytes) => bytes,
-                        Err(_) => vec![],
-                    };
-
-                    should_open_display_icon_manager = (true, Some(xbm_data));
-                }
             }
 
             ui.horizontal_top(|ui| {
@@ -5020,6 +5039,23 @@ impl Application {
                         });
                     },
                 );
+
+                if kind == ComponentKind::Display {
+                    if ui
+                        .add_sized(
+                            (input_width + spacing, 0.0),
+                            egui::Button::new("Display Icon Manager"),
+                        )
+                        .clicked()
+                    {
+                        let xbm_data = match hex_bytes_string_to_vec(&properties.label) {
+                            Ok(bytes) => bytes,
+                            Err(_) => vec![],
+                        };
+
+                        should_open_display_icon_manager = (true, Some(xbm_data));
+                    }
+                }
 
                 if multiple_styles > 0 {
                     ui.add_space(16.0);
@@ -5681,7 +5717,7 @@ impl Application {
                                         Ok(bytes) => {
                                             app.current_display_image = bytes;
                                         }
-                                        Err(e) => println!("{}", e),
+                                        Err(_) => (),
                                     }
 
                                     // `i` = *HOME* Image, and since there's no value
@@ -5706,6 +5742,113 @@ impl Application {
                         app.close_modal();
                     }
                 });
+            });
+        });
+    }
+
+    fn open_about_modal(&mut self) {
+        use egui::*;
+
+        self.show_custom_modal("about-modal", |ui, app| {
+            ui.set_max_width(450.0);
+
+            ui.vertical_centered(|ui| {
+                // App Name Section
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+                ui.label(
+                    RichText::new(format!("🎮 {}", APP_NAME))
+                        .size(40.0)
+                        .color(Color::YELLOW)
+                        .strong(),
+                );
+                ui.add_space(ui.style().spacing.item_spacing.y * 0.75);
+                ui.label(RichText::new("The Ultimate Macro Pad Companion").size(16.0));
+
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+
+                // Version Info
+                ui.horizontal(|ui| {
+                    ui.add_space(119.0); // Sorry!
+                    ui.label(RichText::new("Version:   \t").size(15.0).strong());
+                    ui.add_space(1.0);
+                    ui.label(
+                        RichText::new(APP_VERSION)
+                            .color(
+                                blend_colors(Color::YELLOW, Color::RED, 0.5).gamma_multiply(0.85),
+                            )
+                            .size(15.0),
+                    );
+
+                    if app.update_available {
+                        ui.label(
+                            RichText::new("• Update Available!")
+                                .size(14.0)
+                                .color(Color::GREEN),
+                        );
+                    }
+                });
+                ui.label(RichText::new(format!("Build Date:\t{}", app.build_date)).size(15.0));
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+
+                ui.separator();
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+
+                // Credits Section
+                ui.heading(
+                    RichText::new("Created with ❤ by")
+                        .color(Color::RED.gamma_multiply(0.8))
+                        .size(20.0),
+                );
+                ui.label(
+                    RichText::new(env!("CARGO_PKG_AUTHORS"))
+                        .color(Color::GREEN)
+                        .size(16.0)
+                        .strong(),
+                );
+
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+
+                // Links Section
+                ui.heading(RichText::new("Links").size(20.0));
+                ui.add_space(-ui.style().spacing.item_spacing.y * 0.5);
+                ui.horizontal(|ui| {
+                    ui.add_space(45.0);
+                    ui.hyperlink_to(
+                        RichText::new("GitHub").color(Color::BLUE),
+                        "https://github.com/IrregularCelery",
+                    );
+                    ui.label(" • ");
+                    ui.hyperlink_to(
+                        RichText::new("Documentation").color(Color::BLUE),
+                        "https://github.com/IrregularCelery/padpad.software",
+                    );
+                    ui.label(" • ");
+                    ui.hyperlink_to(
+                        RichText::new("Report Bug").color(Color::BLUE),
+                        "https://github.com/IrregularCelery/padpad.software/issues",
+                    );
+                });
+
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+                ui.separator();
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+
+                // License Section
+                ui.heading(RichText::new("License").size(20.0));
+                ui.add_space(ui.style().spacing.item_spacing.y * 1.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(format!(
+                        "{} is an open source software licensed under the",
+                        APP_NAME
+                    ));
+                    ui.add_space(-4.0);
+                    ui.hyperlink_to(
+                        RichText::new("MIT License").color(Color::BLUE),
+                        "https://github.com/IrregularCelery/padpad.software/blob/master/LICENSE",
+                    );
+                });
+
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
             });
         });
     }
@@ -6046,6 +6189,8 @@ impl Default for Application {
             .expect("Failed to spawn `TCP client` thread!");
 
         Self {
+            update_available: false,
+            build_date: "February 08, 2025".to_string(),
             close_app: (false, false),
             unavoidable_error: (false, String::new()),
             modal: Arc::new(Mutex::new(ModalManager::new())),
@@ -6136,6 +6281,8 @@ fn draw_normal_interaction_panel(
     should_update: &mut bool,
 ) {
     if hid_warning_condition {
+        ui.add_space(ui.style().spacing.item_spacing.y);
+
         ui.vertical_centered_justified(|ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.group(|ui| {
@@ -6638,6 +6785,8 @@ fn draw_modkey_interaction_panel(
     should_update: &mut bool,
 ) {
     if hid_warning_condition {
+        ui.add_space(ui.style().spacing.item_spacing.y);
+
         ui.vertical_centered_justified(|ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.group(|ui| {

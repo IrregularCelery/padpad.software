@@ -107,3 +107,17 @@ impl std::fmt::Display for EnigoKey {
         )
     }
 }
+
+pub fn get_app_name_without_extension() -> Option<String> {
+    let exe_path = std::env::current_exe().ok()?;
+
+    let exe_file_name = exe_path.file_name()?;
+    let exe_name = exe_file_name.to_str()?;
+
+    let app_name = std::path::Path::new(exe_name)
+        .file_stem()?
+        .to_str()?
+        .to_string();
+
+    Some(app_name)
+}

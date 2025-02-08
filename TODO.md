@@ -36,6 +36,7 @@
       gets replaced by the actually value of the component. e.g. potentiometer values
 - [ ] Add a welcome screen with some small hints and information about using the app
 - [ ] Add `Export/Import` buttons for config file
+- [ ] Add a small `Information/About` modal that shows info and stuff
 
 ### Firmware
 

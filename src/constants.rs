@@ -2,6 +2,7 @@ use crate::utility::EnigoKey;
 
 // General
 pub const APP_NAME: &str = "PadPad";
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const APP_MIN_WIDTH: usize = 1152; // Application window width (in px)
 pub const APP_MIN_HEIGHT: usize = 648; // Application window height (in px)
 pub const APP_PADDING_X: usize = 80; // Distance from the layout to left/right edges (in px)
