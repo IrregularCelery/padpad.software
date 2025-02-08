@@ -963,6 +963,29 @@ impl Application {
                         continue;
                     };
 
+                    // Show label and Id on hover
+                    let response = response.on_hover_ui(|ui| {
+                        ui.group(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label("Id\t\t\t");
+
+                                ui.add_space(-1.0);
+
+                                ui.label(
+                                    egui::RichText::new(component.0.clone()).color(Color::ACCENT),
+                                );
+                            });
+
+                            if kind != ComponentKind::Display {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label("Label \t");
+
+                                    ui.label(egui::RichText::new(label).color(Color::ACCENT));
+                                });
+                            }
+                        });
+                    });
+
                     if !self.is_editing_layout {
                         if response.double_clicked() {
                             self.toggle_layout_state();
@@ -2928,6 +2951,7 @@ impl Application {
                             Color::GREEN,
                             Color::RED,
                             Color::BLUE,
+                            Color::LIGHT_BLUE,
                             Color::PURPLE,
                             Color::PINK,
                             Color::BLACK,
@@ -4764,7 +4788,8 @@ impl Application {
                                         .add(
                                             egui::Label::new(
                                                 egui::RichText::new("Button Memory Manager")
-                                                    .color(Color::BLUE),
+                                                    .color(Color::BLUE)
+                                                    .underline(),
                                             )
                                             .sense(egui::Sense::click()),
                                         )
@@ -6125,6 +6150,7 @@ fn draw_normal_interaction_panel(
                             egui::Label::new(
                                 egui::RichText::new("\nClick here to open manager")
                                     .color(Color::BLUE)
+                                    .underline()
                                     .size(14.0),
                             )
                             .sense(egui::Sense::click()),
@@ -6626,6 +6652,7 @@ fn draw_modkey_interaction_panel(
                             egui::Label::new(
                                 egui::RichText::new("\nClick here to open manager")
                                     .color(Color::BLUE)
+                                    .underline()
                                     .size(14.0),
                             )
                             .sense(egui::Sense::click()),
