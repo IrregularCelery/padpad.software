@@ -963,6 +963,16 @@ impl Application {
                         continue;
                     };
 
+                    if !self.is_editing_layout {
+                        if response.double_clicked() {
+                            self.toggle_layout_state();
+
+                            self.open_component_properties_modal(component.0.clone());
+                        }
+
+                        continue;
+                    }
+
                     // Show label and Id on hover
                     let response = response.on_hover_ui(|ui| {
                         ui.group(|ui| {
@@ -974,6 +984,8 @@ impl Application {
                                 ui.label(
                                     egui::RichText::new(component.0.clone()).color(Color::ACCENT),
                                 );
+
+                                ui.add_space(ui.style().spacing.item_spacing.x);
                             });
 
                             if kind != ComponentKind::Display {
@@ -981,20 +993,12 @@ impl Application {
                                     ui.label("Label \t");
 
                                     ui.label(egui::RichText::new(label).color(Color::ACCENT));
+
+                                    ui.add_space(ui.style().spacing.item_spacing.x);
                                 });
                             }
                         });
                     });
-
-                    if !self.is_editing_layout {
-                        if response.double_clicked() {
-                            self.toggle_layout_state();
-
-                            self.open_component_properties_modal(component.0.clone());
-                        }
-
-                        continue;
-                    }
 
                     // Open the interactions modal
                     if response.clicked() {
