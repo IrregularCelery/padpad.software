@@ -20,3 +20,18 @@ pub fn request_device_upload(data: String, save_to_flash: bool) -> Result<String
 pub fn request_restart_service() -> Result<String, String> {
     client_to_server_message("restart")
 }
+
+pub fn blend_colors(
+    color1: eframe::egui::Color32,
+    color2: eframe::egui::Color32,
+    t: f32,
+) -> eframe::egui::Color32 {
+    let t = t.clamp(0.0, 1.0); // Ensure `t` is between 0 and 1
+
+    let r = ((1.0 - t) * color1.r() as f32 + t * color2.r() as f32) as u8;
+    let g = ((1.0 - t) * color1.g() as f32 + t * color2.g() as f32) as u8;
+    let b = ((1.0 - t) * color1.b() as f32 + t * color2.b() as f32) as u8;
+    let a = ((1.0 - t) * color1.a() as f32 + t * color2.a() as f32) as u8;
+
+    eframe::egui::Color32::from_rgba_premultiplied(r, g, b, a)
+}

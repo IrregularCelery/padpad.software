@@ -5,11 +5,12 @@ use std::{
 
 use eframe::egui::{self, Context, DragValue, Pos2, Rect, Response, Ui, Vec2};
 
-use crate::application::utility::request_device_upload;
-
 use super::{
     get_current_style,
-    utility::{request_refresh_device, request_restart_service, request_send_serial},
+    utility::{
+        blend_colors, request_device_upload, request_refresh_device, request_restart_service,
+        request_send_serial,
+    },
     widgets::*,
 };
 use padpad_software::{
@@ -207,8 +208,6 @@ impl eframe::App for Application {
                             ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true));
                         }
                     });
-
-                    // `is_editing_layout` indicator
                 },
             );
 
@@ -359,15 +358,15 @@ impl Application {
                 // Cancel closing the app if it's not allowed
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
-                // Check if there's unsaved layout
+                // Check if editing mode is active
                 if !self.components_backup.0.is_empty()
                     || !self.components_backup.1.is_empty() && self.components_changed()
                 {
                     self.show_message_modal(
-                        "layout-unsaved-exit-popup",
-                        "Unsaved Layout".to_string(),
-                        "You currently have unsaved layout.\n\
-                        Please save before closing the application."
+                        "layout-editing-mode-active-exit-popup",
+                        "Editing Mode Active".to_string(),
+                        "Editing Mode is currently active.\n\
+                        Please exit Editing Mode before closing the application."
                             .to_string(),
                     );
 
@@ -2034,7 +2033,6 @@ impl Application {
         let panel_closed_x = -(panel_width + padding);
 
         let panel_x = (padding + 2.0) + panel_closed_x - panel_position_x;
-        //let panel_x = screen_rect.max.x - panel_width; // Right
         let panel_y = screen_rect.center().y - panel_height / 2.0;
 
         let panel_open_button_x = (padding + 2.0) + panel_position_x;
@@ -2173,6 +2171,26 @@ impl Application {
                         }
                     }
                 }
+            });
+
+        Area::new("is-editing-layout-indicator-panel".into())
+            .constrain(false)
+            .order(Order::Foreground)
+            .anchor(
+                Align2::CENTER_TOP,
+                vec2(0.0, -panel_width - panel_position_x),
+            )
+            .show(ui.ctx(), |ui| {
+                ui.set_max_width(350.0);
+
+                ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+
+                Frame::menu(ui.style())
+                    .fill(blend_colors(Color::RED, Color::SURFACE2, 0.93))
+                    .stroke(Stroke::new(1.0, Color::RED))
+                    .show(ui, |ui| {
+                        ui.label(RichText::new("Editing Mode Active").color(Color::RED));
+                    });
             });
     }
 
