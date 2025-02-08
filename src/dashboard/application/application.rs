@@ -151,7 +151,7 @@ impl eframe::App for Application {
             // Adding support for dragging from the top bar of the app
             let title_bar_response = ui.interact(
                 title_bar_rect,
-                Id::new("title_bar"),
+                Id::new("title-bar"),
                 Sense::click_and_drag(),
             );
 
@@ -164,8 +164,6 @@ impl eframe::App for Application {
                     .max_rect(title_bar_rect)
                     .layout(Layout::right_to_left(Align::Center)),
                 |ui| {
-                    ui.add_space(8.0);
-
                     // Close and Minimize Button
                     let button_size = (32.0, 32.0);
 

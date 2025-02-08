@@ -13,7 +13,7 @@
       to try to connect by the `port_name`
 - [ ] Add release builds in the github page
 - [x] Cloning the `Config` struct when calling `test_config()` is probably unnecessary. (yep!)
-- [ ] Add firmware version to the `Firmware` and make it readable by the `Software`
+- [x] Add firmware version to the `Firmware` and make it readable by the `Software`
 
 ### Dashboard
 
