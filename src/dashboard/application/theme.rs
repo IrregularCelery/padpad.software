@@ -24,7 +24,7 @@ impl Color {
     pub const BLACK: Color32 = Color32::from_rgb(0, 0, 0);
     pub const WHITE: Color32 = Color32::from_rgb(255, 255, 255);
 
-    pub const ACCENT: Color32 = Self::YELLOW;
+    pub const ACCENT: Color32 = Self::BLUE;
 }
 
 pub fn get_current_style() -> egui::Style {

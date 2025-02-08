@@ -142,7 +142,7 @@ impl Default for Layout {
         Self {
             name: "New Layout".to_string(),
             components: Default::default(),
-            size: (1030.0, 580.0),
+            size: (1000.0, 540.0),
         }
     }
 }

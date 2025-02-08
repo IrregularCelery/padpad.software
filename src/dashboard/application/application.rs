@@ -6042,7 +6042,7 @@ impl Default for Application {
             component_id: 0,
             component_id_exists: true,
             new_layout_name: "New Layout".to_string(),
-            new_layout_size: (1030.0, 580.0),
+            new_layout_size: (1000.0, 540.0),
             new_profile_name: String::new(),
             last_profile_name: String::new(), // Used for updating a profile
             profile_exists: false,
