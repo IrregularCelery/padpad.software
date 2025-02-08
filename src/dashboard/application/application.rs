@@ -2017,7 +2017,7 @@ impl Application {
             0.25,
         );
 
-        let buttons_count = 8; // 7 buttons + extra spacing
+        let buttons_count = 9; // 8 buttons + extra spacing
 
         let padding = ui.style().spacing.item_spacing.x - 2.0;
         let button_size = vec2(42.0, 42.0);
@@ -2061,6 +2061,20 @@ impl Application {
                                 Color::WHITE.gamma_multiply(0.5);
 
                             ui.set_style(style);
+
+                            if ui
+                                .add_sized(button_size, Button::new(RichText::new("🔃").size(24.0)))
+                                .on_hover_text(
+                                    "Automatically detect device components\n\
+                                    (currently only buttons and potentiometers)",
+                                )
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                self.open_auto_detect_components_modal();
+                            }
+
+                            ui.separator();
 
                             if ui
                                 .add_sized(button_size, Button::new(RichText::new("🇧").size(24.0)))
@@ -2126,6 +2140,8 @@ impl Application {
                                 )
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
+                                || (!self.is_editing_layout
+                                    && self.components_panel != panel_opened_x)
                             {
                                 if self.components_panel == panel_closed_x {
                                     self.components_panel = panel_opened_x;
@@ -4518,11 +4534,12 @@ impl Application {
             "layout-override-confirmation-auto-detect-components",
             "Override layout".to_string(),
             "This operation will override the current layout!\n\
-                            Are you sure you want to proceed?"
+            Are you sure you want to proceed?"
                 .to_string(),
             |app| {
                 app.close_modal();
 
+                // Force disable the editing mode to avoid bugs if user didn't save
                 app.is_editing_layout = false;
                 app.components_backup = Default::default();
 
