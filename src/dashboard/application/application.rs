@@ -208,48 +208,7 @@ impl eframe::App for Application {
                         }
                     });
 
-                    if ui.button("Button Memory Manager").clicked() {
-                        self.open_button_memory_manager_modal();
-                    }
-
-                    if ui.button("Center components").clicked() {
-                        self.show_yes_no_modal(
-                            "components-center-to-layout",
-                            "Centering Components".to_string(),
-                            "You're about to center every components to your layout.\n\
-                            Are you sure you want to continue?"
-                                .to_string(),
-                            |app| app.center_components_to_layout(),
-                            |_app| {},
-                            true,
-                        );
-                    }
-
-                    if ui.button("Top Left components").clicked() {
-                        self.show_yes_no_modal(
-                            "components-top-left-to-layout",
-                            "Top-Left Components".to_string(),
-                            "You're about to top-left every components to your layout.\n\
-                            Are you sure you want to continue?"
-                                .to_string(),
-                            |app| app.top_left_components_to_layout(),
-                            |_app| {},
-                            true,
-                        );
-                    }
-
-                    if ui.button("Resize layout to fit components").clicked() {
-                        self.show_yes_no_modal(
-                            "resize-layout-to-fit-components",
-                            "Resizing Layout".to_string(),
-                            "This operations will resize your layout and center components.\n\
-                            Are you sure you want to continue?"
-                                .to_string(),
-                            |app| app.resize_layout_to_fit_components(),
-                            |_app| {},
-                            true,
-                        );
-                    }
+                    // `is_editing_layout` indicator
                 },
             );
 
@@ -401,7 +360,9 @@ impl Application {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
 
                 // Check if there's unsaved layout
-                if self.components_changed() {
+                if !self.components_backup.0.is_empty()
+                    || !self.components_backup.1.is_empty() && self.components_changed()
+                {
                     self.show_message_modal(
                         "layout-unsaved-exit-popup",
                         "Unsaved Layout".to_string(),
@@ -2283,10 +2244,12 @@ impl Application {
                                 .on_hover_text("Open Button Memory Manager")
                                 .on_hover_cursor(CursorIcon::PointingHand)
                                 .clicked()
-                            {}
+                            {
+                                self.open_button_memory_manager_modal();
+                            }
 
                             let layout_settings_button = ui
-                                .add_sized(button_size, Button::new(RichText::new("📐").size(24.0)))
+                                .add_sized(button_size, Button::new(RichText::new("📰").size(24.0)))
                                 .on_hover_text(
                                     "Open Layout settings\n\
                                     Right click to view grid settings",
@@ -2296,7 +2259,9 @@ impl Application {
                             layout_settings_button
                                 .context_menu(|ui| self.open_grid_context_menu(ui));
 
-                            if layout_settings_button.clicked() {}
+                            if layout_settings_button.clicked() {
+                                self.open_layout_settings_modal();
+                            }
 
                             ui.separator();
 
@@ -4150,7 +4115,7 @@ impl Application {
                                         "Overriding current layout".to_string(),
                                         "You already have a layout, \
                                         do you want to override it?\n\
-                                        You still keep your added components."
+                                        (You will keep your components)"
                                             .to_string(),
                                         |app| {
                                             app.create_update_layout(
@@ -4169,6 +4134,167 @@ impl Application {
                     });
                 },
             );
+        });
+    }
+
+    fn open_layout_settings_modal(&mut self) {
+        if self.is_editing_layout {
+            self.show_message_modal(
+                "layout-settings-is-editing-error",
+                "Error".to_string(),
+                "Please save your current changes by clicking the (🖴) button first!".to_string(),
+            );
+
+            return;
+        }
+
+        self.show_custom_modal("layout-settings-modal", |ui, app| {
+            ui.set_max_width(350.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Layout Settings");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.x);
+            });
+
+            ui.label("Layout");
+
+            ui.add_space(ui.style().spacing.item_spacing.y / 2.0);
+
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Auto-size Layout"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(
+                        "Automatically adjusts the layout size to fit all components \
+                        with a small padding",
+                    )
+                    .clicked()
+                {
+                    app.show_yes_no_modal(
+                        "resize-layout-to-fit-components",
+                        "Resizing Layout".to_string(),
+                        "This will adjust the layout size to fit components with a small padding\n\
+                        Are you sure you want to continue?"
+                            .to_string(),
+                        |app| app.resize_layout_to_fit_components(),
+                        |_app| {},
+                        true,
+                    );
+                }
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Customize Layout"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(
+                        "Rename your layout and adjust its dimensions to better fit your needs",
+                    )
+                    .clicked()
+                {
+                    app.open_create_update_layout_modal();
+                }
+            });
+
+            ui.separator();
+
+            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+
+            ui.label("Components");
+
+            ui.add_space(ui.style().spacing.item_spacing.y / 2.0);
+
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Align to Center"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(
+                        "Moves all components to be centered within \
+                        the layout while maintaining their relative positions",
+                    )
+                    .clicked()
+                {
+                    app.show_yes_no_modal(
+                        "components-center-to-layout",
+                        "Aligning Components".to_string(),
+                        "This will move all components to the center while \
+                        keeping their relative positions.\n\
+                        Are you sure you want to continue?"
+                            .to_string(),
+                        |app| app.center_components_to_layout(),
+                        |_app| {},
+                        true,
+                    );
+                }
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Align to Top-Left"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(
+                        "Moves all components to the top-left corner of the layout \
+                        while keeping their relative positions.\n\
+                        Useful for grid snapping after centering",
+                    )
+                    .clicked()
+                {
+                    app.show_yes_no_modal(
+                        "components-top-left-to-layout",
+                        "Aligning Components".to_string(),
+                        "This will reposition all components to the top-left \
+                        corner while maintaining their layout.\n\
+                        Are you sure you want to continue?"
+                            .to_string(),
+                        |app| app.top_left_components_to_layout(),
+                        |_app| {},
+                        true,
+                    );
+                }
+            });
+
+            ui.separator();
+
+            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+
+            ui.vertical_centered(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.close_modal();
+                }
+            });
         });
     }
 
@@ -5665,6 +5791,8 @@ impl Application {
                 layout.size.1 = components_rect.height() + (padding_y * 2.0);
 
                 self.center_components_to_layout();
+
+                self.needs_resize = true;
             }
         }
     }
