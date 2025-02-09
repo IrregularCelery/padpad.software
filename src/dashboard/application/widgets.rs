@@ -76,7 +76,7 @@ impl Widget for Button {
 
         let center = rect.center();
         let rounding = ui.style().visuals.menu_rounding;
-        let padding = ui.style().spacing.item_spacing.x / 2.0;
+        let padding = ui.style().spacing.item_spacing.x / 2.5;
 
         let color = Color::ACCENT;
 
@@ -88,8 +88,8 @@ impl Widget for Button {
                 Rect::from_center_size(
                     center,
                     (
-                        rect.width() + padding - (i * 2) as f32,
-                        rect.height() + padding - (i * 2) as f32,
+                        rect.width() + padding - (i as f32) * 1.25,
+                        rect.height() + padding - (i as f32) * 1.25,
                     )
                         .into(),
                 ),
@@ -214,7 +214,7 @@ impl Potentiometer {
 
             ui.painter().circle_stroke(
                 center,
-                radius + i as f32,
+                radius - (i as f32) / 1.5,
                 Stroke::new(
                     1.0,
                     Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha),
@@ -223,7 +223,7 @@ impl Potentiometer {
         }
 
         // Draw background track
-        let bg_points = Self::create_arc_points(center, radius - 2.0, start_angle, end_angle, 32);
+        let bg_points = Self::create_arc_points(center, radius - 5.0, start_angle, end_angle, 32);
 
         ui.painter().add(PathShape::line(
             bg_points,
@@ -232,7 +232,7 @@ impl Potentiometer {
 
         // Draw progress track
         let filled_points =
-            Self::create_arc_points(center, radius - 2.0, start_angle, rotation, 32);
+            Self::create_arc_points(center, radius - 5.0, start_angle, rotation, 32);
 
         ui.painter()
             .add(PathShape::line(filled_points, Stroke::new(3.0, color)));
@@ -252,7 +252,7 @@ impl Potentiometer {
 
         // Draw inner circle
         ui.painter()
-            .circle_filled(center, radius - 8.0, inner_color);
+            .circle_filled(center, radius - 6.0, inner_color);
 
         // Draw indicator dot
         let dot_pos = Pos2::new(

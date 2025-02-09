@@ -2908,7 +2908,7 @@ impl Application {
                             Potentiometer::new(
                                 format!("{:?}", Id::new("test-potentiometer")),
                                 self.test_potentiometer_value,
-                                (100.0, 100.0),
+                                self.component_potentiometer_size,
                             )
                             .style(self.test_potentiometer_style),
                         );
