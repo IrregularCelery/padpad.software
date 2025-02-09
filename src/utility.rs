@@ -108,6 +108,16 @@ impl std::fmt::Display for EnigoKey {
     }
 }
 
+pub fn get_app_directory() -> Result<String, String> {
+    match std::env::current_exe() {
+        Ok(exe_path) => match exe_path.parent() {
+            Some(exe_dir) => Ok(exe_dir.to_string_lossy().to_string()),
+            None => Err("Error: Could not get parent directory".to_string()),
+        },
+        Err(e) => Err(format!("Error getting executable path: {}", e)),
+    }
+}
+
 pub fn get_app_name_without_extension() -> Option<String> {
     let exe_path = std::env::current_exe().ok()?;
 

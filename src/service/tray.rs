@@ -2,7 +2,8 @@ use tray_item::{IconSource, TrayItem};
 
 use crate::{
     config::{update_config_and_client, CONFIG},
-    utility::restart,
+    log_error, log_info,
+    utility::{get_app_directory, restart},
 };
 
 pub fn handle_tray_thread() {
@@ -12,14 +13,23 @@ pub fn handle_tray_thread() {
     let mut tray = TrayItem::new("PadPad", IconSource::Resource("app-icon")).unwrap();
 
     tray.add_menu_item("Dashboard", || {
-        println!("Opening dashboard...");
+        log_info!("Opening dashboard...");
+
+        if let Ok(app_dir) = get_app_directory() {
+            let dashboard_path = std::path::Path::new(&app_dir).join("dashboard");
+
+            let result = std::process::Command::new(&dashboard_path).spawn();
+            if let Err(e) = result {
+                log_error!("{}", e);
+            }
+        }
     })
     .unwrap();
 
     tray.inner_mut().add_separator().unwrap();
 
     tray.add_menu_item("Reload", || {
-        println!("Reloading config file...");
+        log_info!("Reloading config file...");
 
         let mut config = CONFIG
             .get()
@@ -34,19 +44,17 @@ pub fn handle_tray_thread() {
     })
     .unwrap();
 
-    tray.add_menu_item("Debug", || {
-        println!("Debug");
+    tray.add_menu_item("Restart", || {
+        log_info!("Restarting the app...");
+
+        restart()
     })
     .unwrap();
 
     tray.inner_mut().add_separator().unwrap();
 
-    tray.add_menu_item("Restart", || restart()).unwrap();
-
-    tray.inner_mut().add_separator().unwrap();
-
     tray.add_menu_item("Quit", || {
-        println!("Quit!");
+        log_info!("Closing the app...");
 
         std::process::exit(0);
     })
