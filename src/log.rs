@@ -34,7 +34,6 @@ impl Logger {
         level: &str,
         message: &str,
         #[allow(unused_variables)] trace_string: String,
-        separated: bool, // Add two empty lines before and after this log message
         write_to_file: bool,
     ) {
         let timestamp = chrono::Local::now()
@@ -50,8 +49,7 @@ impl Logger {
         }
 
         let log_message = format!(
-            "{}[ {} ][{}][{}][{}]{} {}{}",
-            if separated { "\n" } else { "" },
+            "[ {} ][{}][{}][{}]{} {}",
             level,
             timestamp,
             if let Some(app_name) = get_app_name_without_extension() {
@@ -62,7 +60,6 @@ impl Logger {
             thread_id.name().unwrap_or("Unknown"),
             trace,
             message,
-            if separated { "\n" } else { "" },
         );
 
         // Write to the log file
@@ -97,7 +94,6 @@ macro_rules! log_info {
             "INFO ",
             &format!($($arg)*),
             String::new(),
-            false,
             true
         )
     };
@@ -110,7 +106,6 @@ macro_rules! log_warn {
             "WARN ",
             &format!($($arg)*),
             String::new(),
-            false,
             true
         );
     };
@@ -123,7 +118,6 @@ macro_rules! log_error {
             "ERROR",
             &format!($($arg)*),
             String::new(),
-            true, // To make errors easier to locate
             true
         )
     };
@@ -139,7 +133,6 @@ macro_rules! log_trace {
             file!(),
             line!(),
             std::any::type_name::<fn()>()),
-            false,
             true
         );
     };
@@ -152,7 +145,6 @@ macro_rules! log_print {
             "PRINT",
             &format!($($arg)*),
             String::new(),
-            false,
             false
         )
     };
