@@ -36,7 +36,7 @@
 - [x] Created a parser for the interactions, so when for example the Command contains %value%, it
       gets replaced by the actually value of the component. e.g. potentiometer values
 - [ ] Add a welcome screen with some small hints and information about using the app
-- [ ] Add `Export/Import` buttons for config file
+- [x] Add `Import/Export` buttons for config file
 - [x] Add a small `Information/About` modal that shows info and stuff
 
 ### Firmware
@@ -88,13 +88,14 @@
       but the functionality of the device and `Service` app remains correct.
 - [ ] Known Issue: There's a bug (probably from egui side) that a modal with a
       text_edit inside will continiously get larger if the characters in the said
-      text_edit exceeds width of the text_edit.
+      text_edit exceeds it width.
 - [ ] Profile '0' is preserved for the device, you are still able to configure it
       the way you want. This is the profile that makes the device act as a keyboard.
       though, you can change each component to do any interaction other than just
       letter press as well.
 - [ ] The `Dashboard` app is created for sole purpose of configuring device settings,
       and it is not advised to keep it running as it will consume your resources.
+      It's the `Service` app that needs to be running for the device interactions to work.
 
 ### REMINDERS
 
