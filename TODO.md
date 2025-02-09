@@ -14,7 +14,7 @@
 - [ ] Add release builds in the github page
 - [x] Cloning the `Config` struct when calling `test_config()` is probably unnecessary. (yep!)
 - [x] Add firmware version to the `Firmware` and make it readable by the `Software`
-- [ ] Add an app icon and complete tray menu
+- [x] Add an app icon and complete tray menu
 
 ### Dashboard
 
