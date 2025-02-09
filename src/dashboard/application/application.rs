@@ -2263,7 +2263,7 @@ impl Application {
         let panel_position_x =
             animate_value(ui.ctx(), "toolbar-panel-position", self.toolbar_panel, 0.25);
 
-        let buttons_count = 4; // 3 buttons + extra spacing
+        let buttons_count = 5; // 4 buttons + extra spacing
 
         let padding = ui.style().spacing.item_spacing.x - 2.0;
         let button_size = vec2(42.0, 42.0);
@@ -2333,6 +2333,15 @@ impl Application {
 
                             if layout_settings_button.clicked() {
                                 self.open_layout_settings_modal();
+                            }
+
+                            if ui
+                                .add_sized(button_size, Button::new(RichText::new("🔁").size(24.0)))
+                                .on_hover_text("Import/Export your settings")
+                                .on_hover_cursor(CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                self.open_import_export_modal();
                             }
 
                             ui.separator();
@@ -5849,6 +5858,136 @@ impl Application {
                 });
 
                 ui.add_space(ui.style().spacing.item_spacing.y * 2.5);
+            });
+        });
+    }
+
+    fn open_import_export_modal(&self) {
+        use egui::*;
+
+        self.show_custom_modal("import-export-modal", |ui, app| {
+            ui.set_width(375.0);
+
+            ui.scope(|ui| {
+                let mut style = get_current_style();
+
+                style.text_styles.insert(
+                    egui::TextStyle::Body,
+                    egui::FontId::new(24.0, egui::FontFamily::Proportional),
+                );
+
+                style.visuals.override_text_color = Some(Color::WHITE);
+                style.visuals.widgets.noninteractive.bg_stroke =
+                    egui::Stroke::new(1.0, Color::WHITE);
+
+                ui.set_style(style);
+
+                ui.vertical_centered(|ui| {
+                    ui.label("Import/Export Settings");
+                });
+
+                ui.separator();
+
+                ui.add_space(ui.spacing().item_spacing.y / 2.0);
+            });
+
+            ui.vertical_centered(|ui| {
+                ui.label(RichText::new("Import Configuration").color(Color32::GRAY));
+            });
+
+            ui.add_space(ui.spacing().item_spacing.y / 1.5);
+
+            ui.label(
+                RichText::new("Configuration files can be placed in two locations:").size(16.0),
+            );
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new("⚫ Application Directory")
+                        .color(Color::GREEN)
+                        .size(15.0),
+                );
+                ui.label(RichText::new("(Priority)").color(Color::RED).size(15.0))
+                    .on_hover_cursor(CursorIcon::Help)
+                    .on_hover_text(
+                        "If there is a config file in the application directory\n\
+                        the other directory will be ignored.",
+                    );
+            });
+
+            ui.add_space(ui.spacing().item_spacing.y / 2.0);
+
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new("⚫ Local Config Directory")
+                        .color(Color::GREEN)
+                        .size(15.0),
+                );
+
+                ui.add_space(-2.0);
+
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new("ℹ")
+                            .color(Color::LIGHT_BLUE.gamma_multiply(0.75))
+                            .size(18.0),
+                    )
+                    .sense(egui::Sense::hover()),
+                )
+                .on_hover_cursor(egui::CursorIcon::Help)
+                .on_hover_text(
+                    egui::RichText::new(if let Some(config) = &app.config {
+                        config.file_path.clone()
+                    } else {
+                        format!("Could not retrieve config file directory!")
+                    })
+                    .color(Color::LIGHT_BLUE)
+                    .size(15.0),
+                );
+            });
+
+            ui.add_space(ui.spacing().item_spacing.y * 1.75);
+
+            ui.horizontal_top(|ui| {
+                let spacing = ui.spacing().item_spacing.x;
+
+                let total_width = ui.available_width();
+                let button_width = (total_width - spacing) / 2.0;
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.close_modal();
+                }
+
+                if ui
+                    .add_sized([button_width, 0.0], egui::Button::new("Export"))
+                    .on_hover_text("Export your currect settings")
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    app.close_modal();
+
+                    if let Some(config) = &app.config {
+                        match config.export() {
+                            Ok(path) => app.show_message_modal(
+                                "exoprt-config-success-modal",
+                                "Success".to_string(),
+                                format!(
+                                    "Your settings were successfully exported to:\n\n{}",
+                                    path.display()
+                                ),
+                            ),
+                            Err(e) => app.show_message_modal(
+                                "export-config-error-modal",
+                                "Error".to_string(),
+                                format!("There was an error while exporting settings:\n\n{}", e),
+                            ),
+                        }
+                    }
+                }
             });
         });
     }

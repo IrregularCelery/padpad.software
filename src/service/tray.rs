@@ -28,7 +28,7 @@ pub fn handle_tray_thread() {
 
     tray.inner_mut().add_separator().unwrap();
 
-    tray.add_menu_item("Reload", || {
+    tray.add_menu_item("Reload settings", || {
         log_info!("Reloading config file...");
 
         let mut config = CONFIG
@@ -44,7 +44,7 @@ pub fn handle_tray_thread() {
     })
     .unwrap();
 
-    tray.add_menu_item("Restart", || {
+    tray.add_menu_item("Restart app", || {
         log_info!("Restarting the app...");
 
         restart()

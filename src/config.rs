@@ -5,7 +5,7 @@ use std::{
     error::Error,
     fs::File,
     io::prelude::*,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Mutex, OnceLock},
 };
 use toml;
@@ -18,6 +18,7 @@ use crate::{
     log_error, log_info,
     service::interaction::InteractionKind,
     tcp::{client_to_server_message, get_server_data},
+    utility::get_app_directory,
 };
 
 pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
@@ -25,7 +26,7 @@ pub static CONFIG: OnceLock<Mutex<Config>> = OnceLock::new();
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(skip)]
-    file_path: String,
+    pub file_path: String,
 
     pub settings: Settings,
     pub profiles: Vec<Profile>,
@@ -274,6 +275,30 @@ impl Config {
         }
 
         false
+    }
+
+    /// Creates a copy of the config file
+    pub fn export(&self) -> Result<PathBuf, Box<dyn Error>> {
+        let app_dir = get_app_directory()?;
+
+        let export_path = std::path::Path::new(&app_dir).join("export");
+
+        std::fs::create_dir_all(&export_path)?;
+
+        let path = export_path.join(CONFIG_FILE_NAME);
+
+        let mut file = File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+
+        let toml_str = toml::to_string_pretty(&self)?;
+
+        file.write_all(toml_str.as_bytes())?;
+
+        Ok(path)
     }
 }
 
