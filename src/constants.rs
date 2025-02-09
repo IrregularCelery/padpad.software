@@ -47,7 +47,7 @@ pub const DEBUG_SERIAL_DISABLE: bool = false; // Disables Serial comm for testin
 pub const DEBUG_TCP_CLIENT_CONNECTION: bool = false;
 pub const DEBUG_TCP_SERVER_MESSAGE_CONFIRMATION: bool = false; // Logging received/sent messages
 
-pub static KEYS: [EnigoKey; 87] = [
+pub static KEYS: [EnigoKey; 86] = [
     EnigoKey(enigo::Key::Control),
     EnigoKey(enigo::Key::Shift),
     EnigoKey(enigo::Key::Alt),
@@ -125,7 +125,6 @@ pub static KEYS: [EnigoKey; 87] = [
     EnigoKey(enigo::Key::Insert),
     EnigoKey(enigo::Key::Delete),
     EnigoKey(enigo::Key::Numlock),
-    EnigoKey(enigo::Key::ScrollLock),
     EnigoKey(enigo::Key::Pause),
     EnigoKey(enigo::Key::PrintScr),
     EnigoKey(enigo::Key::MediaPlayPause),
