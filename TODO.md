@@ -35,7 +35,6 @@
 - [x] Add ability to change component id
 - [x] Created a parser for the interactions, so when for example the Command contains %value%, it
       gets replaced by the actually value of the component. e.g. potentiometer values
-- [ ] Add a welcome screen with some small hints and information about using the app
 - [x] Add `Import/Export` buttons for config file
 - [x] Add a small `Information/About` modal that shows info and stuff
 
