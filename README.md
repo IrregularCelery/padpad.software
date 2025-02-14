@@ -13,6 +13,7 @@
 - [Installation](#⚙️-installation)
 - [Quick Start](#🚀-quick-start)
 - [Using the Dashboard](#🎛️-using-the-dashboard)
+- [Screenshots](#🖼️-screenshots)
 - [Known Issues](#⚠️-known-issues)
 - [Build from Source](#🛠️-build-from-source)
 - [Contributing](#🤝-contributing)
@@ -118,12 +119,38 @@ Ensure the following packages are installed if you're using `X11`:
     - **`J`** : **Joystick**
     - **`R`** : **RotaryEncoder**
     - **`D`** : **Display** (graphical lcd)
-- Make sure to save changes by clicking the button.
-  > You can also revert the changes
+      <br>&nbsp;
+- In "Editing Mode", click a component in your layout to edit its properties and set up interactions.
+
+  - **Interaction Types**
+    - **None**: No software action (useful when configuring "Button Memory").
+    - **Command**: Run a shell command.
+    - **Application**: Launch an application.
+    - **Website**: Open a URL.
+    - **Shortcut**: Simulate keypresses (Ctrl+C, etc.) or type text.
+    - **File**: Open a specified file.
+      <br>&nbsp;
+
+- Make sure to save changes by clicking the **`Save`** button.
+  > You can also revert the changes to the last state before entering "Editing Mode".
 
 ### Profiles
 
+- Switch profiles from the bottom-right panel.
+- Profile `Internal` is reserved for "Button Memory" ('buttons' act as standalone keyboard keys).
+  > You can still set up software-based interactions for components in this profile.
+- Each profile stores unique component configurations.
+
 ### Connection Settings
+
+- Click the connection status indicator (bottom-left) to switch connection to **Manual Mode**, change **Port Name**, **Baud Rate**, etc.
+
+## 🖼️ Screenshots
+
+<details>
+  <summary>Show screenshots</summary>
+
+</details>
 
 ## ⚠️ Known Issues
 
