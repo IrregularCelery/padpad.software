@@ -6,19 +6,19 @@
 
 ## Table of Contents
 
-- [Overview](#📖-overview)
-- [Features](#✨-key-features)
+- [Overview](#-overview)
+- [Features](#-key-features)
   - [Dashboard](<#dashboard-(gui-app)>)
   - [Service](<#service-(background-process)>)
-- [Installation](#⚙️-installation)
-- [Quick Start](#🚀-quick-start)
-- [Using the Dashboard](#🎛️-using-the-dashboard)
-- [Screenshots](#🖼️-screenshots)
-- [Known Issues](#⚠️-known-issues)
-- [Build from Source](#🛠️-build-from-source)
-- [Contributing](#🤝-contributing)
-- [Links](#🔗-links)
-- [License](#📜-license)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Using the Dashboard](#-using-the-dashboard)
+- [Screenshots](#-screenshots)
+- [Known Issues](#-known-issues)
+- [Build from Source](#-build-from-source)
+- [Contributing](#-contributing)
+- [Links](#-links)
+- [License](#-license)
 
 ## 📖 Overview
 
