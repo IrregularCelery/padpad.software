@@ -5547,14 +5547,36 @@ impl Application {
                                 .sense(egui::Sense::hover()),
                             )
                             .on_hover_cursor(egui::CursorIcon::Help)
-                            .on_hover_text(
-                                egui::RichText::new(
-                                    "Make sure to check your device\n\
-                                    as well before saving!",
-                                )
-                                .color(Color::LIGHT_BLUE)
-                                .size(16.0),
-                            );
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "⚫ Correct format example: { 0xFF, 0xFF, ... }\n\
+                                        ⚫ Icon must be 42x42\n\
+                                        ⚫ Make sure to check your device as well\n\
+                                        \t\tbefore saving!",
+                                    )
+                                    .color(Color::LIGHT_BLUE)
+                                    .size(16.0),
+                                );
+
+                                ui.add_space(-ui.style().spacing.item_spacing.y);
+
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label(
+                                        egui::RichText::new("⚫ Recommended tool: ")
+                                            .color(Color::LIGHT_BLUE)
+                                            .size(15.0),
+                                    );
+
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            egui::RichText::new("xbm.jazzychad.net")
+                                                .color(Color::LIGHT_BLUE)
+                                                .size(16.0),
+                                        );
+                                    });
+                                });
+                            });
                         });
                     },
                 );
