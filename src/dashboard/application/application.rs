@@ -6351,7 +6351,7 @@ impl Default for Application {
 
         Self {
             update_available: false,
-            build_date: "February 08, 2025".to_string(),
+            build_date: "February 15, 2025".to_string(),
             close_app: (false, false),
             unavoidable_error: (false, String::new()),
             modal: Arc::new(Mutex::new(ModalManager::new())),
