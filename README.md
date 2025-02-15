@@ -14,6 +14,7 @@
 - [Build from Source](#%EF%B8%8F-build-from-source)
 - [Quick Start](#-quick-start)
 - [Using the Dashboard](#%EF%B8%8F-using-the-dashboard)
+- [Confile File](#-config-file)
 - [Screenshots](#%EF%B8%8F-screenshots)
 - [Known Issues](#%EF%B8%8F-known-issues)
 - [Contributing](#-contributing)
