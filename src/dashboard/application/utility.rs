@@ -35,3 +35,15 @@ pub fn blend_colors(
 
     eframe::egui::Color32::from_rgba_premultiplied(r, g, b, a)
 }
+
+pub fn load_icon_from_bytes(bytes: &[u8]) -> Option<eframe::egui::IconData> {
+    let image = image::load_from_memory(bytes).ok()?;
+    let image = image.into_rgba8();
+    let (width, height) = image.dimensions();
+
+    Some(eframe::egui::IconData {
+        rgba: image.into_raw(),
+        width,
+        height,
+    })
+}

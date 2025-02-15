@@ -39,22 +39,3 @@ embed-resource = "2.3"
 name = "dashboard"
 path = "src/dashboard/main.rs"
 
-[[bin]]
-name = "serial-transceiver"
-path = "sandbox/serial-transceiver/main.rs"
-
-[[bin]]
-name = "config-manager"
-path = "sandbox/config-manager/main.rs"
-
-[[bin]]
-name = "tray"
-path = "sandbox/tray/main.rs"
-
-[[bin]]
-name = "gui"
-path = "sandbox/gui/main.rs"
-
-[[bin]]
-name = "interaction"
-path = "sandbox/interaction/main.rs"

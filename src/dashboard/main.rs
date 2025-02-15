@@ -4,7 +4,7 @@ use eframe::egui;
 
 mod application;
 
-use application::Application;
+use application::{utility::load_icon_from_bytes, Application};
 use padpad_software::constants::{APP_MIN_HEIGHT, APP_MIN_WIDTH};
 
 fn main() -> eframe::Result {
@@ -12,8 +12,12 @@ fn main() -> eframe::Result {
 
     let app = Application::default();
 
+    let icon_data = include_bytes!("../../res/images/app.png");
+    let icon = load_icon_from_bytes(icon_data).expect("Failed to decode embedded icon");
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_icon(icon)
             .with_inner_size([APP_MIN_WIDTH as f32, APP_MIN_HEIGHT as f32])
             .with_min_inner_size([APP_MIN_WIDTH as f32, APP_MIN_HEIGHT as f32])
             .with_clamp_size_to_monitor_size(false)

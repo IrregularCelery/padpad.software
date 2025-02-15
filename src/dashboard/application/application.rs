@@ -431,8 +431,9 @@ impl Application {
                         let total_width = ui.available_width();
                         let button_width = (total_width - spacing) / 2.0;
 
-                        let cancel_button_response =
-                            ui.add_sized([button_width, 0.0], egui::Button::new("Cancel"));
+                        let cancel_button_response = ui
+                            .add_sized([button_width, 0.0], egui::Button::new("Cancel"))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
 
                         if cancel_button_response.clicked() {
                             self.close_app.0 = false;
@@ -440,6 +441,7 @@ impl Application {
 
                         if ui
                             .add_sized([button_width, 0.0], egui::Button::new("Close"))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
                             .clicked()
                         {
                             self.close_app.0 = false;
