@@ -1,0 +1,79 @@
+name: PadPad Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
+          - x86_64-apple-darwin
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (for cross-compilation)
+        run: cargo install cross
+
+      - name: Extract Version from Cargo.toml
+        id: version
+        run: echo "VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[0].version')" >> $GITHUB_ENV
+
+      - name: Build Service Binary
+        run: cross build --release --target ${{ matrix.target }}
+        # Builds the Service binary (this is the default main binary).
+
+      - name: Build Dashboard Binary
+        run: cross build --release --target ${{ matrix.target }} --bin dashboard
+        # Builds only the Dashboard binary.
+
+      - name: Rename binaries for Linux
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          mv target/${{ matrix.target }}/release/padpad-software target/${{ matrix.target }}/release/service
+
+      - name: Rename binaries for Windows
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          mv target/${{ matrix.target }}/release/padpad-software.exe target/${{ matrix.target }}/release/Service.exe
+          mv target/${{ matrix.target }}/release/dashboard.exe target/${{ matrix.target }}/release/Dashboard.exe
+
+      - name: Test MacOS Build (No Packaging Yet)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: echo "MacOS build successful!"
+
+      - name: Package release (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          tar -czvf padpad-linux-v${{ env.VERSION }}.tar.gz \
+            -C target/${{ matrix.target }}/release service dashboard \
+            -C $GITHUB_WORKSPACE README.md LICENSE
+
+      - name: Package release (Windows)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          cp README.md LICENSE target/${{ matrix.target }}/release/
+          cd target/${{ matrix.target }}/release
+          zip -r ../../../padpad-windows-v${{ env.VERSION }}.zip Service.exe Dashboard.exe README.md LICENSE
+
+      - name: Upload release assets
+        if: matrix.target != 'x86_64-apple-darwin' # MacOS build is tested but not released
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            padpad-linux-v${{ env.VERSION }}.tar.gz
+            padpad-windows-v${{ env.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
