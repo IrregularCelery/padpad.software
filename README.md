@@ -1,4 +1,4 @@
-# padpad.software
+# PadPad Software
 
 #### PadPad is a customizable macro pad that allows users to execute pre-configured actions through physical components (buttons, knobs, etc.).<br>This repository contains the software that interacts with the PadPad device.
 
