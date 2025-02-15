@@ -92,6 +92,17 @@ Ensure the following packages are installed if you're using `X11`:
 
    Binaries will be in `target/release/`.
 
+### Customizing Before Compilation
+
+Modify `constants.rs` to set values like:
+
+- `DEFAULT_DEVICE_NAME`
+- `APP_MIN_WIDTH/HEIGHT`
+- `CONFIG_FILE_NAME`
+- &nbsp;...
+
+> Some of these can also be changed dynamically via the Dashboard.
+
 ## 🚀 Quick Start
 
 1. **Connect your [PadPad device](https://github.com/IrregularCelery/padpad.firmware)** via usb.
@@ -130,6 +141,10 @@ Ensure the following packages are installed if you're using `X11`:
     - **Shortcut**: Simulate keypresses (Ctrl+C, etc.) or type text.
     - **File**: Open a specified file.
       <br>&nbsp;
+      > Component **`Button`** supports having two different interactions in the same profile.<br>
+      > By holding down the **`ModKey`** and pressing a button, you can call ther **`Alternative`** action.
+      >
+      > **You can assign a `ModKey` from `Button Memory Manager`.**
 
 - Make sure to save changes by clicking the **`Save`** button.
   > You can also revert the changes to the last state before entering "Editing Mode".
@@ -145,21 +160,75 @@ Ensure the following packages are installed if you're using `X11`:
 
 - Click the connection status indicator (bottom-left) to switch connection to **Manual Mode**, change **Port Name**, **Baud Rate**, etc.
 
+## 📄 Config File
+
+Settings are loaded from:
+
+1. `config.toml` in the app directory (priority).
+2. OS local config directory (`~/.config/padpad` on Linux, `AppData\Local\padpad` on Windows).
+
 ## 🖼️ Screenshots
 
 <details>
-  <summary>Show screenshots</summary>
+<summary>Show screenshots</summary>
+
+#### OOB
+
+![no-layout](res/screenshots/no-layout.png)
+
+#### Editing Mode
+
+![editing-mode](./res/screenshots/editing-mode.png)
+
+#### Component Properties
+
+![component-properties](./res/screenshots/component-properties.png)
+
+#### Display Icon Manager
+
+![display-icon-manager](./res/screenshots/display-icon-manager.png)
+
+#### Complete Layout
+
+![complete-layout](./res/screenshots/complete-layout.png)
+
+#### Layout Settings
+
+![layout-settings](./res/screenshots/layout-settings.png)
+
+#### Button Memory Manager
+
+![button-memory](./res/screenshots/button-memory.png)
+
+#### Connection Status
+
+![connection-status](./res/screenshots/connection-status.png)
+
+#### About
+
+![about](./res/screenshots/about.png)
 
 </details>
 
 ## ⚠️ Known Issues
 
+- **Dashboard UI Glitches**: Rapid component updates may cause visual delays (Service functionality remains unaffected).
+- **Text Input Expansion**: Dashboard modals with long text might resize unexpectedly (probably egui bug).
+
+> #### Disclaimer: Dashboard Resource Usage
+>
+> **PadPad Dashboard** is a GUI application that may consume slightly more resources when active. This is expected behavior and does not affect background processes.<br>
+> After finishing configuration, the **Dashboard application** does not need to stay open. Only the **Service app** needs to be running in the background for **PadPad** to function.
+
 ## 🤝 Contributing
+
+Contributions are welcome! If you find issues or have feature requests, open an issue or pull request.
 
 ## 🔗 Links
 
 - [Firmware Setup Guide](https://github.com/IrregularCelery/padpad.firmware)
 - [Report a Bug](https://github.com/IrregularCelery/padpad.software/issues)
+- [YouTube Video (not a tutorial)]()
 
 ## 📜 License
 
