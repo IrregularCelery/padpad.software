@@ -11,7 +11,7 @@
 - [x] Add application name to logging system
 - [x] Add manual device connection by checking if the `device_name` is empty, forcing app
       to try to connect by the `port_name`
-- [ ] Add release builds in the github page (Don't forget to add the `build_date`)
+- [x] Add release builds in the github page (Don't forget to add the `build_date`)
 - [x] Cloning the `Config` struct when calling `test_config()` is probably unnecessary. (yep!)
 - [x] Add firmware version to the `Firmware` and make it readable by the `Software`
 - [x] Add an app icon and complete tray menu
