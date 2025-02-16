@@ -56,17 +56,17 @@ jobs:
       - name: Prepare Linux artifacts
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mv target/release/padpad-software service
+          mv target/release/padpad-software padpad
           mv target/release/dashboard dashboard
-          tar czf padpad-${{ matrix.package_os }}-${{ github.ref_name }}.${{ matrix.archive_ext }} service dashboard LICENSE README.md
+          tar czf padpad-${{ matrix.package_os }}-${{ github.ref_name }}.${{ matrix.archive_ext }} padpad dashboard LICENSE README.md
 
       - name: Prepare Windows artifacts
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          Move-Item target/release/padpad-software.exe Service.exe
+          Move-Item target/release/padpad-software.exe PadPad.exe
           Move-Item target/release/dashboard.exe Dashboard.exe
-          Compress-Archive -Path Service.exe, Dashboard.exe, LICENSE, README.md -DestinationPath padpad-${{ matrix.package_os }}-${{ github.ref_name }}.zip
+          Compress-Archive -Path PadPad.exe, Dashboard.exe, LICENSE, README.md -DestinationPath padpad-${{ matrix.package_os }}-${{ github.ref_name }}.zip
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
